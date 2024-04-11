@@ -1,7 +1,5 @@
 // src/core/cpu_info.rs
 
-// src/core/cpu_info.rs
-
 use cache_size::{l1_cache_size, l1_cache_line_size, l2_cache_size, l2_cache_line_size, l3_cache_size, l3_cache_line_size};
 
 pub struct CPUInfo;

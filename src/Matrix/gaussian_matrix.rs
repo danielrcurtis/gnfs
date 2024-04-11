@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 use crate::core::gnfs::GNFS;
-use crate::core::relations::Relation;
+use crate::relation_sieve::relation::Relation;
 use crate::matrix::gaussian_row::GaussianRow;
 
 pub struct GaussianMatrix {

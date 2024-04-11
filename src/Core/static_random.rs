@@ -1,6 +1,6 @@
 // src/core/static_random.rs
 
-use num::{BigInt, ToPrimitive};
+use num::BigInt;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 

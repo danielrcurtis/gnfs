@@ -2,14 +2,12 @@
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use num::{BigInt, One};
 use rand::Rng;
 use crate::core::gnfs::GNFS;
-use crate::core::relations::Relation;
-use crate::integer_math::count_dictionary::CountDictionary;
+use crate::core::count_dictionary::CountDictionary;
 use crate::matrix::gaussian_matrix::GaussianMatrix;
-use crate::serialization::save;
-use crate::serialization::load;
+use crate::core::serialization::save;
+use crate::core::serialization::load;
 
 pub struct MatrixSolve;
 

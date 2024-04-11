@@ -1,10 +1,10 @@
 // src/integer_math/prime_factory.rs
 
-use num::{BigInt, BigUint, FromPrimitive, Integer, One};
+use num::{BigInt, BigUint, FromPrimitive, Integer};
 use std::cmp::{max, min};
 use std::ops::Range;
 use crate::integer_math::fast_prime_sieve::FastPrimeSieve;
-use crate::factorization::factorization_factory::FactorizationFactory;
+use crate::integer_math::factorization_factory::FactorizationFactory;
 
 pub struct PrimeFactory {
     max_value: BigInt,

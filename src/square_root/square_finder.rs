@@ -1,9 +1,9 @@
 // src/square_root/square_finder.rs
 
-use num_bigint::BigInt;
-use crate::polynomial::Polynomial;
-use crate::gnfs::GNFS;
-use crate::relation::Relation;
+use num::BigInt;
+use crate::polynomial::polynomial::Polynomial;
+use crate::core::gnfs::GNFS;
+use crate::relation_sieve::relation::Relation;
 use std::cmp::Ordering;
 
 pub struct SquareFinder {

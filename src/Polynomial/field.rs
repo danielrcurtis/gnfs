@@ -5,6 +5,7 @@ use num::BigInt;
 use num::integer::Integer;
 use std::ops::{Rem, RemAssign};
 use std::cmp::Ordering;
+use crate::polynomial::polynomial::Polynomial;
 
 pub fn gcd(left: &Polynomial, right: &Polynomial, modulus: &BigInt) -> Polynomial {
     let mut poly1 = left.clone();

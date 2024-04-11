@@ -1,11 +1,11 @@
 // src/realation_sieve/relation.rs
 
-use num_bigint::BigInt;
+use num::BigInt;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 
-use super::count_dictionary::CountDictionary;
+use crate::core::count_dictionary::CountDictionary;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Relation {

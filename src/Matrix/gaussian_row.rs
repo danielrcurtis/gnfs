@@ -2,9 +2,8 @@
 
 use num::BigInt;
 use crate::core::gnfs::GNFS;
-use crate::core::relations::Relation;
-use crate::factors::factor_pair::FactorPairCollection;
-use crate::integer_math::count_dictionary::CountDictionary;
+use crate::relation_sieve::relation::Relation;
+use crate::core::count_dictionary::CountDictionary;
 use crate::integer_math::prime_factory::PrimeFactory;
 use crate::integer_math::quadratic_residue::QuadraticResidue;
 

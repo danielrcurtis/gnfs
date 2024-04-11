@@ -1,9 +1,10 @@
 // src/square_root/
 
 
-use num_bigint::BigInt;
-use num_traits::{One, Zero};
+use num::BigInt;
+use num::{One, Zero};
 use std::cmp::Ordering;
+use crate::integer_math::legendre::Legendre;
 
 pub struct Polynomial {
     // Define the Polynomial struct and its fields
@@ -33,7 +34,7 @@ pub mod finite_field_arithmetic {
             half_s
         };
 
-        let quadratic_non_residue = legendre::symbol_search(&(m + 1), &q, &BigInt::from(-1));
+        let quadratic_non_residue = Legendre::symbol_search(&(m + 1), &q, &BigInt::from(-1));
         let theta = quadratic_non_residue;
         let minus_one = theta.modpow(&((&q - 1) / 2), p);
 

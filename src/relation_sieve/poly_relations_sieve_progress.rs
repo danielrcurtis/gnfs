@@ -1,17 +1,17 @@
 // src/relation_sieve/poly_relations_sieve_progress.rs
 
 use std::sync::Arc;
-use num_bigint::BigInt;
+use num::BigInt;
 use serde::{Deserialize, Serialize};
 use crate::integer_math::gcd::GCD;
-use crate::integer_math::sieve_range::SieveRange;
-use crate::gnfs::GNFS;
-use crate::relation::Relation;
-use crate::relation_container::RelationContainer;
+use crate::core::sieve_range::SieveRange;
+use crate::core::gnfs::GNFS;
+use crate::relation_sieve::relation::Relation;
+use crate::relation_sieve::relation_container::RelationContainer;
 use crate::serialization::save::relations::{Smooth, Rough, Free};
-use crate::prime_factory::PrimeFactory;
-use crate::count_dictionary::CountDictionary;
-use crate::factorization_factory::FactorizationFactory;
+use crate::integer_math::prime_factory::PrimeFactory;
+use crate::core::count_dictionary::CountDictionary;
+use crate::integer_math::factorization_factory::FactorizationFactory;
 
 #[derive(Serialize, Deserialize)]
 pub struct PolyRelationsSieveProgress {

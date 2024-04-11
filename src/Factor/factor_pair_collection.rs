@@ -3,11 +3,12 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use num::BigInt;
+use serde::{Deserialize, Serialize};
 use crate::core::gnfs::GNFS;
-use crate::core::polynomial::Polynomial;
-use crate::factors::factor_pair::FactorPair;
+use crate::polynomial::polynomial::Polynomial;
+use crate::factor::factor_pair::FactorPair;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FactorPairCollection(pub Vec<FactorPair>);
 
 impl FactorPairCollection {

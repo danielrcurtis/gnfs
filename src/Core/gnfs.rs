@@ -1,13 +1,14 @@
 // src/core/gnfs.rs
 
-use num::{BigInt, One, Zero};
+use num::{BigInt, Zero};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 use crate::core::factor_base::FactorBase;
-use crate::core::factor_pair::FactorPairCollection;
-use crate::core::polynomial::Polynomial;
-use crate::core::relations::PolyRelationsSieveProgress;
+use crate::factor::factor_pair_collection::FactorPairCollection;
+use crate::polynomial::polynomial::Polynomial;
+use crate::relation_sieve::poly_relations_sieve_progress::PolyRelationsSieveProgress;
+use crate::relation_sieve::relation::Relation;
 use crate::core::solution::Solution;
+use crate::core::{cancellation_token::CancellationToken, directory_location::DirectoryLocations};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GNFS {
@@ -181,8 +182,173 @@ impl GNFS {
         // log_function("Saved prime factor base bounds.".to_string());
     }
 
-    // ...
+    pub fn is_factored(&self) -> bool {
+        self.factorization.is_some()
+    }
+
+    pub fn is_factor(&self, to_check: &BigInt) -> bool {
+        &self.n % to_check == BigInt::zero()
+    }
+
+    pub fn set_prime_factor_bases(&mut self) {
+        self.log_message("Constructing new prime bases (- of 3)...");
+
+        // TODO: Implement PrimeFactory::increase_max_value
+        // PrimeFactory::increase_max_value(&self.prime_factor_base.quadratic_factor_base_max);
+
+        self.prime_factor_base.rational_factor_base = PrimeFactory::get_primes_to(&self.prime_factor_base.rational_factor_base_max);
+        self.log_message("Completed rational prime base (1 of 3).");
+
+        self.prime_factor_base.algebraic_factor_base = PrimeFactory::get_primes_to(&self.prime_factor_base.algebraic_factor_base_max);
+        self.log_message("Completed algebraic prime base (2 of 3).");
+
+        self.prime_factor_base.quadratic_factor_base = PrimeFactory::get_primes_from(&self.prime_factor_base.quadratic_factor_base_min)
+            .take(self.prime_factor_base.quadratic_base_count)
+            .collect();
+        self.log_message("Completed quadratic prime base (3 of 3).");
+    }
+
+    fn construct_new_polynomial(&mut self, polynomial_base: &BigInt, poly_degree: usize) {
+        self.current_polynomial = Polynomial::new(&self.n, polynomial_base, poly_degree);
+
+        self.polynomial_collection.push(self.current_polynomial.clone());
+        // TODO: Implement saving the state
+        // Serialization::save_all(self);
+    }
+
+    fn new_factor_pair_collections(&mut self, cancel_token: &CancellationToken) {
+        self.log_message("Constructing new factor bases (- of 3)...");
+
+        if self.rational_factor_pair_collection.is_empty() {
+            self.rational_factor_pair_collection = FactorPairCollection::build_rational_factor_pair_collection(self);
+        }
+        // TODO: Implement saving the state
+        // Serialization::save_factor_pair_rational(self);
+        self.log_message("Completed rational factor base (1 of 3).");
+
+        if cancel_token.is_cancelled() {
+            return;
+        }
+        if self.algebraic_factor_pair_collection.is_empty() {
+            self.algebraic_factor_pair_collection = FactorPairCollection::build_algebraic_factor_pair_collection(cancel_token, self);
+        }
+        // TODO: Implement saving the state
+        // Serialization::save_factor_pair_algebraic(self);
+        self.log_message("Completed algebraic factor base (2 of 3).");
+
+        if cancel_token.is_cancelled() {
+            return;
+        }
+        if self.quadratic_factor_pair_collection.is_empty() {
+            self.quadratic_factor_pair_collection = FactorPairCollection::build_quadratic_factor_pair_collection(cancel_token, self);
+        }
+        // TODO: Implement saving the state
+        // Serialization::save_factor_pair_quadratic(self);
+        self.log_message("Completed quadratic factor base (3 of 3).");
+
+        if cancel_token.is_cancelled() {
+            return;
+        }
+    }
+
+    pub fn group_rough_numbers(rough_numbers: &[Relation]) -> Vec<Vec<Relation>> {
+        let mut results = Vec::new();
+        let mut last_item: Option<&Relation> = None;
+    
+        for pair in rough_numbers.iter()
+            .sorted_by(|a, b| Ord::cmp(&a.algebraic_quotient, &b.algebraic_quotient)
+                .then(Ord::cmp(&a.rational_quotient, &b.rational_quotient)))
+        {
+            if let Some(last) = last_item {
+                if pair.algebraic_quotient == last.algebraic_quotient && pair.rational_quotient == last.rational_quotient {
+                    results.push(vec![pair.clone(), last.clone()]);
+                    last_item = None;
+                } else {
+                    last_item = Some(pair);
+                }
+            } else {
+                last_item = Some(pair);
+            }
+        }
+    
+        results
+    }
+
+    pub fn multiply_like_rough_numbers(gnfs: &GNFS, like_rough_numbers_groups: &[Vec<Relation>]) -> Vec<Relation> {
+        let mut result = Vec::new();
+    
+        for like_pair in like_rough_numbers_groups {
+            let as_vec: Vec<BigInt> = like_pair.iter().map(|lp| lp.a.clone()).collect();
+            let bs_vec: Vec<BigInt> = like_pair.iter().map(|lp| lp.b.clone()).collect();
+    
+            let a = (as_vec[0].clone() + bs_vec[0].clone()) * (as_vec[0].clone() - bs_vec[0].clone());
+            let b = (as_vec[1].clone() + bs_vec[1].clone()) * (as_vec[1].clone() - bs_vec[1].clone());
+    
+            if a > BigInt::zero() && b > BigInt::zero() {
+                result.push(Relation::new(gnfs, &a, &b));
+            }
+        }
+    
+        result
+    }
+
+    pub fn log_message(&self, message: &str) {
+        if let Some(log_fn) = &self.log_function {
+            log_fn(format!("　{}", message));
+        }
+    }
+
+    pub fn set_factorization_solution(&mut self, p: &BigInt, q: &BigInt) -> bool {
+        let n = p * q;
+
+        if n == self.n {
+            self.factorization = Some(Solution::new(p.clone(), q.clone()));
+            let path = self.save_locations.save_directory.join("Solution.txt");
+            // TODO: Implement writing the solution to a file
+            true
+        } else {
+            false
+        }
+    }
+
+    fn calculate_quadratic_base_size(poly_degree: usize) -> usize {
+        match poly_degree {
+            d if d <= 3 => 10,
+            4 => 20,
+            5 | 6 => 40,
+            7 => 80,
+            _ => 100,
+        }
+    }
+
+    pub fn get_current_polynomial(&self) -> &Polynomial {
+        &self.current_polynomial
+    }
+
+
+
+
+impl ToString for GNFS {
+    fn to_string(&self) -> String {
+        let mut result = String::new();
+
+        result.push_str(&format!("N = {}\n\n", self.n));
+        result.push_str(&format!("Polynomial(degree: {}, base: {}):\n", self.polynomial_degree, self.polynomial_base));
+        result.push_str(&format!("ƒ(m) = {}\n\n", self.current_polynomial));
+        result.push_str("Prime Factor Base Bounds:\n");
+        result.push_str(&format!("RationalFactorBase : {}\n", self.prime_factor_base.rational_factor_base_max));
+        result.push_str(&format!("AlgebraicFactorBase: {}\n", self.prime_factor_base.algebraic_factor_base_max));
+        result.push_str(&format!("QuadraticPrimeBase Range: {} - {}\n", self.prime_factor_base.quadratic_factor_base_min, self.prime_factor_base.quadratic_factor_base_max));
+        result.push_str(&format!("QuadraticPrimeBase Count: {}\n\n", self.prime_factor_base.quadratic_base_count));
+        result.push_str(&format!("RFB - Rational Factor Base - Count: {} - Array of (p, m % p) with prime p\n", self.rational_factor_pair_collection.len()));
+        result.push_str(&format!("{}\n\n", self.rational_factor_pair_collection.to_string(200)));
+        result.push_str(&format!("AFB - Algebraic Factor Base - Count: {} - Array of (p, r) such that ƒ(r) ≡ 0 (mod p) and p is prime\n", self.algebraic_factor_pair_collection.len()));
+        result.push_str(&format!("{}\n\n", self.algebraic_factor_pair_collection.to_string(200)));
+        result.push_str(&format!("QFB - Quadratic Factor Base - Count: {} - Array of (p, r) such that ƒ(r) ≡ 0 (mod p) and p is prime\n", self.quadratic_factor_pair_collection.len()));
+        result.push_str(&format!("{}\n\n", self.quadratic_factor_pair_collection.to_string()));
+
+        result
+    }
 }
 
-
-// TODO: Implement Solution, Polynomial, PolyRelationsSieveProgress, and DirectoryLocations structs
+}

@@ -1,7 +1,7 @@
 // src/factors/normal.rs
 
-use num::{BigInt, BigRational, FromPrimitive, One, Zero};
-use crate::core::polynomial::Polynomial;
+use num::{BigInt, BigRational, Zero};
+use crate::polynomial::polynomial::Polynomial;
 
 pub struct Normal;
 

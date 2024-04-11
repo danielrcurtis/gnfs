@@ -1,9 +1,8 @@
 // src/core/count_dictionary.rs
 
-use num::{BigInt, BigUint, One, Zero};
+use num::{BigInt, One, Zero};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use std::cmp::Ordering;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CountDictionary(BTreeMap<BigInt, BigInt>);

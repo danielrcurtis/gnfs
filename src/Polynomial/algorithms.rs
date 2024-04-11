@@ -1,9 +1,8 @@
 // src/polynomial/algorithms.rs
 
-use super::*;
 use num::BigInt;
 use num::complex::Complex;
-use std::cmp::Ordering;
+use crate::polynomial::polynomial::Polynomial;
 
 pub fn eulers_criterion(a: &BigInt, p: &BigInt) -> BigInt {
     let exponent = (p - 1) / 2;
