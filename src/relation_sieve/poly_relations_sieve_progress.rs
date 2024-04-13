@@ -13,6 +13,7 @@ use crate::integer_math::prime_factory::PrimeFactory;
 use crate::core::count_dictionary::CountDictionary;
 use crate::core::serialization::save;
 use crate::integer_math::factorization_factory::FactorizationFactory;
+use crate::core::cancellation_token::CancellationToken;
 
 #[derive(Serialize, Deserialize)]
 pub struct PolyRelationsSieveProgress {
@@ -59,15 +60,15 @@ impl PolyRelationsSieveProgress {
     }
 
     pub fn smooth_relations_required_for_matrix_step(&self) -> usize {
-        PrimeFactory::get_index_from_value(&self.gnfs.prime_factor_base.rational_factor_base_max)
-            + PrimeFactory::get_index_from_value(&self.gnfs.prime_factor_base.algebraic_factor_base_max)
+        PrimeFactory::get_index_from_value(&mut self.gnfs.prime_factor_base.rational_factor_base_max.clone(), &self.gnfs.prime_factor_base.rational_factor_base_max)
+            + PrimeFactory::get_index_from_value(&mut self.gnfs.prime_factor_base.algebraic_factor_base_max.clone(), &self.gnfs.prime_factor_base.algebraic_factor_base_max)
             + self.gnfs.quadratic_factor_pair_collection.len()
             + 3
     }
 
     pub fn generate_relations(&mut self, cancel_token: &CancellationToken) {
         if !self.relations.smooth_relations.is_empty() {
-            smooth::append(&self.gnfs);
+            smooth::append(&mut self.gnfs.as_ref().clone());
         }
 
         self.smooth_relations_target_quantity = std::cmp::max(
@@ -106,39 +107,42 @@ impl PolyRelationsSieveProgress {
             if cancel_token.is_cancellation_requested() {
                 break;
             }
-
+        
             if &self.b > &self.max_b {
                 break;
             }
-
+        
             for a in SieveRange::get_sieve_range_continuation(&self.a, &self.value_range) {
                 if cancel_token.is_cancellation_requested() {
                     break;
                 }
-
+        
                 self.a = a;
-                if GCD::are_coprime(&self.a, &self.b) {
-                    let mut rel = Relation::new(&self.gnfs, &self.a, &self.b);
+                if GCD::are_coprime(&[self.a.clone(), self.b.clone()]) {
+                    let mut rel = Relation::new(self.gnfs.as_ref(), &self.a, &self.b);
                     rel.sieve(self);
-
+        
                     let smooth = rel.is_smooth();
                     if smooth {
-                        smooth::append(&self.gnfs, &rel);
                         self.relations.smooth_relations.push(rel);
+                        self.smooth_relations_counter += 1;
                     }
                 }
             }
-
+        
             if cancel_token.is_cancellation_requested() {
                 break;
             }
-
+        
             self.b += 1;
             self.a = start_a.clone();
-
+        
             self.gnfs.log_message(&format!("B = {}", self.b));
             self.gnfs.log_message(&format!("SmoothRelations.Count: {}", self.relations.smooth_relations.len()));
         }
+        
+        // After the loop, call smooth::append() with a mutable reference to self.gnfs
+        smooth::append(&mut self.gnfs.as_ref().clone());
     }
 
     pub fn increase_target_quantity(&mut self, amount: usize) {
@@ -178,7 +182,7 @@ impl PolyRelationsSieveProgress {
 
     pub fn add_free_relation_solution(&mut self, free_relation_solution: Vec<Relation>) {
         self.relations.free_relations.push(free_relation_solution.clone());
-        free::single_solution(&self.gnfs, &free_relation_solution);
+        free::single_solution(&mut self.gnfs.as_ref().clone(), &free_relation_solution);
         self.gnfs.log_message(&format!("Added free relation solution: Relation count = {}", free_relation_solution.len()));
     }
 

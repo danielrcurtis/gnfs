@@ -4,7 +4,7 @@ use num::{BigInt, One, Zero};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CountDictionary(BTreeMap<BigInt, BigInt>);
 
 impl CountDictionary {

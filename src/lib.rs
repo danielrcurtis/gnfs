@@ -1,5 +1,7 @@
 // src/lib.rs
 
+#![recursion_limit = "512"]
+
 pub mod core;
 pub mod factor;
 pub mod polynomial;

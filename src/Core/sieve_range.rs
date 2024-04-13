@@ -1,5 +1,8 @@
+// src/core/sieve_range.rs
+
 use num::BigInt;
 use num::bigint::Sign;
+use num::Signed;
 use std::iter::Iterator;
 
 pub struct SieveRange;
@@ -24,11 +27,9 @@ impl SieveRange {
                 } else {
                     Some(-&counter)
                 };
-
                 if !flip_flop {
                     counter += 1;
                 }
-
                 flip_flop = !flip_flop;
                 result
             } else {

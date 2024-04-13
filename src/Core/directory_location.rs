@@ -1,5 +1,4 @@
 // src/core/directory_locations.rs
-
 use std::path::PathBuf;
 use num::BigInt;
 
@@ -39,18 +38,17 @@ impl DirectoryLocations {
         }
     }
 
-    pub fn set_base_directory(path: &str) {
-        Self::base_directory = path.to_string();
+    pub fn set_base_directory(&mut self, path: &str) {
+        self.base_directory = path.to_string();
     }
 
-    pub fn get_save_location(n: &BigInt) -> String {
+    pub fn get_save_location(&self, n: &BigInt) -> String {
         let directory_name = Self::get_unique_name_from_n(n);
-        format!("{}/{}", Self::base_directory, directory_name)
+        format!("{}/{}", self.base_directory, directory_name)
     }
 
     fn get_unique_name_from_n(n: &BigInt) -> String {
         let result = n.to_string();
-
         if result.len() >= (SHOW_DIGITS * 2) + ELLIPSIS.len() {
             format!(
                 "{}{}{}",

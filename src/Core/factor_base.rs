@@ -1,32 +1,31 @@
 // src/core/factor_base.rs
 
-use serde::{Serialize, Deserialize};
 use num::BigInt;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct FactorBase {
-    #[serde(rename = "RationalFactorBaseMax")]
+    // #[serde(rename = "RationalFactorBaseMax")]
     pub rational_factor_base_max: BigInt,
 
-    #[serde(rename = "AlgebraicFactorBaseMax")]
+    // #[serde(rename = "AlgebraicFactorBaseMax")]
     pub algebraic_factor_base_max: BigInt,
 
-    #[serde(rename = "QuadraticFactorBaseMin")]
+    // #[serde(rename = "QuadraticFactorBaseMin")]
     pub quadratic_factor_base_min: BigInt,
 
-    #[serde(rename = "QuadraticFactorBaseMax")]
+    // #[serde(rename = "QuadraticFactorBaseMax")]
     pub quadratic_factor_base_max: BigInt,
 
-    #[serde(rename = "QuadraticBaseCount")]
+    // #[serde(rename = "QuadraticBaseCount")]
     pub quadratic_base_count: i32,
 
-    #[serde(skip)]
+    // #[serde(skip)]
     pub rational_factor_base: Vec<BigInt>,
 
-    #[serde(skip)]
+    // #[serde(skip)]
     pub algebraic_factor_base: Vec<BigInt>,
 
-    #[serde(skip)]
+    // #[serde(skip)]
     pub quadratic_factor_base: Vec<BigInt>,
 }
 

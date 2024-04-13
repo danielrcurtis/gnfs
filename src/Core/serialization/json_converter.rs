@@ -42,15 +42,14 @@ pub mod json_converters {
             where
                 V: SeqAccess<'de>,
             {
-                let coefficient = seq.next_element()?
+                let terms = seq
+                    .next_element()?
                     .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                let terms = seq.next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(1, &self))?;
-                Ok(Polynomial::new(coefficient, terms))
+                Ok(Polynomial::new(terms))
             }
         }
 
-        const FIELDS: &[&str] = &["coefficient", "terms"];
+        const FIELDS: &[&str] = &["terms"];
         deserializer.deserialize_struct("Polynomial", FIELDS, PolynomialVisitor)
     }
 
@@ -95,28 +94,5 @@ pub mod json_converters {
 
         const FIELDS: &[&str] = &["coefficient", "exponent"];
         deserializer.deserialize_struct("Term", FIELDS, TermVisitor)
-    }
-}
-
-pub mod bigint_converters {
-    use super::*;
-    
-    impl Serialize for BigInt {
-        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
-        {
-            serializer.serialize_str(&self.to_string())
-        }
-    }
-    
-    impl<'de> Deserialize<'de> for BigInt {
-        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where
-            D: Deserializer<'de>,
-        {
-            let s = String::deserialize(deserializer)?;
-            Ok(BigInt::parse_bytes(s.as_bytes(), 10).ok_or_else(|| serde::de::Error::custom("invalid BigInt"))?)
-        }
     }
 }

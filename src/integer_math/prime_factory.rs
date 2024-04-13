@@ -1,6 +1,7 @@
 // src/integer_math/prime_factory.rs
 
-use num::{BigInt, BigUint, FromPrimitive, Integer};
+use num::{BigInt, BigUint, FromPrimitive, Integer, Signed};
+use num::bigint::ToBigInt;
 use std::cmp::{max, min};
 use std::ops::Range;
 use crate::integer_math::fast_prime_sieve::FastPrimeSieve;
@@ -26,7 +27,7 @@ impl PrimeFactory {
     }
 
     fn set_primes(&mut self) {
-        self.primes = FastPrimeSieve::get_range(&BigInt::from(2), &self.max_value.to_bigint().unwrap())
+        self.primes = FastPrimeSieve::get_range(&BigUint::from(2u32), &self.max_value.to_biguint().unwrap())
             .map(|bi| bi.to_bigint().unwrap())
             .collect();
         self.primes_count = self.primes.len();
@@ -71,36 +72,41 @@ impl PrimeFactory {
         } else {
             fn_ * (flogn + 0.6000 * flog2n)
         };
-        if upper >= f64::from(u64::max_value()) {
+        if upper >= u64::max_value() as f64 {
             panic!("{} > {}", upper, u64::max_value());
         }
         BigUint::from_f64(upper.ceil()).unwrap()
     }
 
-    pub fn get_primes_from(&mut self, min_value: &BigInt) -> impl Iterator<Item = &BigInt> {
+    pub fn get_primes_from<'a>(&'a mut self, min_value: &'a BigInt) -> impl Iterator<Item = BigInt> + 'a {
         let start_index = self.get_index_from_value(min_value) as usize;
-        self.get_prime_enumerator(start_index, None).map(move |i| &self.primes[i])
+        self.get_prime_enumerator(start_index, None)
+            .map(move |i| self.primes[i].clone())
     }
 
-    pub fn get_primes_to(&mut self, max_value: &BigInt) -> impl Iterator<Item = &BigInt> {
+    pub fn get_primes_to<'a>(&'a mut self, max_value: &'a BigInt) -> impl Iterator<Item = BigInt> + 'a {
         if &self.primes_last < max_value {
             self.increase_max_value(max_value);
         }
-        self.get_prime_enumerator(0, None).take_while(move |&i| &self.primes[i] < max_value).map(move |i| &self.primes[i])
+        let primes = &self.primes;
+        self.get_prime_enumerator(0, None)
+            .take_while(move |&i| &primes[i] < max_value)
+            .map(move |i| primes[i].clone())
     }
 
     pub fn is_prime(&self, value: &BigInt) -> bool {
-        self.primes.contains(value.abs())
+        let abs_value = value.abs();
+        self.primes.contains(&abs_value)
     }
 
     pub fn get_next_prime(from_value: &BigInt) -> BigInt {
-        let mut result = from_value + 1;
+        let mut result: BigUint = from_value.to_biguint().unwrap() + 1u32;
         if result.is_even() {
-            result += 1;
+            result += 1u32;
         }
-        while !FactorizationFactory::is_probable_prime(&result) {
-            result += 2;
+        while !FactorizationFactory::is_probable_prime(&result.to_bigint().unwrap()) {
+            result += 2u32;
         }
-        result
+        result.to_bigint().unwrap()
     }
 }

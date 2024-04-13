@@ -2,7 +2,6 @@
 
 use log::{info, warn, debug, trace, error};
 use num::{BigInt, Zero};
-use serde::{Deserialize, Serialize};
 use crate::core::factor_base::FactorBase;
 use crate::factor::factor_pair_collection::FactorPairCollection;
 use crate::polynomial::polynomial::Polynomial;
@@ -13,7 +12,7 @@ use crate::core::directory_location::DirectoryLocations;
 use crate::core::cancellation_token::CancellationToken;
 use crate::integer_math::prime_factory::PrimeFactory;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct GNFS {
     pub n: BigInt,
     pub factorization: Option<Solution>,
@@ -32,7 +31,7 @@ pub struct GNFS {
 impl GNFS {
     pub fn new(
         cancel_token: &CancellationToken,
-        info!: &mut dyn FnMut(String),
+        self_logger: &mut dyn FnMut(String),
         n: &BigInt,
         polynomial_base: &BigInt,
         poly_degree: i32,

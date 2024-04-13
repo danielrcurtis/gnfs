@@ -1,6 +1,8 @@
 // src/integer_math/gcd.rs
 
 use num::BigInt;
+use num::Signed;
+use num::Integer;
 
 pub struct GCD;
 

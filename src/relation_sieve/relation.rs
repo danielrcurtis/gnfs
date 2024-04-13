@@ -4,6 +4,7 @@ use num::BigInt;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
+use crate::core::gnfs::GNFS;
 
 use crate::core::count_dictionary::CountDictionary;
 
@@ -30,10 +31,10 @@ pub struct Relation {
 }
 
 impl Relation {
-    pub fn new() -> Self {
+    pub fn new(gnfs: &GNFS, a: &BigInt, b: &BigInt) -> Self {
         Relation {
-            a: BigInt::default(),
-            b: BigInt::default(),
+            a: a.clone(),
+            b: b.clone(),
             algebraic_norm: BigInt::default(),
             rational_norm: BigInt::default(),
             algebraic_quotient: BigInt::default(),

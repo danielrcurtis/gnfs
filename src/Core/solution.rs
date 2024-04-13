@@ -1,9 +1,8 @@
 // src/core/solution.rs
 
 use num::BigInt;
-use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct Solution {
     pub p: BigInt,
     pub q: BigInt,

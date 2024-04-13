@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::core::gnfs::GNFS;
 use crate::polynomial::polynomial::Polynomial;
 use crate::factor::factor_pair::FactorPair;
+use num::ToPrimitive;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FactorPairCollection(pub Vec<FactorPair>);
@@ -36,7 +37,7 @@ impl Factory {
     // quantity = phi(bound)
     pub fn build_rational_factor_pair_collection(gnfs: &GNFS) -> FactorPairCollection {
         let result: Vec<FactorPair> = gnfs.prime_factor_base.rational_factor_base.iter()
-            .map(|&p| FactorPair::new(p as i32, (&gnfs.polynomial_base % p) as i32))
+            .map(|&p| FactorPair::new(p.to_i32().unwrap(), (&gnfs.polynomial_base % p).to_i32().unwrap())) // Use to_i32() instead of as
             .collect();
         FactorPairCollection::from_collection(&result)
     }
@@ -65,7 +66,7 @@ impl Factory {
             &gnfs.prime_factor_base.quadratic_factor_base,
             &BigInt::from(2),
             &gnfs.prime_factor_base.quadratic_factor_base_max,
-            gnfs.prime_factor_base.quadratic_base_count,
+            gnfs.prime_factor_base.quadratic_base_count as usize, // Convert i32 to usize
         );
         FactorPairCollection::from_collection(&roots)
     }

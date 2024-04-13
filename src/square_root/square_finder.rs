@@ -11,6 +11,7 @@ use crate::integer_math::gcd::GCD;
 use crate::integer_math::prime_factory::PrimeFactory;
 use crate::core::static_random::StaticRandom;
 use crate::square_root::finite_field_arithmetic;
+use crate::core::cancellation_token::CancellationToken;
 
 pub struct SquareFinder {
     pub rational_product: BigInt,
@@ -319,8 +320,8 @@ impl SquareFinder {
             let a = &max + &min;
             let b = &max - &min;
 
-            let u = GCD::find_gcd(&self.n, &a);
-            let v = GCD::find_gcd(&self.n, &b);
+            let u = GCD::find_gcd(&[self.n.clone(), a.clone()]);
+            let v = GCD::find_gcd(&[self.n.clone(), b.clone()]);
 
             let mut p = BigInt::zero();
             if &u > &BigInt::one() && &u != &self.n {
@@ -376,8 +377,9 @@ impl SquareFinder {
                 break;
             }
     
+            let mut static_random = StaticRandom::new();
             loop {
-                free_relation_index = StaticRandom::next(0, free_relations.len());
+                free_relation_index = static_random.next_range(0, free_relations.len() as u32);
                 if !tried_free_relation_indices.contains(&free_relation_index) {
                     break;
                 }
@@ -424,7 +426,7 @@ impl SquareFinder {
     
             let non_trivial_factors_found = &p != &BigInt::one() || &q != &BigInt::one();
             if non_trivial_factors_found {
-                solution_found = gnfs.set_factorization_solution(p, q);
+                solution_found = gnfs.set_factorization_solution(&p, &q);
     
                 gnfs.log_message(format!("Selected solution set index # {}", free_relation_index + 1));
                 gnfs.log_message("".to_string());
@@ -518,8 +520,8 @@ impl SquareFinder {
         let add = &max + &min;
         let sub = &max - &min;
 
-        let gcd_add = GCD::find_gcd(&self.n, &add);
-        let gcd_sub = GCD::find_gcd(&self.n, &sub);
+        let gcd_add = GCD::find_gcd(&[self.n.clone(), add.clone()]);
+        let gcd_sub = GCD::find_gcd(&[self.n.clone(), sub.clone()]);
 
         let answer = BigInt::max(&gcd_add, &gcd_sub);
 

@@ -1,6 +1,8 @@
 // src/integer_math/legendre.rs
 
 use num::{BigInt, Zero};
+use num::Integer;
+use num::ToPrimitive;
 
 pub struct Legendre;
 
@@ -10,27 +12,25 @@ impl Legendre {
         if p < &BigInt::from(2) {
             panic!("Parameter 'p' must not be < 2, but you have supplied: {}", p);
         }
-
         if a.is_zero() {
             return 0;
         }
-
         if a == &BigInt::from(1) {
             return 1;
         }
 
         let result = if a.mod_floor(&BigInt::from(2)) == BigInt::zero() {
             let result = Self::symbol(&(a >> 2), p); // >> right shift == /2
-            if ((p * p - 1) & 8) != 0 {
-                // instead of dividing by 8, shift the mask bit
+            if (&(p * p - 1) & BigInt::from(8)) != BigInt::zero() {
+                // Convert 8 to BigInt
                 -result
             } else {
                 result
             }
         } else {
             let result = Self::symbol(&p.mod_floor(a), a);
-            if ((a - 1) * (p - 1) & 4) != 0 {
-                // instead of dividing by 4, shift the mask bit
+            if (&((a - 1) * (p - 1)) & BigInt::from(4)) != BigInt::zero() {
+                // Convert 4 to BigInt
                 -result
             } else {
                 result
@@ -53,9 +53,7 @@ impl Legendre {
             if Self::symbol(&counter, modulus) == goal.to_i32().unwrap() {
                 return counter;
             }
-
             counter += 1;
-
             if counter > max {
                 break;
             }

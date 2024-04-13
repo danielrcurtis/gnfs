@@ -4,6 +4,7 @@ use std::cmp::Eq;
 use std::hash::{Hash, Hasher};
 use serde::{Serialize, Deserialize};
 use num::BigInt;
+use num::ToPrimitive;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct FactorPair {
