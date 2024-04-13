@@ -1,5 +1,6 @@
 // src/core/gnfs.rs
 
+use log::{info, warn, debug, trace, error};
 use num::{BigInt, Zero};
 use serde::{Deserialize, Serialize};
 use crate::core::factor_base::FactorBase;
@@ -8,7 +9,9 @@ use crate::polynomial::polynomial::Polynomial;
 use crate::relation_sieve::poly_relations_sieve_progress::PolyRelationsSieveProgress;
 use crate::relation_sieve::relation::Relation;
 use crate::core::solution::Solution;
-use crate::core::{cancellation_token::CancellationToken, directory_location::DirectoryLocations};
+use crate::core::directory_location::DirectoryLocations;
+use crate::core::cancellation_token::CancellationToken;
+use crate::integer_math::prime_factory::PrimeFactory;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GNFS {
@@ -29,7 +32,7 @@ pub struct GNFS {
 impl GNFS {
     pub fn new(
         cancel_token: &CancellationToken,
-        log_function: &mut dyn FnMut(String),
+        info!: &mut dyn FnMut(String),
         n: &BigInt,
         polynomial_base: &BigInt,
         poly_degree: i32,
@@ -57,7 +60,7 @@ impl GNFS {
             // New GNFS instance
             if !gnfs.save_locations.save_directory.exists() {
                 std::fs::create_dir_all(&gnfs.save_locations.save_directory).unwrap();
-                log_function(format!("Directory created: {:?}", gnfs.save_locations.save_directory));
+                info!("Directory created: {:?}", gnfs.save_locations.save_directory);
             } else {
                 if gnfs.save_locations.smooth_relations_save_file.exists() {
                     std::fs::remove_file(&gnfs.save_locations.smooth_relations_save_file).unwrap();
@@ -84,8 +87,8 @@ impl GNFS {
             }
 
             gnfs.construct_new_polynomial(polynomial_base, gnfs.polynomial_degree);
-            log_function(format!("Polynomial constructed: {}", gnfs.current_polynomial));
-            log_function(format!("Polynomial base: {}", gnfs.polynomial_base));
+            info!("Polynomial constructed: {}", gnfs.current_polynomial);
+            info!("Polynomial base: {}", gnfs.polynomial_base);
 
             if cancel_token.is_cancelled() {
                 return gnfs;
@@ -104,7 +107,7 @@ impl GNFS {
             }
 
             gnfs.new_factor_pair_collections(cancel_token);
-            log_function("Factor bases populated.".to_string());
+            info!("Factor bases populated.");
 
             if cancel_token.is_cancelled() {
                 return gnfs;
@@ -115,7 +118,7 @@ impl GNFS {
                 relation_quantity,
                 relation_value_range,
             );
-            log_function(format!("Relations container initialized. Target quantity: {}", relation_quantity));
+            info!("Relations container initialized. Target quantity: {}", relation_quantity);
 
             // TODO: Implement saving the state
             // Serialization::save_all(&gnfs);
@@ -158,7 +161,7 @@ impl GNFS {
         self.set_prime_factor_bases();
     }
 
-    pub fn calculate_prime_factor_base_bounds(&mut self, bound: &BigInt) {
+    pub fn calculate_prime_factor_base_bounds(&mut self, bound: &BigInt) { // Validate this!!!_!!!
         self.prime_factor_base = FactorBase::default();
 
         self.prime_factor_base.rational_factor_base_max = bound.clone();
@@ -173,13 +176,13 @@ impl GNFS {
         // );
 
         // TODO: Implement logging
-        // log_function(format!("Rational  Factor Base Bounds: Min: - Max: {}", self.prime_factor_base.rational_factor_base_max));
-        // log_function(format!("Algebraic Factor Base Bounds: Min: - Max: {}", self.prime_factor_base.algebraic_factor_base_max));
-        // log_function(format!("Quadratic Factor Base Bounds: Min: {} Max: {}", self.prime_factor_base.quadratic_factor_base_min, self.prime_factor_base.quadratic_factor_base_max));
+        // info!(format!("Rational  Factor Base Bounds: Min: - Max: {}", self.prime_factor_base.rational_factor_base_max));
+        // info!(format!("Algebraic Factor Base Bounds: Min: - Max: {}", self.prime_factor_base.algebraic_factor_base_max));
+        // info!(format!("Quadratic Factor Base Bounds: Min: {} Max: {}", self.prime_factor_base.quadratic_factor_base_min, self.prime_factor_base.quadratic_factor_base_max));
 
         // TODO: Implement saving the state
         // Serialization::save_all(self);
-        // log_function("Saved prime factor base bounds.".to_string());
+        // info!("Saved prime factor base bounds.".to_string());
     }
 
     pub fn is_factored(&self) -> bool {
@@ -191,21 +194,21 @@ impl GNFS {
     }
 
     pub fn set_prime_factor_bases(&mut self) {
-        self.log_message("Constructing new prime bases (- of 3)...");
+        info!("Constructing new prime bases (- of 3)...");
 
         // TODO: Implement PrimeFactory::increase_max_value
         // PrimeFactory::increase_max_value(&self.prime_factor_base.quadratic_factor_base_max);
 
         self.prime_factor_base.rational_factor_base = PrimeFactory::get_primes_to(&self.prime_factor_base.rational_factor_base_max);
-        self.log_message("Completed rational prime base (1 of 3).");
+        info!("Completed rational prime base (1 of 3).");
 
         self.prime_factor_base.algebraic_factor_base = PrimeFactory::get_primes_to(&self.prime_factor_base.algebraic_factor_base_max);
-        self.log_message("Completed algebraic prime base (2 of 3).");
+        info!("Completed algebraic prime base (2 of 3).");
 
         self.prime_factor_base.quadratic_factor_base = PrimeFactory::get_primes_from(&self.prime_factor_base.quadratic_factor_base_min)
             .take(self.prime_factor_base.quadratic_base_count)
             .collect();
-        self.log_message("Completed quadratic prime base (3 of 3).");
+        info!("Completed quadratic prime base (3 of 3).");
     }
 
     fn construct_new_polynomial(&mut self, polynomial_base: &BigInt, poly_degree: usize) {
@@ -217,14 +220,14 @@ impl GNFS {
     }
 
     fn new_factor_pair_collections(&mut self, cancel_token: &CancellationToken) {
-        self.log_message("Constructing new factor bases (- of 3)...");
+        info!("Constructing new factor bases (- of 3)...");
 
         if self.rational_factor_pair_collection.is_empty() {
             self.rational_factor_pair_collection = FactorPairCollection::build_rational_factor_pair_collection(self);
         }
         // TODO: Implement saving the state
         // Serialization::save_factor_pair_rational(self);
-        self.log_message("Completed rational factor base (1 of 3).");
+        info!("Completed rational factor base (1 of 3).");
 
         if cancel_token.is_cancelled() {
             return;
@@ -234,7 +237,7 @@ impl GNFS {
         }
         // TODO: Implement saving the state
         // Serialization::save_factor_pair_algebraic(self);
-        self.log_message("Completed algebraic factor base (2 of 3).");
+        info!("Completed algebraic factor base (2 of 3).");
 
         if cancel_token.is_cancelled() {
             return;
@@ -244,7 +247,7 @@ impl GNFS {
         }
         // TODO: Implement saving the state
         // Serialization::save_factor_pair_quadratic(self);
-        self.log_message("Completed quadratic factor base (3 of 3).");
+        info!("Completed quadratic factor base (3 of 3).");
 
         if cancel_token.is_cancelled() {
             return;
@@ -292,12 +295,6 @@ impl GNFS {
         result
     }
 
-    pub fn log_message(&self, message: &str) {
-        if let Some(log_fn) = &self.log_function {
-            log_fn(format!("　{}", message));
-        }
-    }
-
     pub fn set_factorization_solution(&mut self, p: &BigInt, q: &BigInt) -> bool {
         let n = p * q;
 
@@ -326,7 +323,7 @@ impl GNFS {
     }
 
 
-
+}
 
 impl ToString for GNFS {
     fn to_string(&self) -> String {
@@ -351,4 +348,4 @@ impl ToString for GNFS {
     }
 }
 
-}
+

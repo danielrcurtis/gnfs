@@ -8,9 +8,10 @@ use crate::core::sieve_range::SieveRange;
 use crate::core::gnfs::GNFS;
 use crate::relation_sieve::relation::Relation;
 use crate::relation_sieve::relation_container::RelationContainer;
-use crate::serialization::save::relations::{Smooth, Rough, Free};
+use crate::core::serialization::save::relations::{smooth, rough, free};
 use crate::integer_math::prime_factory::PrimeFactory;
 use crate::core::count_dictionary::CountDictionary;
+use crate::core::serialization::save;
 use crate::integer_math::factorization_factory::FactorizationFactory;
 
 #[derive(Serialize, Deserialize)]
@@ -66,7 +67,7 @@ impl PolyRelationsSieveProgress {
 
     pub fn generate_relations(&mut self, cancel_token: &CancellationToken) {
         if !self.relations.smooth_relations.is_empty() {
-            Smooth::append(&self.gnfs);
+            smooth::append(&self.gnfs);
         }
 
         self.smooth_relations_target_quantity = std::cmp::max(
@@ -122,7 +123,7 @@ impl PolyRelationsSieveProgress {
 
                     let smooth = rel.is_smooth();
                     if smooth {
-                        Smooth::append(&self.gnfs, &rel);
+                        smooth::append(&self.gnfs, &rel);
                         self.relations.smooth_relations.push(rel);
                     }
                 }
@@ -177,7 +178,7 @@ impl PolyRelationsSieveProgress {
 
     pub fn add_free_relation_solution(&mut self, free_relation_solution: Vec<Relation>) {
         self.relations.free_relations.push(free_relation_solution.clone());
-        Free::single_solution(&self.gnfs, &free_relation_solution);
+        free::single_solution(&self.gnfs, &free_relation_solution);
         self.gnfs.log_message(&format!("Added free relation solution: Relation count = {}", free_relation_solution.len()));
     }
 

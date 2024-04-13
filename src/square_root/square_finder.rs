@@ -5,6 +5,12 @@ use crate::polynomial::polynomial::Polynomial;
 use crate::core::gnfs::GNFS;
 use crate::relation_sieve::relation::Relation;
 use std::cmp::Ordering;
+use crate::core::count_dictionary::CountDictionary;
+use crate::polynomial::polynomial::Term;
+use crate::integer_math::gcd::GCD;
+use crate::integer_math::prime_factory::PrimeFactory;
+use crate::core::static_random::StaticRandom;
+use crate::square_root::finite_field_arithmetic;
 
 pub struct SquareFinder {
     pub rational_product: BigInt,
@@ -245,7 +251,7 @@ impl SquareFinder {
                 last_p = PrimeFactory::get_next_prime(&(&last_p + 1));
 
                 let g = Polynomial::parse(&format!("X^{} - X", last_p));
-                let h = FiniteFieldArithmetic::mod_mod(&g, f, &last_p);
+                let h = finite_field_arithmetic::mod_mod(&g, f, &last_p);
 
                 let gcd = Polynomial::field_gcd(&h, f, &last_p);
 
@@ -278,7 +284,7 @@ impl SquareFinder {
 
             let mut take_inverse = false;
             for p in &primes {
-                let chosen_poly = FiniteFieldArithmetic::square_root(&self.s, f, p, degree, &self.gnfs.polynomial_base);
+                let chosen_poly = finite_field_arithmetic::square_root(&self.s, f, p, degree, &self.gnfs.polynomial_base);
                 let eval = chosen_poly.evaluate(&self.gnfs.polynomial_base);
                 let x = eval.mod_floor(p);
 
@@ -549,7 +555,7 @@ fn algebraic_square_root(f: &Polynomial, m: &BigInt, degree: i32, dd: &Polynomia
     let start_squared1 = Polynomial::mod_mod(&Polynomial::square(&start_polynomial), f, p);
     let start_squared2 = Polynomial::mod_mod(&Polynomial::square(&start_inverse_polynomial), f, p);
 
-    let result_poly1 = FiniteFieldArithmetic::square_root(&start_polynomial, f, p, degree, m);
+    let result_poly1 = finite_field_arithmetic::square_root(&start_polynomial, f, p, degree, m);
     let result_poly2 = modular_inverse(&result_poly1, p);
 
     let result_squared1 = Polynomial::mod_mod(&Polynomial::square(&result_poly1), f, p);

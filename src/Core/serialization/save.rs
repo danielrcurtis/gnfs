@@ -2,158 +2,152 @@
 
 use std::fs;
 use std::path::Path;
-use serde::{Serialize, Deserialize};
+use serde::Serialize;
 use serde_json;
-use crate::polynomial::Polynomial;
-use crate::factor_pair::{FactorPairCollection, FactorPair};
-use crate::relations::{Relation, RelationContainer};
-use crate::core::gnfs::{GNFS, DirectoryLocations, RelationsProgress};
+use crate::core::gnfs::GNFS;
+use crate::core::serialization::save;
+use crate::relation_sieve::relation::Relation;
 
-pub mod serialization {
+
+pub fn object<T: Serialize>(obj: &T, filename: &str) {
+    let save_json = serde_json::to_string_pretty(obj).expect("Failed to serialize object");
+    fs::write(filename, save_json).expect("Failed to write file");
+}
+
+pub fn all(gnfs: &GNFS) {
+    save::gnfs(gnfs);
+
+    let mut counter = 1;
+    for poly in &gnfs.polynomial_collection {
+        let filename = format!("Polynomial.{:02}", counter);
+        save::object(poly, &gnfs.save_locations.save_directory.join(filename));
+        counter += 1;
+    }
+
+    save::factor_pair::rational(gnfs);
+    save::factor_pair::algebraic(gnfs);
+    save::factor_pair::quadratic(gnfs);
+
+    let gnfs = &mut gnfs.clone();
+    save::relations::smooth::append(gnfs);
+    save::relations::rough::append(gnfs);
+    save::relations::free::all_solutions(gnfs);
+}
+
+pub fn gnfs(gnfs: &GNFS) {
+    save::object(gnfs, &gnfs.save_locations.gnfs_parameters_save_file);
+}
+
+pub mod factor_pair {
     use super::*;
 
-    pub mod save {
+    pub fn rational(gnfs: &GNFS) {
+        if !gnfs.rational_factor_pair_collection.is_empty() {
+            save::object(&gnfs.rational_factor_pair_collection, &gnfs.save_locations.rational_factor_pair_save_file);
+        }
+    }
+
+    pub fn algebraic(gnfs: &GNFS) {
+        if !gnfs.algebraic_factor_pair_collection.is_empty() {
+            save::object(&gnfs.algebraic_factor_pair_collection, &gnfs.save_locations.algebraic_factor_pair_save_file);
+        }
+    }
+
+    pub fn quadratic(gnfs: &GNFS) {
+        if !gnfs.quadratic_factor_pair_collection.is_empty() {
+            save::object(&gnfs.quadratic_factor_pair_collection, &gnfs.save_locations.quadratic_factor_pair_save_file);
+        }
+    }
+}
+
+pub mod relations {
+    use super::*;
+
+    pub mod smooth {
         use super::*;
 
-        pub fn object<T: Serialize>(obj: &T, filename: &str) {
-            let save_json = serde_json::to_string_pretty(obj).expect("Failed to serialize object");
-            fs::write(filename, save_json).expect("Failed to write file");
-        }
-
-        pub fn all(gnfs: &GNFS) {
-            save::gnfs(gnfs);
-
-            let mut counter = 1;
-            for poly in &gnfs.polynomial_collection {
-                let filename = format!("Polynomial.{:02}", counter);
-                save::object(poly, &gnfs.save_locations.save_directory.join(filename));
-                counter += 1;
-            }
-
-            save::factor_pair::rational(gnfs);
-            save::factor_pair::algebraic(gnfs);
-            save::factor_pair::quadratic(gnfs);
-
-            save::relations::smooth::append(gnfs);
-            save::relations::rough::append(gnfs);
-            save::relations::free::all_solutions(gnfs);
-        }
-
-        pub fn gnfs(gnfs: &GNFS) {
-            save::object(gnfs, &gnfs.save_locations.gnfs_parameters_save_file);
-        }
-
-        pub mod factor_pair {
-            use super::*;
-
-            pub fn rational(gnfs: &GNFS) {
-                if !gnfs.rational_factor_pair_collection.is_empty() {
-                    save::object(&gnfs.rational_factor_pair_collection, &gnfs.save_locations.rational_factor_pair_save_file);
-                }
-            }
-
-            pub fn algebraic(gnfs: &GNFS) {
-                if !gnfs.algebraic_factor_pair_collection.is_empty() {
-                    save::object(&gnfs.algebraic_factor_pair_collection, &gnfs.save_locations.algebraic_factor_pair_save_file);
-                }
-            }
-
-            pub fn quadratic(gnfs: &GNFS) {
-                if !gnfs.quadratic_factor_pair_collection.is_empty() {
-                    save::object(&gnfs.quadratic_factor_pair_collection, &gnfs.save_locations.quadratic_factor_pair_save_file);
+        pub fn append(gnfs: &mut GNFS) {
+            if !gnfs.current_relations_progress.relations.smooth_relations.is_empty() {
+                let to_save: Vec<&Relation> = gnfs.current_relations_progress.relations.smooth_relations
+                    .iter()
+                    .filter(|rel| !rel.is_persisted)
+                    .collect();
+                for rel in to_save {
+                    append_relation(gnfs, rel);
                 }
             }
         }
 
-        pub mod relations {
-            use super::*;
+        fn append_relation(gnfs: &mut GNFS, relation: &Relation) {
+            if relation.is_smooth && !relation.is_persisted {
+                let mut json = serde_json::to_string_pretty(relation).expect("Failed to serialize relation");
 
-            pub mod smooth {
-                use super::*;
-
-                pub fn append(gnfs: &mut GNFS) {
-                    if !gnfs.current_relations_progress.relations.smooth_relations.is_empty() {
-                        let to_save: Vec<&Relation> = gnfs.current_relations_progress.relations.smooth_relations
-                            .iter()
-                            .filter(|rel| !rel.is_persisted)
-                            .collect();
-                        for rel in to_save {
-                            append_relation(gnfs, rel);
-                        }
-                    }
+                if Path::new(&gnfs.save_locations.smooth_relations_save_file).exists() {
+                    json.insert_str(0, ",");
                 }
 
-                fn append_relation(gnfs: &mut GNFS, relation: &Relation) {
-                    if relation.is_smooth && !relation.is_persisted {
-                        let mut json = serde_json::to_string_pretty(relation).expect("Failed to serialize relation");
+                fs::write(&gnfs.save_locations.smooth_relations_save_file, json)
+                    .expect("Failed to append smooth relation");
 
-                        if Path::new(&gnfs.save_locations.smooth_relations_save_file).exists() {
-                            json.insert_str(0, ",");
-                        }
+                gnfs.current_relations_progress.smooth_relations_counter += 1;
 
-                        fs::write(&gnfs.save_locations.smooth_relations_save_file, json)
-                            .expect("Failed to append smooth relation");
+                relation.is_persisted = true;
+            }
+        }
+    }
 
-                        gnfs.current_relations_progress.smooth_relations_counter += 1;
+    pub mod rough {
+        use super::*;
 
-                        relation.is_persisted = true;
-                    }
+        pub fn append(gnfs: &mut GNFS) {
+            if !gnfs.current_relations_progress.relations.rough_relations.is_empty() {
+                let to_save: Vec<&Relation> = gnfs.current_relations_progress.relations.rough_relations
+                    .iter()
+                    .filter(|rel| !rel.is_persisted)
+                    .collect();
+                for rel in to_save {
+                    append_relation(gnfs, rel);
                 }
             }
+        }
 
-            pub mod rough {
-                use super::*;
+        fn append_relation(gnfs: &mut GNFS, rough_relation: &Relation) {
+            if !rough_relation.is_smooth && !rough_relation.is_persisted {
+                let mut json = serde_json::to_string_pretty(rough_relation).expect("Failed to serialize rough relation");
 
-                pub fn append(gnfs: &mut GNFS) {
-                    if !gnfs.current_relations_progress.relations.rough_relations.is_empty() {
-                        let to_save: Vec<&Relation> = gnfs.current_relations_progress.relations.rough_relations
-                            .iter()
-                            .filter(|rel| !rel.is_persisted)
-                            .collect();
-                        for rel in to_save {
-                            append_relation(gnfs, rel);
-                        }
-                    }
+                if Path::new(&gnfs.save_locations.rough_relations_save_file).exists() {
+                    json.push(',');
                 }
 
-                fn append_relation(gnfs: &mut GNFS, rough_relation: &Relation) {
-                    if !rough_relation.is_smooth && !rough_relation.is_persisted {
-                        let mut json = serde_json::to_string_pretty(rough_relation).expect("Failed to serialize rough relation");
+                fs::write(&gnfs.save_locations.rough_relations_save_file, json)
+                    .expect("Failed to append rough relation");
+                rough_relation.is_persisted = true;
+            }
+        }
+    }
 
-                        if Path::new(&gnfs.save_locations.rough_relations_save_file).exists() {
-                            json.push(',');
-                        }
+    pub mod free {
+        use super::*;
 
-                        fs::write(&gnfs.save_locations.rough_relations_save_file, json)
-                            .expect("Failed to append rough relation");
-                        rough_relation.is_persisted = true;
-                    }
+        pub fn all_solutions(gnfs: &mut GNFS) {
+            if !gnfs.current_relations_progress.relations.free_relations.is_empty() {
+                gnfs.current_relations_progress.free_relations_counter = 1;
+                for solution in &gnfs.current_relations_progress.relations.free_relations {
+                    single_solution(gnfs, solution);
                 }
             }
+        }
 
-            pub mod free {
-                use super::*;
-
-                pub fn all_solutions(gnfs: &mut GNFS) {
-                    if !gnfs.current_relations_progress.relations.free_relations.is_empty() {
-                        gnfs.current_relations_progress.free_relations_counter = 1;
-                        for solution in &gnfs.current_relations_progress.relations.free_relations {
-                            single_solution(gnfs, solution);
-                        }
-                    }
+        pub fn single_solution(gnfs: &mut GNFS, solution: &[Relation]) {
+            if !solution.is_empty() {
+                for rel in solution {
+                    rel.is_persisted = true;
                 }
-
-                fn single_solution(gnfs: &mut GNFS, solution: &[Relation]) {
-                    if !solution.is_empty() {
-                        for rel in solution {
-                            rel.is_persisted = true;
-                        }
-                        let filename = format!("free_relations_{}.json", gnfs.current_relations_progress.free_relations_counter);
-                        save::object(solution, &gnfs.save_locations.save_directory.join(filename));
-                        gnfs.current_relations_progress.free_relations_counter += 1;
-                    }
-                }
+                let filename = format!("free_relations_{}.json", gnfs.current_relations_progress.free_relations_counter);
+                save::object(solution, &gnfs.save_locations.save_directory.join(filename));
+                gnfs.current_relations_progress.free_relations_counter += 1;
             }
         }
     }
 }
+

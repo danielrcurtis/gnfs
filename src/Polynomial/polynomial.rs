@@ -3,11 +3,12 @@
 use std::cmp::Ordering;
 use std::ops::{Add, Sub, Mul, Div, Index, IndexMut};
 use num::BigInt;
+use log::{info, warn, debug, trace, error};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Term {
-    coefficient: BigInt,
-    exponent: usize,
+    pub coefficient: BigInt,
+    pub exponent: usize,
 }
 
 impl Term {
@@ -35,10 +36,41 @@ impl Term {
     }
 
     pub fn parse(input: &str) -> Self {
-        // Implement parsing logic based on the C# code
-        // Example: Term::parse("2*X^3") should return Term { coefficient: 2, exponent: 3 }
-        // You may need to adjust this based on the specific parsing requirements
-        unimplemented!("Parsing logic for Term is not implemented yet.")
+        let mut coefficient = BigInt::one();
+        let mut exponent = 0;
+
+        let parts: Vec<&str> = input.split('*').collect();
+
+        for part in parts {
+            if part.starts_with('-') {
+                coefficient *= -BigInt::one();
+            }
+
+            if part.contains('X') {
+                let exp_parts: Vec<&str> = part.split('^').collect();
+                if exp_parts.len() == 2 {
+                    exponent = exp_parts[1].parse().unwrap_or(0);
+                } else {
+                    exponent = 1;
+                }
+
+                if let Some(coeff_str) = exp_parts[0].trim_end_matches('X').trim().strip_prefix('-') {
+                    if !coeff_str.is_empty() {
+                        coefficient *= coeff_str.parse().unwrap_or(BigInt::one());
+                    }
+                } else if let Some(coeff_str) = exp_parts[0].trim_end_matches('X').trim().strip_prefix('+') {
+                    if !coeff_str.is_empty() {
+                        coefficient *= coeff_str.parse().unwrap_or(BigInt::one());
+                    }
+                } else if exp_parts[0].trim_end_matches('X').trim().parse::<BigInt>().is_ok() {
+                    coefficient *= exp_parts[0].trim_end_matches('X').trim().parse().unwrap();
+                }
+            } else {
+                coefficient *= part.parse().unwrap_or(BigInt::one());
+            }
+        }
+
+        Term::new(coefficient, exponent)
     }
 }
 
@@ -57,7 +89,7 @@ impl Ord for Term {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Polynomial {
-    terms: Vec<Term>,
+    pub terms: Vec<Term>,
 }
 
 impl Polynomial {
@@ -68,13 +100,24 @@ impl Polynomial {
     }
 
     pub fn from_roots(roots: &[BigInt]) -> Self {
-        // Implement logic to create a polynomial from roots
-        unimplemented!("Creating polynomial from roots is not implemented yet.")
+        let polys: Vec<Polynomial> = roots
+            .iter()
+            .map(|root| Polynomial::new(vec![Term::new(BigInt::one(), 1), Term::new(-root.clone(), 0)]))
+            .collect();
+        Polynomial::product(&polys)
     }
 
     pub fn parse(input: &str) -> Self {
-        // Implement parsing logic based on the C# code
-        unimplemented!("Parsing logic for Polynomial is not implemented yet.")
+        let input = input.replace(" ", "").replace("−", "-").replace("-", "+-");
+        let terms: Vec<Term> = input
+            .split('+')
+            .filter(|s| !s.is_empty())
+            .map(Term::parse)
+            .collect();
+        if terms.is_empty() {
+            error!("Invalid input: {}", input);
+        }
+        Polynomial::new(terms)
     }
 
     pub fn degree(&self) -> usize {
@@ -90,13 +133,32 @@ impl Polynomial {
     }
 
     pub fn derivative(&self) -> Self {
-        // Implement logic to calculate the derivative of the polynomial
-        unimplemented!("Derivative calculation is not implemented yet.")
+        let terms: Vec<Term> = self
+            .terms
+            .iter()
+            .filter_map(|term| {
+                let exponent = term.get_exponent();
+                if exponent > 0 {
+                    Some(Term::new(
+                        term.get_coefficient() * BigInt::from(exponent),
+                        exponent - 1,
+                    ))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        Polynomial::new(terms)
     }
 
     pub fn indefinite_integral(&self, c: &BigInt) -> Self {
-        // Implement logic to calculate the indefinite integral of the polynomial
-        unimplemented!("Indefinite integral calculation is not implemented yet.")
+        let mut terms = vec![Term::new(c.clone(), 0)];
+        for term in &self.terms {
+            let exponent = term.get_exponent() + 1;
+            let coefficient = term.get_coefficient() / BigInt::from(exponent);
+            terms.push(Term::new(coefficient, exponent));
+        }
+        Polynomial::new(terms)
     }
 
     fn remove_zeros(&mut self) {
@@ -243,7 +305,7 @@ impl Div for Polynomial {
 
     fn div(self, other: Polynomial) -> (Polynomial, Polynomial) {
         if other.is_zero() {
-            panic!("Division by zero polynomial");
+            error!("Division by zero polynomial");
         }
 
         let mut quotient = Polynomial::zero();

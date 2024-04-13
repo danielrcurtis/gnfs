@@ -8,7 +8,7 @@ const ELLIPSIS: &str = "[...]";
 
 pub struct DirectoryLocations {
     base_directory: String,
-    save_directory: String,
+    pub save_directory: String,
     rational_factor_pair_filepath: String,
     algebraic_factor_pair_filepath: String,
     quadratic_factor_pair_filepath: String,

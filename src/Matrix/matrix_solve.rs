@@ -1,5 +1,6 @@
 // src/matrix/matrix_solve.rs
 
+use log::{info, warn, debug, trace, error};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use rand::Rng;
@@ -13,7 +14,7 @@ pub struct MatrixSolve;
 
 impl MatrixSolve {
     pub fn gaussian_solve(cancel_token: &Arc<AtomicBool>, gnfs: &mut GNFS) {
-        save::relations::smooth::append(gnfs); // Persist any relations not already persisted to disk
+        save::relations::smooth::append(gnfs);
 
         // Because some operations clear this collection after persisting unsaved relations (to keep memory usage light)...
         // We completely reload the entire relations collection from disk.

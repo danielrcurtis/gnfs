@@ -1,9 +1,9 @@
 // src/integer_math/quadratic_residue.rs
 
 use num::{BigInt, One};
-use crate::factors::factor_pair::FactorPair;
+use crate::factor::factor_pair::FactorPair;
 use crate::integer_math::legendre::Legendre;
-use crate::core::relations::Relation;
+use crate::relation_sieve::relation::Relation;
 
 pub struct QuadraticResidue;
 

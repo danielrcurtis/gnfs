@@ -1,6 +1,6 @@
 // src/integer_math/legendre.rs
 
-use num::{BigInt, Signed, Zero};
+use num::{BigInt, Zero};
 
 pub struct Legendre;
 
