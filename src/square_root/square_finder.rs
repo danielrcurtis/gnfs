@@ -1,6 +1,6 @@
 // src/square_root/square_finder.rs
 
-use num::BigInt;
+use num::{BigInt, Zero, One};
 use crate::polynomial::polynomial::Polynomial;
 use crate::core::gnfs::GNFS;
 use crate::relation_sieve::relation::Relation;

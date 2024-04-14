@@ -1,8 +1,7 @@
 // src/relation_sieve/poly_relations_sieve_progress.rs
 
 use std::sync::Arc;
-use num::BigInt;
-use serde::{Deserialize, Serialize};
+use num::{BigInt, Integer};
 use crate::integer_math::gcd::GCD;
 use crate::core::sieve_range::SieveRange;
 use crate::core::gnfs::GNFS;
@@ -13,9 +12,9 @@ use crate::integer_math::prime_factory::PrimeFactory;
 use crate::core::count_dictionary::CountDictionary;
 use crate::core::serialization::save;
 use crate::integer_math::factorization_factory::FactorizationFactory;
-use crate::core::cancellation_token::CancellationToken;
+use crate::core::cancellation_token::{self, CancellationToken};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct PolyRelationsSieveProgress {
     pub a: BigInt,
     pub b: BigInt,
@@ -25,7 +24,6 @@ pub struct PolyRelationsSieveProgress {
     pub max_b: BigInt,
     pub smooth_relations_counter: usize,
     pub free_relations_counter: usize,
-    #[serde(skip)]
     pub gnfs: Arc<GNFS>,
 }
 
@@ -60,10 +58,11 @@ impl PolyRelationsSieveProgress {
     }
 
     pub fn smooth_relations_required_for_matrix_step(&self) -> usize {
-        PrimeFactory::get_index_from_value(&mut self.gnfs.prime_factor_base.rational_factor_base_max.clone(), &self.gnfs.prime_factor_base.rational_factor_base_max)
-            + PrimeFactory::get_index_from_value(&mut self.gnfs.prime_factor_base.algebraic_factor_base_max.clone(), &self.gnfs.prime_factor_base.algebraic_factor_base_max)
-            + self.gnfs.quadratic_factor_pair_collection.len()
-            + 3
+        let prime_factory = PrimeFactory::new();
+        (PrimeFactory::get_index_from_value(&mut prime_factory, &self.gnfs.prime_factor_base.rational_factor_base_max) as usize
+            + PrimeFactory::get_index_from_value(&mut prime_factory, &self.gnfs.prime_factor_base.algebraic_factor_base_max) as usize
+            + self.gnfs.quadratic_factor_pair_collection.0.len()
+            + 3)
     }
 
     pub fn generate_relations(&mut self, cancel_token: &CancellationToken) {
@@ -98,7 +97,7 @@ impl PolyRelationsSieveProgress {
             self.max_b += 100;
         }
 
-        self.gnfs.log_message(&format!(
+        self.gnfs.log_message_slice(&format!(
             "GenerateRelations: TargetQuantity = {}, ValueRange = {}, A = {}, B = {}, Max B = {}",
             self.smooth_relations_target_quantity, self.value_range, self.a, self.b, self.max_b
         ));
@@ -137,8 +136,8 @@ impl PolyRelationsSieveProgress {
             self.b += 1;
             self.a = start_a.clone();
         
-            self.gnfs.log_message(&format!("B = {}", self.b));
-            self.gnfs.log_message(&format!("SmoothRelations.Count: {}", self.relations.smooth_relations.len()));
+            self.gnfs.log_message_slice(&format!("B = {}", self.b));
+            self.gnfs.log_message_slice(&format!("SmoothRelations.Count: {}", self.relations.smooth_relations.len()));
         }
         
         // After the loop, call smooth::append() with a mutable reference to self.gnfs
@@ -183,7 +182,7 @@ impl PolyRelationsSieveProgress {
     pub fn add_free_relation_solution(&mut self, free_relation_solution: Vec<Relation>) {
         self.relations.free_relations.push(free_relation_solution.clone());
         free::single_solution(&mut self.gnfs.as_ref().clone(), &free_relation_solution);
-        self.gnfs.log_message(&format!("Added free relation solution: Relation count = {}", free_relation_solution.len()));
+        self.gnfs.log_message_slice(&format!("Added free relation solution: Relation count = {}", free_relation_solution.len()));
     }
 
     pub fn format_relations(&self, relations: &[Relation]) -> String {
@@ -194,7 +193,7 @@ impl PolyRelationsSieveProgress {
         result.push_str(&format!("\t|   A   |  B | ALGEBRAIC_NORM | RATIONAL_NORM | \t\tRelations count: {} Target quantity: {}\n", self.relations.smooth_relations.len(), self.smooth_relations_target_quantity));
         result.push_str("\t```````````````````````````````````````````````\n");
 
-        for rel in relations.iter().sorted_by(|a, b| (a.a * a.b).cmp(&(b.a * b.b)).reverse()) {
+        for rel in relations.iter().sort_by(|a, b| (b.a * b.b).cmp(&(a.a * a.b))) {
             result.push_str(&format!("{}\n", rel.to_string()));
             result.push_str(&format!("Algebraic {}\n", rel.algebraic_factorization.format_string_as_factorization()));
             result.push_str(&format!("Rational  {}\n", rel.rational_factorization.format_string_as_factorization()));
@@ -215,8 +214,8 @@ impl ToString for PolyRelationsSieveProgress {
 
             result.push_str(&self.format_relations(relations));
 
-            let algebraic = relations.iter().map(|rel| rel.algebraic_norm.clone()).product();
-            let rational = relations.iter().map(|rel| rel.rational_norm.clone()).product();
+            let algebraic: BigInt = relations.iter().map(|rel| rel.algebraic_norm.clone()).product();
+            let rational: BigInt = relations.iter().map(|rel| rel.rational_norm.clone()).product();
 
             let is_algebraic_square = algebraic.is_square();
             let is_rational_square = rational.is_square();

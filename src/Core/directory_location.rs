@@ -5,6 +5,7 @@ use num::BigInt;
 const SHOW_DIGITS: usize = 22;
 const ELLIPSIS: &str = "[...]";
 
+#[derive(Debug, Clone)]
 pub struct DirectoryLocations {
     base_directory: String,
     pub save_directory: String,

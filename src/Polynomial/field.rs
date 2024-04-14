@@ -1,7 +1,7 @@
 // src/polynomial/field.rs
 
 use super::*;
-use num::BigInt;
+use num::{BigInt, Zero, One};
 use num::integer::Integer;
 use std::ops::{Rem, RemAssign};
 use std::cmp::Ordering;

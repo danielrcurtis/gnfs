@@ -1,32 +1,24 @@
 // src/realation_sieve/relation.rs
 
 use num::BigInt;
-use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 use crate::core::gnfs::GNFS;
+use crate::relation_sieve::poly_relations_sieve_progress::PolyRelationsSieveProgress;
+use crate::integer_math::factorization_factory::FactorizationFactory;
 
 use crate::core::count_dictionary::CountDictionary;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct Relation {
-    #[serde(rename = "A")]
     pub a: BigInt,
-    #[serde(rename = "B")]
     pub b: BigInt,
-    #[serde(rename = "AlgebraicNorm")]
     pub algebraic_norm: BigInt,
-    #[serde(rename = "RationalNorm")]
     pub rational_norm: BigInt,
-    #[serde(rename = "AlgebraicQuotient")]
     pub algebraic_quotient: BigInt,
-    #[serde(rename = "RationalQuotient")]
     pub rational_quotient: BigInt,
-    #[serde(rename = "AlgebraicFactorization")]
     pub algebraic_factorization: CountDictionary,
-    #[serde(rename = "RationalFactorization")]
     pub rational_factorization: CountDictionary,
-    #[serde(skip)]
     pub is_persisted: bool,
 }
 
@@ -59,6 +51,37 @@ impl Relation {
 
     pub fn apply(&self, x: &BigInt) -> BigInt {
         &self.a + &self.b * x
+    }
+
+    pub fn sieve(&mut self, gnfs: &GNFS, progress: &mut PolyRelationsSieveProgress) {
+        let f_a = gnfs.current_polynomial.evaluate(&self.a);
+        let f_b = gnfs.current_polynomial.evaluate(&self.b);
+
+        self.algebraic_norm = f_a.clone();
+        self.rational_norm = self.apply(&f_b);
+
+        let (algebraic_norm, algebraic_quotient) = FactorizationFactory::factor(&self.algebraic_norm);
+        let (rational_norm, rational_quotient) = FactorizationFactory::factor(&self.rational_norm);
+
+        self.algebraic_factorization = algebraic_norm;
+        self.rational_factorization = rational_norm;
+
+        self.algebraic_quotient = algebraic_quotient;
+        self.rational_quotient = rational_quotient;
+
+        self.algebraic_factorization
+            .retain(|prime, _| gnfs.prime_factor_base.algebraic_factor_base.contains(prime));
+        self.rational_factorization
+            .retain(|prime, _| gnfs.prime_factor_base.rational_factor_base.contains(prime));
+
+        let is_algebraic_quotient_smooth =
+            self.algebraic_quotient == BigInt::from(1) || self.algebraic_quotient == BigInt::from(0);
+        let is_rational_quotient_smooth =
+            self.rational_quotient == BigInt::from(1) || self.rational_quotient == BigInt::from(0);
+
+        if is_algebraic_quotient_smooth && is_rational_quotient_smooth {
+            progress.smooth_relations_counter += 1;
+        }
     }
 }
 

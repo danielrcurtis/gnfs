@@ -1,6 +1,6 @@
 // src/polynomial/algorithms.rs
 
-use num::BigInt;
+use num::{BigInt, Zero, One, ToPrimitive, Signed, Integer};
 use num::complex::Complex;
 use crate::polynomial::polynomial::Polynomial;
 
@@ -25,12 +25,12 @@ pub fn legendre_symbol(a: &BigInt, p: &BigInt) -> i32 {
     let mut num;
     if a % 2 == BigInt::zero() {
         num = legendre_symbol(&(a / 2), p);
-        if ((p * p - 1) & 8) != BigInt::zero() {
+        if (p.pow(2) - 1) % 8 != BigInt::zero() {
             num = -num;
         }
     } else {
         num = legendre_symbol(&(p % a), a);
-        if (((a - 1) * (p - 1)) & 4) != BigInt::zero() {
+        if ((a - 1) * (p - 1)) % 4 != BigInt::zero() {
             num = -num;
         }
     }
@@ -90,7 +90,7 @@ pub fn tonelli_shanks(n: &BigInt, p: &BigInt) -> BigInt {
             i += 1;
         }
 
-        let exp = BigInt::from(2).pow((m - t - 1).to_u32().unwrap());
+        let exp = BigInt::from(2).pow(m.to_u32().unwrap() - t.to_u32().unwrap() - 1);
         let base = z.modpow(&exp, p);
         c = (c * base).mod_floor(p);
         r = (r * base * base).mod_floor(p);
@@ -107,7 +107,7 @@ pub fn chinese_remainder_theorem(n: &[BigInt], a: &[BigInt]) -> BigInt {
 
     for i in 0..n.len() {
         let p = &prod_n / n[i];
-        sum += a[i] * modular_multiplicative_inverse(p, &n[i]) * p;
+        sum += a[i] * modular_multiplicative_inverse(&p, &n[i]) * p;
     }
 
     sum % prod_n
@@ -172,8 +172,8 @@ pub fn laguerre_method(poly: &Polynomial, guess: f64, max_iterations: u32, preci
             break;
         }
 
-        let g = derivative_poly.evaluate(&BigInt::from(x as i64)) / poly.evaluate(&BigInt::from(x as i64));
-        let h = g * g - derivative_poly2.evaluate(&BigInt::from(x as i64)) / poly.evaluate(&BigInt::from(x as i64));
+        let g = derivative_poly.evaluate(&BigInt::from(x as i64)).to_f64().unwrap() / poly.evaluate(&BigInt::from(x as i64)).to_f64().unwrap();
+        let h = g * g - derivative_poly2.evaluate(&BigInt::from(x as i64)).to_f64().unwrap() / poly.evaluate(&BigInt::from(x as i64)).to_f64().unwrap();
         let delta = (n - 1.0) * (n * h - g * g);
 
         if delta < 0.0 {
@@ -195,7 +195,7 @@ pub fn laguerre_method(poly: &Polynomial, guess: f64, max_iterations: u32, preci
         f64::NAN
     } else {
         let digits = (-precision.log10()) as u32;
-        x.round_to_decimal_places(digits)
+        x.round_to(digits)
     }
 }
 
@@ -237,6 +237,6 @@ pub fn laguerre_method_complex(poly: &Polynomial, guess: Complex<f64>, max_itera
         Complex::new(0.0, 0.0)
     } else {
         let digits = (-precision.log10()) as u32;
-        Complex::new(x.re.round_to_decimal_places(digits), x.im.round_to_decimal_places(digits))
+        Complex::new(x.re.round_to(digits), x.im.round_to(digits))
     }
 }

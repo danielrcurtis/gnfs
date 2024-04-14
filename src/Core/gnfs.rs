@@ -126,6 +126,14 @@ impl GNFS {
         gnfs
     }
 
+    pub fn log_message(&mut self, message: String) {
+        info!("{}", message);
+    }
+
+    pub fn log_message_slice(&mut self, message: &String) {
+        info!("{}", message);
+    }
+
     fn calculate_degree(n: &BigInt) -> usize {
         let base_10 = n.to_string().len();
         if base_10 < 65 {
