@@ -32,7 +32,7 @@ impl GaussianMatrix {
 
         let selected_rows: Vec<GaussianRow> = relations_as_rows
             .iter_mut()
-            .take(gnfs.current_relations_progress.smooth_relations_required_for_matrix_step.to_usize().unwrap())
+            .take(gnfs.current_relations_progress.smooth_relations_required_for_matrix_step().to_usize().unwrap())
             .map(|row| row.to_owned())
             .collect();
 

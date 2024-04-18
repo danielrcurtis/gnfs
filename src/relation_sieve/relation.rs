@@ -6,7 +6,6 @@ use std::hash::{Hash, Hasher};
 use crate::core::gnfs::GNFS;
 use crate::relation_sieve::poly_relations_sieve_progress::PolyRelationsSieveProgress;
 use crate::integer_math::factorization_factory::FactorizationFactory;
-
 use crate::core::count_dictionary::CountDictionary;
 
 #[derive(Debug, Clone)]

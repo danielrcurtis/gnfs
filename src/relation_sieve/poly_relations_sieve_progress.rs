@@ -58,7 +58,7 @@ impl PolyRelationsSieveProgress {
     }
 
     pub fn smooth_relations_required_for_matrix_step(&self) -> usize {
-        let prime_factory = PrimeFactory::new();
+        let mut prime_factory = PrimeFactory::new();
         (PrimeFactory::get_index_from_value(&mut prime_factory, &self.gnfs.prime_factor_base.rational_factor_base_max) as usize
             + PrimeFactory::get_index_from_value(&mut prime_factory, &self.gnfs.prime_factor_base.algebraic_factor_base_max) as usize
             + self.gnfs.quadratic_factor_pair_collection.0.len()
@@ -217,7 +217,7 @@ impl ToString for PolyRelationsSieveProgress {
             let algebraic: BigInt = relations.iter().map(|rel| rel.algebraic_norm.clone()).product();
             let rational: BigInt = relations.iter().map(|rel| rel.rational_norm.clone()).product();
 
-            let is_algebraic_square = algebraic.is_square();
+            let is_algebraic_square = algebraic.is_square(); // look at abstract algebraic factorization  <----
             let is_rational_square = rational.is_square();
 
             let mut alg_count_dict = CountDictionary::new();
