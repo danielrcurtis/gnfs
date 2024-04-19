@@ -137,10 +137,6 @@ impl GNFS {
         gnfs
     }
 
-    pub fn log_message(&mut self, message: String) {
-        info!("{}", message);
-    }
-
     pub fn log_message_slice(&mut self, message: &String) {
         info!("{}", message);
     }

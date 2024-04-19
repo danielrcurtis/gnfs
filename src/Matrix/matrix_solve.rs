@@ -20,8 +20,8 @@ impl MatrixSolve {
         let smooth_count = smooth_relations.len();
         let required_relations_count = &gnfs.current_relations_progress.smooth_relations_required_for_matrix_step();
 
-        gnfs.log_message(format!("Total relations count: {}", smooth_count));
-        gnfs.log_message(format!("Relations required to proceed: {}", required_relations_count));
+        gnfs.log_message_slice(&format!("Total relations count: {}", smooth_count));
+        gnfs.log_message_slice(&format!("Relations required to proceed: {}", required_relations_count));
 
         while smooth_relations.len() >= required_relations_count.to_usize().unwrap() {
             let mut selected_relations = Vec::new();
