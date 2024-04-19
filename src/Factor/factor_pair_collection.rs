@@ -30,13 +30,13 @@ impl FactorPairCollection {
     }
 }
 
-impl IntoIterator for FactorPairCollection {
+impl Iterator for FactorPairCollection {
     type Item = FactorPair;
-    type IntoIter = std::vec::IntoIter<Self::Item>;
 
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.pop()
     }
+
 }
 
 impl Default for FactorPairCollection {
@@ -44,6 +44,14 @@ impl Default for FactorPairCollection {
         FactorPairCollection::new()
     }
 }
+
+
+impl ExactSizeIterator for FactorPairCollection {
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+}
+
 
 pub struct Factory;
 

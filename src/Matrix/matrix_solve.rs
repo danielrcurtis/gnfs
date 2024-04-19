@@ -2,13 +2,13 @@ use log::{info, warn, debug, trace, error};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use rand::Rng;
-use num::ToPrimitive;
+use num::{BigInt, ToPrimitive};
 use crate::core::gnfs::GNFS;
 use crate::core::count_dictionary::CountDictionary;
 use crate::matrix::gaussian_matrix::GaussianMatrix;
 use crate::core::serialization::save;
 use crate::core::serialization::load;
-
+use crate::square_root::square_finder::is_square;
 pub struct MatrixSolve;
 
 impl MatrixSolve {
@@ -42,16 +42,16 @@ impl MatrixSolve {
                 let relations = gaussian_reduction.get_solution_set(number);
                 number += 1;
 
-                let algebraic = relations.iter().map(|rel| &rel.algebraic_norm).product();
-                let rational = relations.iter().map(|rel| &rel.rational_norm).product();
+                let algebraic: BigInt = relations.iter().map(|rel| &rel.algebraic_norm).product();
+                let rational: BigInt = relations.iter().map(|rel| &rel.rational_norm).product();
 
                 let mut alg_count_dict = CountDictionary::new();
                 for rel in &relations {
                     alg_count_dict.combine(&rel.algebraic_factorization);
                 }
 
-                let is_algebraic_square = algebraic.is_square();
-                let is_rational_square = rational.is_square();
+                let is_algebraic_square =  is_square(&algebraic);
+                let is_rational_square = is_square(&rational);
 
                 if is_algebraic_square && is_rational_square {
                     solution.push(relations);

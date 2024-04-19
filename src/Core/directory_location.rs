@@ -7,14 +7,14 @@ const ELLIPSIS: &str = "[...]";
 
 #[derive(Debug, Clone)]
 pub struct DirectoryLocations {
-    base_directory: String,
+    pub base_directory: String,
     pub save_directory: String,
-    rational_factor_pair_filepath: String,
-    algebraic_factor_pair_filepath: String,
-    quadratic_factor_pair_filepath: String,
-    parameters_filepath: String,
-    smooth_relations_filepath: String,
-    rough_relations_filepath: String,
+    pub rational_factor_pair_filepath: String,
+    pub algebraic_factor_pair_filepath: String,
+    pub quadratic_factor_pair_filepath: String,
+    pub parameters_filepath: String,
+    pub smooth_relations_filepath: String,
+    pub rough_relations_filepath: String,
 }
 
 impl DirectoryLocations {
@@ -48,7 +48,7 @@ impl DirectoryLocations {
         format!("{}/{}", self.base_directory, directory_name)
     }
 
-    fn get_unique_name_from_n(n: &BigInt) -> String {
+    pub fn get_unique_name_from_n(n: &BigInt) -> String {
         let result = n.to_string();
         if result.len() >= (SHOW_DIGITS * 2) + ELLIPSIS.len() {
             format!(

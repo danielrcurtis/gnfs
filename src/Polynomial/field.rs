@@ -115,8 +115,9 @@ pub fn exponentiate_mod(start_poly: &Polynomial, exponent: &BigInt, f: &Polynomi
 
     let (sign, bytes) = exponent.to_bytes_be();
     if let Some(bits) = BigUint::from_bytes_be(bytes.as_slice()) {
+        let mut base = result.clone(); // Declare the `base` variable
         for (i, &bit) in bits.iter().enumerate().skip(1) {
-            let base = mod_mod(&base.square(), f, p);
+            base = mod_mod(&base.square(), f, p); // Use the `base` variable
             if bit != 0 {
                 result = mod_mod(&Polynomial::multiply(&result, &base), f, p);
             }

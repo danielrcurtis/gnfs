@@ -1,10 +1,14 @@
 // src/core/gnfs.rs
 
 use log::{info, warn, debug, trace, error};
-use num::{BigInt, Zero};
+use num::{BigInt, ToPrimitive, Zero};
+use std::path::{Path,PathBuf};
+use std::sync::{atomic::AtomicBool, Arc};
+use std::iter::Iterator;
 use crate::core::factor_base::FactorBase;
-use crate::factor::factor_pair_collection::FactorPairCollection;
+use crate::factor::factor_pair_collection::{FactorPairCollection, Factory};
 use crate::polynomial::polynomial::Polynomial;
+use crate::polynomial::polynomial::Term;
 use crate::relation_sieve::poly_relations_sieve_progress::PolyRelationsSieveProgress;
 use crate::relation_sieve::relation::Relation;
 use crate::core::solution::Solution;
@@ -52,23 +56,30 @@ impl GNFS {
             rational_factor_pair_collection: FactorPairCollection::default(),
             algebraic_factor_pair_collection: FactorPairCollection::default(),
             quadratic_factor_pair_collection: FactorPairCollection::default(),
-            save_locations: DirectoryLocations::new(n),
+            save_locations: DirectoryLocations::new(&DirectoryLocations::get_unique_name_from_n(&n)),
         };
 
-        if created_new_data || !gnfs.save_locations.save_directory.exists() {
+        if created_new_data || !Path::new(&gnfs.save_locations.save_directory).exists() {
             // New GNFS instance
-            if !gnfs.save_locations.save_directory.exists() {
+            if !Path::new(&gnfs.save_locations.save_directory).exists() {
                 std::fs::create_dir_all(&gnfs.save_locations.save_directory).unwrap();
                 info!("Directory created: {:?}", gnfs.save_locations.save_directory);
             } else {
-                if gnfs.save_locations.smooth_relations_save_file.exists() {
-                    std::fs::remove_file(&gnfs.save_locations.smooth_relations_save_file).unwrap();
+                if Path::new(&gnfs.save_locations.smooth_relations_filepath).exists() {
+                    std::fs::remove_file(&gnfs.save_locations.smooth_relations_filepath).unwrap();
                 }
-                if gnfs.save_locations.rough_relations_save_file.exists() {
-                    std::fs::remove_file(&gnfs.save_locations.rough_relations_save_file).unwrap();
+                if Path::new(&gnfs.save_locations.rough_relations_filepath).exists() {
+                    std::fs::remove_file(&gnfs.save_locations.rough_relations_filepath).unwrap();
                 }
-                if gnfs.save_locations.quadratic_factor_pair_save_file.exists() {
-                    std::fs::remove_file(&gnfs.save_locations.quadratic_factor_pair_save_file).unwrap();
+                if Path::new(&gnfs.save_locations.rational_factor_pair_filepath).exists() {
+                    std::fs::remove_file(&gnfs.save_locations.rational_factor_pair_filepath).unwrap();
+                }
+
+                if Path::new(&gnfs.save_locations.algebraic_factor_pair_filepath).exists() {
+                    std::fs::remove_file(&gnfs.save_locations.algebraic_factor_pair_filepath).unwrap();
+                }
+                if Path::new(&gnfs.save_locations.quadratic_factor_pair_filepath).exists() {
+                    std::fs::remove_file(&gnfs.save_locations.quadratic_factor_pair_filepath).unwrap();
                 }
                 for free_relation_path in gnfs.save_locations.enumerate_free_relation_files() {
                     std::fs::remove_file(free_relation_path).unwrap();
@@ -81,7 +92,7 @@ impl GNFS {
                 gnfs.polynomial_degree = poly_degree as usize;
             }
 
-            if cancel_token.is_cancelled() {
+            if cancel_token.is_cancellation_requested() {
                 return gnfs;
             }
 
@@ -113,9 +124,9 @@ impl GNFS {
             }
 
             gnfs.current_relations_progress = PolyRelationsSieveProgress::new(
-                &gnfs,
-                relation_quantity,
-                relation_value_range,
+                Arc::new(gnfs.clone()),
+                relation_quantity.try_into().unwrap(),
+                relation_value_range.into(),
             );
             info!("Relations container initialized. Target quantity: {}", relation_quantity);
 
@@ -174,7 +185,7 @@ impl GNFS {
         self.prime_factor_base.rational_factor_base_max = bound.clone();
         self.prime_factor_base.algebraic_factor_base_max = &self.prime_factor_base.rational_factor_base_max * 3;
 
-        self.prime_factor_base.quadratic_base_count = Self::calculate_quadratic_base_size(self.polynomial_degree);
+        self.prime_factor_base.quadratic_base_count = Self::calculate_quadratic_base_size(self.polynomial_degree).to_i32().unwrap();
 
         self.prime_factor_base.quadratic_factor_base_min = &self.prime_factor_base.algebraic_factor_base_max + 20;
         // TODO: Implement PrimeFactory::get_approximate_value_from_index
@@ -203,23 +214,33 @@ impl GNFS {
     pub fn set_prime_factor_bases(&mut self) {
         info!("Constructing new prime bases (- of 3)...");
 
-        // TODO: Implement PrimeFactory::increase_max_value
-        // PrimeFactory::increase_max_value(&self.prime_factor_base.quadratic_factor_base_max);
-
-        self.prime_factor_base.rational_factor_base = PrimeFactory::get_primes_to(&self.prime_factor_base.rational_factor_base_max);
+        let mut prime_factory = PrimeFactory::new();
+        self.prime_factor_base.rational_factor_base = PrimeFactory::get_primes_to(&mut prime_factory, &self.prime_factor_base.rational_factor_base_max)
+            .collect::<Vec<BigInt>>(); // Collect the iterator into a Vec<BigInt>
         info!("Completed rational prime base (1 of 3).");
 
-        self.prime_factor_base.algebraic_factor_base = PrimeFactory::get_primes_to(&self.prime_factor_base.algebraic_factor_base_max);
+        self.prime_factor_base.algebraic_factor_base = PrimeFactory::get_primes_to(&mut prime_factory, &self.prime_factor_base.algebraic_factor_base_max)
+            .collect::<Vec<BigInt>>(); // Collect the iterator into a Vec<BigInt>
         info!("Completed algebraic prime base (2 of 3).");
 
-        self.prime_factor_base.quadratic_factor_base = PrimeFactory::get_primes_from(&self.prime_factor_base.quadratic_factor_base_min)
-            .take(self.prime_factor_base.quadratic_base_count)
-            .collect();
+        self.prime_factor_base.quadratic_factor_base = PrimeFactory::get_primes_from(&mut prime_factory, &self.prime_factor_base.quadratic_factor_base_min)
+            .take(self.prime_factor_base.quadratic_base_count as usize) // Convert i32 to usize
+            .collect::<Vec<BigInt>>(); // Collect the iterator into a Vec<BigInt>
         info!("Completed quadratic prime base (3 of 3).");
+    }
+    
+    fn calculate_quadratic_base_size(poly_degree: usize) -> usize {
+        match poly_degree {
+            d if d <= 3 => 10,
+            4 => 20,
+            5 | 6 => 40,
+            7 => 80,
+            _ => 100,
+        }
     }
 
     fn construct_new_polynomial(&mut self, polynomial_base: &BigInt, poly_degree: usize) {
-        self.current_polynomial = Polynomial::new(&self.n, polynomial_base, poly_degree);
+        self.current_polynomial = Polynomial::new(vec![Term::new(self.n.clone(), 0)]);
 
         self.polynomial_collection.push(self.current_polynomial.clone());
         // TODO: Implement saving the state
@@ -227,60 +248,46 @@ impl GNFS {
     }
 
     fn new_factor_pair_collections(&mut self, cancel_token: &CancellationToken) {
-        info!("Constructing new factor bases (- of 3)...");
-
-        if self.rational_factor_pair_collection.is_empty() {
-            self.rational_factor_pair_collection = FactorPairCollection::build_rational_factor_pair_collection(self);
-        }
-        // TODO: Implement saving the state
-        // Serialization::save_factor_pair_rational(self);
-        info!("Completed rational factor base (1 of 3).");
-
-        if cancel_token.is_cancelled() {
-            return;
-        }
-        if self.algebraic_factor_pair_collection.is_empty() {
-            self.algebraic_factor_pair_collection = FactorPairCollection::build_algebraic_factor_pair_collection(cancel_token, self);
-        }
-        // TODO: Implement saving the state
-        // Serialization::save_factor_pair_algebraic(self);
-        info!("Completed algebraic factor base (2 of 3).");
-
-        if cancel_token.is_cancelled() {
-            return;
-        }
-        if self.quadratic_factor_pair_collection.is_empty() {
-            self.quadratic_factor_pair_collection = FactorPairCollection::build_quadratic_factor_pair_collection(cancel_token, self);
-        }
-        // TODO: Implement saving the state
-        // Serialization::save_factor_pair_quadratic(self);
-        info!("Completed quadratic factor base (3 of 3).");
-
-        if cancel_token.is_cancelled() {
-            return;
+        if self.rational_factor_pair_collection.len() == 0 {
+            // TODO: Implement saving the state
+            // Serialization::save_factor_pair_algebraic(self);
+            info!("Completed algebraic factor base (2 of 3).");
+    
+            if cancel_token.is_cancellation_requested() {
+                return;
+            }
+            if self.quadratic_factor_pair_collection.len() == 0 {
+                let cancel_token_arc = Arc::new(AtomicBool::new(cancel_token.is_cancellation_requested()));
+                self.quadratic_factor_pair_collection = Factory::build_quadratic_factor_pair_collection(&cancel_token_arc, self);
+            }
+            // TODO: Implement saving the state
+            // Serialization::save_factor_pair_quadratic(self);
+            info!("Completed quadratic factor base (3 of 3).");
+    
+            if cancel_token.is_cancellation_requested() {
+                return;
+            }
         }
     }
 
     pub fn group_rough_numbers(rough_numbers: &[Relation]) -> Vec<Vec<Relation>> {
         let mut results = Vec::new();
         let mut last_item: Option<&Relation> = None;
-    
         for pair in rough_numbers.iter()
-            .sorted_by(|a, b| Ord::cmp(&a.algebraic_quotient, &b.algebraic_quotient)
-                .then(Ord::cmp(&a.rational_quotient, &b.rational_quotient)))
-        {
-            if let Some(last) = last_item {
-                if pair.algebraic_quotient == last.algebraic_quotient && pair.rational_quotient == last.rational_quotient {
-                    results.push(vec![pair.clone(), last.clone()]);
-                    last_item = None;
+            .map(|x| x.clone())
+            .collect::<Vec<Relation>>()
+            {
+                if let Some(last) = last_item {
+                    if pair.algebraic_quotient == last.algebraic_quotient && pair.rational_quotient == last.rational_quotient {
+                        results.push(vec![pair.clone(), last.clone()]);
+                        last_item = None;
+                    } else {
+                        last_item = Some(&pair);
+                    }
                 } else {
-                    last_item = Some(pair);
+                    last_item = Some(&pair);
                 }
-            } else {
-                last_item = Some(pair);
             }
-        }
-    
         results
     }
 
@@ -304,10 +311,9 @@ impl GNFS {
 
     pub fn set_factorization_solution(&mut self, p: &BigInt, q: &BigInt) -> bool {
         let n = p * q;
-
         if n == self.n {
-            self.factorization = Some(Solution::new(p.clone(), q.clone()));
-            let path = self.save_locations.save_directory.join("Solution.txt");
+            self.factorization = Some(Solution::new(p, q));
+            let path = PathBuf::from(&self.save_locations.save_directory).join("Solution.txt");
             // TODO: Implement writing the solution to a file
             true
         } else {
@@ -315,20 +321,19 @@ impl GNFS {
         }
     }
 
-    fn calculate_quadratic_base_size(poly_degree: usize) -> usize {
-        match poly_degree {
-            d if d <= 3 => 10,
-            4 => 20,
-            5 | 6 => 40,
-            7 => 80,
-            _ => 100,
-        }
-    }
+    // fn calculate_quadratic_base_size(poly_degree: usize) -> usize {
+    //     match poly_degree {
+    //         d if d <= 3 => 10,
+    //         4 => 20,
+    //         5 | 6 => 40,
+    //         7 => 80,
+    //         _ => 100,
+    //     }
+    // }
 
     pub fn get_current_polynomial(&self) -> &Polynomial {
         &self.current_polynomial
     }
-
 
 }
 
@@ -345,9 +350,9 @@ impl ToString for GNFS {
         result.push_str(&format!("QuadraticPrimeBase Range: {} - {}\n", self.prime_factor_base.quadratic_factor_base_min, self.prime_factor_base.quadratic_factor_base_max));
         result.push_str(&format!("QuadraticPrimeBase Count: {}\n\n", self.prime_factor_base.quadratic_base_count));
         result.push_str(&format!("RFB - Rational Factor Base - Count: {} - Array of (p, m % p) with prime p\n", self.rational_factor_pair_collection.len()));
-        result.push_str(&format!("{}\n\n", self.rational_factor_pair_collection.to_string(200)));
+        result.push_str(&format!("{}\n\n", self.rational_factor_pair_collection.to_string()));
         result.push_str(&format!("AFB - Algebraic Factor Base - Count: {} - Array of (p, r) such that ƒ(r) ≡ 0 (mod p) and p is prime\n", self.algebraic_factor_pair_collection.len()));
-        result.push_str(&format!("{}\n\n", self.algebraic_factor_pair_collection.to_string(200)));
+        result.push_str(&format!("{}\n\n", self.algebraic_factor_pair_collection.to_string()));
         result.push_str(&format!("QFB - Quadratic Factor Base - Count: {} - Array of (p, r) such that ƒ(r) ≡ 0 (mod p) and p is prime\n", self.quadratic_factor_pair_collection.len()));
         result.push_str(&format!("{}\n\n", self.quadratic_factor_pair_collection.to_string()));
 
@@ -373,5 +378,3 @@ impl Default for GNFS {
         }
     }
 }
-
-
