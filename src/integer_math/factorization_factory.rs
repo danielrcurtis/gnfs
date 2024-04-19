@@ -1,6 +1,7 @@
 // src/integer_math/factorization_factory.rs
 
 use num::{BigInt, FromPrimitive, One, Zero};
+use crate::core::count_dictionary::CountDictionary;
 
 pub struct FactorizationFactory;
 
@@ -44,4 +45,32 @@ impl FactorizationFactory {
         }
         true
     }
+
+    pub fn factor(input: &BigInt) -> (CountDictionary, BigInt) {
+        let mut factorization = CountDictionary::new();
+        let mut quotient = input.clone();
+
+        let two = BigInt::from(2);
+        while &quotient % &two == BigInt::zero() {
+            factorization.add(&two);
+            quotient /= &two;
+        }
+
+        let mut divisor = BigInt::from(3);
+        while divisor * divisor <= quotient {
+            if &quotient % &divisor == BigInt::zero() {
+                factorization.add(&divisor);
+                quotient /= &divisor;
+            } else {
+                divisor += 2;
+            }
+        }
+
+        if quotient > BigInt::one() {
+            factorization.add(&quotient);
+        }
+
+        (factorization, quotient)
+    }
+    
 }

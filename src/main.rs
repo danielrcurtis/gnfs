@@ -2,7 +2,7 @@
 
 use log::{info, warn, debug, trace, error};
 use env_logger::Env;
-use crate::core::cpu_info::CpuInfo;
+use cache_size;
 
 
 
@@ -16,6 +16,8 @@ fn main() {
 
     info!("Hello, world!");
     let cpu_info = CpuInfo::new();
-    let l1_cache_size = cpu_info.l1_cache_size();
+    let l1_cache_line_size = cache_size::l1_cache_line_size();
+    let l1_cache_size = cache_size::l1_cache_size();
     info!("L1 cache size: {}", l1_cache_size);
+    info!("L1 cache line size: {}", l1_cache_line_size);
 }

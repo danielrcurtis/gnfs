@@ -44,6 +44,13 @@ impl CountDictionary {
         result
     }
 
+    pub fn retain<F>(&mut self, predicate: F)
+    where
+        F: FnMut(&BigInt, &BigInt) -> bool,
+    {
+        self.0.retain(predicate);
+    }
+
     pub fn format_string_as_factorization(&self) -> String {
         let factors: Vec<String> = self.0.iter().map(|(key, value)| format!("{}^{}", key, value)).collect();
         format!(" -> {{\t{}\t}};", factors.join(" * "))

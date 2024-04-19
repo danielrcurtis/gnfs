@@ -13,7 +13,7 @@ use crate::core::count_dictionary::CountDictionary;
 use crate::core::serialization::save;
 use crate::integer_math::factorization_factory::FactorizationFactory;
 use crate::core::cancellation_token::{self, CancellationToken};
-
+use crate::square_root::square_finder::is_square;
 #[derive(Debug, Clone)]
 pub struct PolyRelationsSieveProgress {
     pub a: BigInt,
@@ -119,7 +119,7 @@ impl PolyRelationsSieveProgress {
                 self.a = a;
                 if GCD::are_coprime(&[self.a.clone(), self.b.clone()]) {
                     let mut rel = Relation::new(self.gnfs.as_ref(), &self.a, &self.b);
-                    rel.sieve(self);
+                    rel.sieve(self.gnfs.as_ref(), self); // Pass self.gnfs.as_ref() as the first argument
         
                     let smooth = rel.is_smooth();
                     if smooth {
@@ -187,20 +187,23 @@ impl PolyRelationsSieveProgress {
 
     pub fn format_relations(&self, relations: &[Relation]) -> String {
         let mut result = String::new();
-
+    
         result.push_str("Smooth relations:\n");
         result.push_str("\t_______________________________________________\n");
         result.push_str(&format!("\t|   A   |  B | ALGEBRAIC_NORM | RATIONAL_NORM | \t\tRelations count: {} Target quantity: {}\n", self.relations.smooth_relations.len(), self.smooth_relations_target_quantity));
         result.push_str("\t```````````````````````````````````````````````\n");
-
-        for rel in relations.iter().sort_by(|a, b| (b.a * b.b).cmp(&(a.a * a.b))) {
+    
+        let mut sorted_relations: Vec<_> = relations.iter().collect();
+        sorted_relations.sort_by(|a, b| (b.a * b.b).cmp(&(a.a * a.b)));
+    
+        for rel in sorted_relations {
             result.push_str(&format!("{}\n", rel.to_string()));
             result.push_str(&format!("Algebraic {}\n", rel.algebraic_factorization.format_string_as_factorization()));
             result.push_str(&format!("Rational  {}\n", rel.rational_factorization.format_string_as_factorization()));
             result.push_str("\n");
         }
         result.push_str("\n");
-
+    
         result
     }
 }
@@ -217,8 +220,8 @@ impl ToString for PolyRelationsSieveProgress {
             let algebraic: BigInt = relations.iter().map(|rel| rel.algebraic_norm.clone()).product();
             let rational: BigInt = relations.iter().map(|rel| rel.rational_norm.clone()).product();
 
-            let is_algebraic_square = algebraic.is_square(); // look at abstract algebraic factorization  <----
-            let is_rational_square = rational.is_square();
+            let is_algebraic_square = is_square(&algebraic); // look at abstract algebraic factorization  <----
+            let is_rational_square = is_square(&rational);
 
             let mut alg_count_dict = CountDictionary::new();
             for rel in relations {
@@ -252,5 +255,12 @@ impl ToString for PolyRelationsSieveProgress {
         } else {
             self.format_relations(&self.relations.smooth_relations)
         }
+    }
+}
+
+impl std::fmt::Display for Relation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Customize the formatting of Relation struct
+        write!(f, "Relation {{ a: {}, b: {}, algebraic_norm: {}, rational_norm: {} }}", self.a, self.b, self.algebraic_norm, self.rational_norm)
     }
 }

@@ -1,6 +1,7 @@
 // src/square_root/
 
 use num::BigInt;
+use num::Integer;
 use num::{One, Zero};
 use std::cmp::Ordering;
 use crate::integer_math::legendre::Legendre;
@@ -8,7 +9,7 @@ use crate::polynomial::polynomial::Polynomial;
 
 pub fn square_root(start_polynomial: &Polynomial, f: &Polynomial, p: &BigInt, degree: i32, m: &BigInt) -> Polynomial {
     let q = p.pow(degree as u32);
-    let mut s = &q - 1;
+    let mut s: BigInt = &q - 1;
 
     let mut r = 0;
     while s.is_even() {
@@ -17,7 +18,7 @@ pub fn square_root(start_polynomial: &Polynomial, f: &Polynomial, p: &BigInt, de
     }
 
     let half_s = (&s + 1) / 2;
-    let half_s = if r == 1 && q.mod_floor(&BigInt::from(4)) == 3 {
+    let half_s = if r == 1 && q.mod_floor(&BigInt::from(4)) == BigInt::from(3) {
         (&q + 1) / 4
     } else {
         half_s
@@ -40,7 +41,7 @@ pub fn square_root(start_polynomial: &Polynomial, f: &Polynomial, p: &BigInt, de
 
         lambda = (&lambda * &zeta.pow((2u32.pow((r - i) as u32)) as u32)).mod_floor(p);
 
-        omega_poly = Polynomial::multiply(&omega_poly, &zeta.pow((2u32.pow(((r - i) - 1) as u32)) as u32), p);
+        omega_poly = Polynomial::multiply(&omega_poly, &Polynomial::from_term(zeta.pow(2u32.pow((r - i - 1) as u32) as u32), 0));
 
         if lambda == BigInt::one() || i > r {
             break;
@@ -55,37 +56,35 @@ pub fn modular_multiplicative_inverse(a: &BigInt, p: &BigInt) -> BigInt {
         return BigInt::zero();
     }
 
-    let mut divisor;
     let mut dividend = a.clone();
-    let mut diff = BigInt::zero();
-    let mut result = BigInt::one();
-    let mut quotient;
-    let mut last_divisor;
-    let mut remainder = p.clone();
+    let mut divisor = p.clone();
+    let mut result = BigInt::zero();
+    let mut last_result = BigInt::one();
 
-    while dividend > BigInt::one() {
-        divisor = remainder.clone();
-        quotient = dividend.div_rem(&divisor, &mut remainder).0;
+    while divisor > BigInt::zero() {
+        let (quotient, remainder) = dividend.div_rem(&divisor);
         dividend = divisor;
-        last_divisor = diff;
+        divisor = remainder;
 
-        diff = &result - &(&quotient * &diff);
-        result = last_divisor;
+        let temp_result = result;
+        result = last_result - &quotient * &result;
+        last_result = temp_result;
     }
 
-    if result < BigInt::zero() {
-        result += p;
+    if last_result < BigInt::zero() {
+        last_result += p;
     }
-    result
+
+    last_result
 }
 
 pub fn chinese_remainder(primes: &[BigInt], values: &[BigInt]) -> BigInt {
-    let prime_product = primes.iter().product();
+    let prime_product: BigInt = primes.iter().product();
 
     let mut z = BigInt::zero();
     for (i, pi) in primes.iter().enumerate() {
         let pj = &prime_product / pi;
-        let aj = modular_multiplicative_inverse(pj, pi);
+        let aj = modular_multiplicative_inverse(&pj, &pi);
         let ax_pj = &values[i] * &aj * pj;
 
         z += ax_pj;

@@ -1,7 +1,5 @@
 // src/integer_math/combinatorics.rs
 
-use std::iter::empty;
-
 pub struct Combinatorics;
 
 impl Combinatorics {

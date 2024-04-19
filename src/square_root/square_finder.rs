@@ -1,6 +1,6 @@
 // src/square_root/square_finder.rs
 
-use num::{BigInt, Zero, One};
+use num::{BigInt, Zero, One, Integer};
 use crate::polynomial::polynomial::Polynomial;
 use crate::core::gnfs::GNFS;
 use crate::relation_sieve::relation::Relation;
@@ -109,7 +109,7 @@ impl SquareFinder {
         square_finder.polynomial_derivative = Polynomial::get_derivative_polynomial(&sieve.current_polynomial);
         square_finder.polynomial_derivative_squared = Polynomial::square(&square_finder.polynomial_derivative);
         square_finder.polynomial_derivative_squared_in_field =
-            Polynomial::field_modulus(&square_finder.polynomial_derivative_squared, &sieve.current_polynomial);
+            Polynomial::field_modulus_from_polynomial(&square_finder.polynomial_derivative_squared, &sieve.current_polynomial);
 
         log_function("".to_string());
         log_function(format!("ƒ'(θ) = {}", square_finder.polynomial_derivative));
@@ -123,11 +123,12 @@ impl SquareFinder {
         log_function(format!("ƒ'(m) = {}", square_finder.polynomial_derivative_value));
         log_function(format!("ƒ'(m)² = {}", square_finder.polynomial_derivative_value_squared));
 
-        square_finder.monic_polynomial = Polynomial::make_monic(&sieve.current_polynomial, &sieve.polynomial_base);
+        let monic_polynomial = Polynomial::make_monic(&sieve.current_polynomial, &sieve.polynomial_base);
+        square_finder.monic_polynomial = monic_polynomial;
         square_finder.monic_polynomial_derivative = Polynomial::get_derivative_polynomial(&square_finder.monic_polynomial);
         square_finder.monic_polynomial_derivative_squared = Polynomial::square(&square_finder.monic_polynomial_derivative);
         square_finder.monic_polynomial_derivative_squared_in_field =
-            Polynomial::field_modulus(&square_finder.monic_polynomial_derivative_squared, &square_finder.monic_polynomial);
+            Polynomial::field_modulus_from_polynomial(&square_finder.monic_polynomial_derivative_squared, &square_finder.monic_polynomial);
 
         square_finder.monic_polynomial_derivative_value = square_finder.monic_polynomial_derivative.evaluate(&sieve.polynomial_base);
         square_finder.monic_polynomial_derivative_value_squared = square_finder.monic_polynomial_derivative_squared.evaluate(&sieve.polynomial_base);
@@ -314,8 +315,8 @@ impl SquareFinder {
             (self.log_function)("".to_string());
             (self.log_function)(format!("γ = {}", self.algebraic_square_root_residue));
 
-            let min = BigInt::min(&self.rational_square_root_residue, &self.algebraic_square_root_residue);
-            let max = BigInt::max(&self.rational_square_root_residue, &self.algebraic_square_root_residue);
+            let min = BigInt::min(self.rational_square_root_residue, self.algebraic_square_root_residue);
+            let max = BigInt::max(self.rational_square_root_residue, self.algebraic_square_root_residue);
 
             let a = &max + &min;
             let b = &max - &min;
@@ -575,7 +576,7 @@ fn algebraic_square_root(f: &Polynomial, m: &BigInt, degree: i32, dd: &Polynomia
     let test_evaluations_are_modular_inverses = inverse_prime == result2;
 
     if both_results_agree && test_evaluations_are_modular_inverses {
-        (BigInt::min(&result1, &result2), BigInt::max(&result1, &result2))
+        (BigInt::min(result1, result2), BigInt::max(result1, result2))
     } else {
         (BigInt::zero(), BigInt::zero())
     }
@@ -586,4 +587,33 @@ fn modular_inverse(poly: &Polynomial, mod_: &BigInt) -> Polynomial {
         .map(|trm| Term::new((mod_ - &trm.coefficient()).mod_floor(mod_), trm.degree()))
         .collect();
     Polynomial::from_terms(terms)
+}
+
+pub fn is_square(n: &BigInt) -> bool {
+    let zero = BigInt::from(0);
+    let one = BigInt::from(1);
+    let two = BigInt::from(2);
+
+    if n < &zero {
+        return false;
+    }
+
+    let mut x = n.clone();
+    while &x % &two == zero {
+        x /= &two;
+    }
+
+    if &x == &one {
+        return true;
+    }
+
+    let mut i = BigInt::from(3);
+    while &i * &i <= x {
+        if &x % &i == zero {
+            return false;
+        }
+        i += &two;
+    }
+
+    true
 }
