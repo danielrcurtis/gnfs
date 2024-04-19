@@ -2,7 +2,7 @@
 
 use std::cmp::Ordering;
 use std::ops::{Add, Sub, Mul, Div, Index, IndexMut};
-use num::{BigInt, Zero, One, Integer, Signed};
+use num::{BigInt, Zero, One, Integer, Signed, ToPrimitive};
 use log::{info, warn, debug, trace, error};
 use std::fmt::{Display, Formatter, Result};
 use crate::square_root::finite_field_arithmetic::remainder;
@@ -229,6 +229,15 @@ impl Polynomial {
         }
         result
     }
+
+    // pub fn evaluate<T: ToPrimitive>(&self, x: T) -> BigInt {
+    //     let mut result = BigInt::zero();
+    //     for term in &self.terms {
+    //         let x_bigint = BigInt::from(x.to_i64().unwrap());
+    //         result += term.coefficient.clone() * x_bigint.pow(term.exponent as u32);
+    //     }
+    //     result
+    // }
 
     pub fn derivative(&self) -> Self {
         let terms: Vec<Term> = self.terms.iter().filter_map(|term| {

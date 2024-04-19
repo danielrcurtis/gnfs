@@ -113,17 +113,16 @@ pub fn exponentiate_mod(start_poly: &Polynomial, exponent: &BigInt, f: &Polynomi
         return result;
     }
 
-    let (sign, bytes) = exponent.to_bytes_be();
-    if let Some(bits) = BigUint::from_bytes_be(bytes.as_slice()) {
-        let mut base = result.clone(); // Declare the `base` variable
-        for (i, &bit) in bits.iter().enumerate().skip(1) {
-            base = mod_mod(&base.square(), f, p); // Use the `base` variable
-            if bit != 0 {
-                result = mod_mod(&Polynomial::multiply(&result, &base), f, p);
-            }
+    let (_, bytes) = exponent.to_bytes_be();
+    let bits = BigUint::from_bytes_be(&bytes);
+    let mut base = start_poly.clone();
+    
+    // Iterate through each bit, starting from the most significant bit
+    for bit in bits.to_radix_be(2).iter().skip(1) {
+        base = mod_mod(&base.square(), f, p);
+        if *bit == 1 {
+            result = mod_mod(&Polynomial::multiply(&result, &base), f, p);
         }
-    } else {
-        panic!("Failed to convert exponent to BigUint");
     }
 
     result

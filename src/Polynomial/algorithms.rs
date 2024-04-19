@@ -92,9 +92,9 @@ pub fn tonelli_shanks(n: &BigInt, p: &BigInt) -> BigInt {
 
         let exp = BigInt::from(2).pow(m.to_u32().unwrap() - t.to_u32().unwrap() - 1);
         let base = z.modpow(&exp, p);
+        let mut z = base.modpow(&BigInt::from(2), p); // Declare z as mutable
         c = (c * base).mod_floor(p);
         r = (r * base * base).mod_floor(p);
-        z = base.modpow(&BigInt::from(2), p);
         t += 1;
     }
 
@@ -132,6 +132,7 @@ pub fn eulers_totient_phi(n: u32) -> u32 {
     }
 
     let mut result = n;
+    let mut n = n;
     if n & 1 == 0 {
         result >>= 1;
         while n & 1 == 0 {
@@ -168,14 +169,14 @@ pub fn laguerre_method(poly: &Polynomial, guess: f64, max_iterations: u32, preci
     let derivative_poly2 = derivative_poly.derivative();
 
     for i in 0..max_iterations {
-        if poly.evaluate(&BigInt::from(x as i64)).abs() < precision {
+        if poly.evaluate(&BigInt::from(x as i64)).abs().to_f64().unwrap() < precision {
             break;
         }
 
         let g = derivative_poly.evaluate(&BigInt::from(x as i64)).to_f64().unwrap() / poly.evaluate(&BigInt::from(x as i64)).to_f64().unwrap();
         let h = g * g - derivative_poly2.evaluate(&BigInt::from(x as i64)).to_f64().unwrap() / poly.evaluate(&BigInt::from(x as i64)).to_f64().unwrap();
-        let delta = (n - 1.0) * (n * h - g * g);
 
+        let delta = (n - 1.0) * (n * h - g * g);
         if delta < 0.0 {
             break;
         }
@@ -191,11 +192,11 @@ pub fn laguerre_method(poly: &Polynomial, guess: f64, max_iterations: u32, preci
         x -= a;
     }
 
-    if poly.evaluate(&BigInt::from(x as i64)).abs() >= precision {
+    if poly.evaluate(&BigInt::from(x as i64)).abs().to_f64().unwrap() >= precision {
         f64::NAN
     } else {
         let digits = (-precision.log10()) as u32;
-        x.round_to(digits)
+        x.round() as f64 / 10.0_f64.powi(digits as i32)
     }
 }
 
@@ -210,33 +211,38 @@ pub fn laguerre_method_complex(poly: &Polynomial, guess: Complex<f64>, max_itera
     let derivative_poly2 = derivative_poly.derivative();
 
     for i in 0..max_iterations {
-        if poly.evaluate(&x).norm() < precision {
+        let x_bigint = BigInt::from(x.re.round() as i64);
+        if poly.evaluate(&x_bigint).abs().to_f64().unwrap() < precision {
             break;
         }
 
-        let g = derivative_poly.evaluate(&x) / poly.evaluate(&x);
-        let h = g * g - derivative_poly2.evaluate(&x) / poly.evaluate(&x);
-        let delta = (n - 1.0) * (n * h - g * g);
+        let g = derivative_poly.evaluate(&x_bigint).to_f64().unwrap() / poly.evaluate(&x_bigint).to_f64().unwrap();
+        let h = g * g - derivative_poly2.evaluate(&x_bigint).to_f64().unwrap() / poly.evaluate(&x_bigint).to_f64().unwrap();
 
-        if delta.norm() < 0.0 {
+        let delta = (n - 1.0) * (n * h - g * g);
+        if delta < 0.0 {
             break;
         }
 
         let sqrt_delta = delta.sqrt();
-        let denominator = if (g + sqrt_delta).norm() > (g - sqrt_delta).norm() {
+        let denominator = if (g + sqrt_delta).abs() > (g - sqrt_delta).abs() {
             g + sqrt_delta
         } else {
             g - sqrt_delta
         };
 
-        let a = n / denominator;
+        let a = Complex::new(n / denominator, 0.0);
         x -= a;
     }
 
-    if poly.evaluate(&x).norm() >= precision {
+    let x_bigint = BigInt::from(x.re.round() as i64);
+    if poly.evaluate(&x_bigint).abs().to_f64().unwrap() >= precision {
         Complex::new(0.0, 0.0)
     } else {
         let digits = (-precision.log10()) as u32;
-        Complex::new(x.re.round_to(digits), x.im.round_to(digits))
+        Complex::new(
+            x.re.round() as f64 / 10.0_f64.powi(digits as i32),
+            x.im.round() as f64 / 10.0_f64.powi(digits as i32),
+        )
     }
 }
