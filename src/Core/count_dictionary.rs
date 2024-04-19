@@ -1,5 +1,4 @@
 // src/core/count_dictionary.rs
-
 use num::{BigInt, One, Zero};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -27,6 +26,10 @@ impl CountDictionary {
         }
     }
 
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
     pub fn to_dict(&self) -> BTreeMap<BigInt, BigInt> {
         self.0.clone()
     }
@@ -46,7 +49,7 @@ impl CountDictionary {
 
     pub fn retain<F>(&mut self, predicate: F)
     where
-        F: FnMut(&BigInt, &BigInt) -> bool,
+        F: FnMut(&BigInt, &mut BigInt) -> bool,
     {
         self.0.retain(predicate);
     }

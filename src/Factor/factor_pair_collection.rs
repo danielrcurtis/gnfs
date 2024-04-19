@@ -30,6 +30,21 @@ impl FactorPairCollection {
     }
 }
 
+impl IntoIterator for FactorPairCollection {
+    type Item = FactorPair;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl Default for FactorPairCollection {
+    fn default() -> Self {
+        FactorPairCollection::new()
+    }
+}
+
 pub struct Factory;
 
 impl Factory {

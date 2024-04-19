@@ -5,7 +5,7 @@ use std::ops::{Add, Sub, Mul, Div, Index, IndexMut};
 use num::{BigInt, Zero, One, Integer, Signed};
 use log::{info, warn, debug, trace, error};
 use std::fmt::{Display, Formatter, Result};
-use std::cmp::Ordering;
+use crate::square_root::finite_field_arithmetic::remainder;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Term {
@@ -134,6 +134,10 @@ impl Polynomial {
         }
     }
 
+    pub fn one() -> Self {
+        Polynomial::from_term(BigInt::one(), 0)
+    }
+
     pub fn from_roots(roots: &[BigInt]) -> Self {
         let polys: Vec<Polynomial> = roots
             .iter()
@@ -191,6 +195,32 @@ impl Polynomial {
         self.terms.last().map_or(0, |term| term.exponent)
     }
     
+    pub fn divide(&self, other: &Polynomial) -> (Polynomial, Polynomial) {
+        if other.degree() > self.degree() || other.cmp(self) == Ordering::Greater {
+            return (Polynomial::zero(), self.clone());
+        }
+
+        let right_degree = other.degree();
+        let quotient_degree = self.degree() - right_degree + 1;
+        let divisor = other[right_degree].clone();
+
+        let mut polynomial = self.clone();
+        let mut quotient = Polynomial::zero();
+
+        for i in (0..quotient_degree).rev() {
+            quotient[i] = polynomial[right_degree + i].clone() / divisor.clone();
+            polynomial[right_degree + i] = BigInt::zero();
+
+            for j in (i..=right_degree + i - 1).rev() {
+                polynomial[j] -= &quotient[i] * &other[j - i];
+            }
+        }
+
+        polynomial.remove_zeros();
+        quotient.remove_zeros();
+
+        (quotient, polynomial)
+    }
 
     pub fn evaluate(&self, x: &BigInt) -> BigInt {
         let mut result = BigInt::zero();
@@ -366,10 +396,10 @@ impl Polynomial {
         while exponent > BigInt::zero() {
             if exponent.is_odd() {
                 result = Polynomial::multiply(&result, &base);
-                result = mod_mod(&result, modulus, prime);
+                result = Polynomial::mod_mod(&result, modulus, prime);
             }
             base = base.square();
-            base = mod_mod(&base, modulus, prime);
+            base = Polynomial::mod_mod(&base, modulus, prime);
             exponent /= 2;
         }
 
@@ -537,222 +567,228 @@ impl Display for Polynomial {
     }
 }
 
-pub mod algorithms {
-    use super::*;
-    use num::{BigInt, Complex, Integer, One, Zero};
-    use num::ToPrimitive;
-    use std::cmp::Ordering;
-
-    pub fn eulers_criterion(a: &BigInt, p: &BigInt) -> BigInt {
-        let exponent = (p - 1) / 2;
-        a.modpow(&exponent, p)
-    }
-
-    pub fn legendre_symbol(a: &BigInt, p: &BigInt) -> i32 {
-        if p < &BigInt::from(2) {
-            panic!("Parameter 'p' must not be < 2, but you have supplied: {}", p);
-        }
-
-        if a.is_zero() {
-            return 0;
-        }
-
-        if a == &BigInt::one() {
-            return 1;
-        }
-
-        let mut num;
-        if a % 2 == BigInt::zero() {
-            num = legendre_symbol(&(a / 2), p);
-            if ((p * p - 1) & 8) != BigInt::zero() {
-                num = -num;
-            }
-        } else {
-            num = legendre_symbol(&(p % a), a);
-            if (((a - 1) * (p - 1)) & 4) != BigInt::zero() {
-                num = -num;
-            }
-        }
-
-        num
-    }
-
-    pub fn legendre_symbol_search(start: &BigInt, modulus: &BigInt, goal: &BigInt) -> BigInt {
-        if goal != &BigInt::from(-1) && goal != &BigInt::zero() && goal != &BigInt::one() {
-            panic!("Parameter 'goal' may only be -1, 0 or 1. It was {}.", goal);
-        }
-
-        let mut i = start.clone();
-        while legendre_symbol(&i, modulus) != goal.to_i32().unwrap() {
-            i += 1;
-        }
-
-        i
-    }
-
-    pub fn tonelli_shanks(n: &BigInt, p: &BigInt) -> BigInt {
-        let legendre = legendre_symbol(n, p);
-        if legendre != 1 {
-            panic!("Parameter n is not a quadratic residue, mod p. Legendre symbol = {}", legendre);
-        }
-
-        if p.mod_floor(&BigInt::from(4)) == 3 {
-            return n.modpow(&((p + 1) / 4), p);
-        }
-
-        let mut q = p - 1;
-        let mut s = BigInt::zero();
-        while q.mod_floor(&BigInt::from(2)) == BigInt::zero() {
-            q /= 2;
-            s += 1;
-        }
-
-        if s.is_zero() {
-            panic!("Unexpected error: s is zero");
-        }
-
-        if s == BigInt::one() {
-            panic!("This case should have already been covered by the p mod 4 check above.");
-        }
-
-        let z = legendre_symbol_search(&BigInt::zero(), p, &BigInt::from(-1));
-        let mut c = n.modpow(&((q + 1) / 2), p);
-        let mut r = n.modpow(&q, p);
-        let mut t = BigInt::one();
-        let mut m = s;
-        while r != BigInt::one() && t < m {
-            let exponent = BigInt::from(2).pow((m - t - 1).to_u32().unwrap());
-            let b = z.modpow(&exponent, p);
-            c = (c * b).mod_floor(p);
-            r = (r * b * b).mod_floor(p);
-            z = b * b;
-            t += 1;
-        }
-
-        c
-    }
-
-    pub fn chinese_remainder_theorem(n: &[BigInt], a: &[BigInt]) -> BigInt {
-        let product = n.iter().fold(BigInt::one(), |acc, &x| acc * x);
-        let mut sum = BigInt::zero();
-        for i in 0..n.len() {
-            let p = &product / &n[i];
-            sum += &a[i] * modular_multiplicative_inverse(p, &n[i]) * p;
-        }
-        sum % product
-    }
-
-    pub fn modular_multiplicative_inverse(a: &BigInt, m: &BigInt) -> BigInt {
-        let mut r = a % m;
-        for i in 1..m {
-            if (&r * i) % m == BigInt::one() {
-                return BigInt::from(i);
-            }
-        }
-        BigInt::one()
-    }
-
-    pub fn eulers_totient_phi(n: i32) -> i32 {
-        if n < 3 {
-            return 1;
-        }
-        if n == 3 {
-            return 2;
-        }
-
-        let mut result = n;
-        if (n & 1) == 0 {
-            result >>= 1;
-            while ((n >>= 1) & 1) == 0 {}
-        }
-
-        let mut i = 3;
-        while i * i <= n {
-            if n % i == 0 {
-                result -= result / i;
-                while (n /= i) % i == 0 {}
-            }
-            i += 2;
-        }
-
-        if n > 1 {
-            result -= result / n;
-        }
-
-        result
-    }
-
-    pub fn laguerres_method(poly: &Polynomial, guess: f64, max_iterations: f64, precision: f64) -> f64 {
-        if poly.degree() < 1 {
-            panic!("No root exists for a constant (degree 0) polynomial!");
-        }
-
-        let mut x = guess;
-        let n = poly.degree() as f64;
-        let derivative = poly.get_derivative_polynomial();
-        let second_derivative = derivative.get_derivative_polynomial();
-
-        for i in 0..(max_iterations as i32) {
-            if !(poly.evaluate(x).abs() >= precision) {
-                break;
-            }
-
-            let g = derivative.evaluate(x) / poly.evaluate(x);
-            let h = g * g - second_derivative.evaluate(x) / poly.evaluate(x);
-            let sqrt_term = ((n - 1.0) * (n * h - g * g)).sqrt();
-            let denominator = if (g + sqrt_term).abs() >= (g - sqrt_term).abs() {
-                g + sqrt_term
-            } else {
-                g - sqrt_term
-            };
-            let delta = n / denominator;
-            x -= delta;
-
-            if (i as f64) == max_iterations {
-                return f64::NAN;
-            }
-        }
-
-        if poly.evaluate(x).abs() >= precision {
-            return f64::NAN;
-        }
-
-        let digits = (-precision.log10()) as i32;
-        x.round_to(digits)
-    }
-
-    pub fn laguerres_method_complex(poly: &Polynomial, guess: Complex<f64>, max_iterations: f64, precision: f64) -> Complex<f64> {
-        if poly.degree() < 1 {
-            panic!("No root exists for a constant (degree 0) polynomial!");
-        }
-
-        let mut x = guess;
-        let n = poly.degree() as f64;
-        let derivative = poly.get_derivative_polynomial();
-        let second_derivative = derivative.get_derivative_polynomial();
-
-        for i in 0..(max_iterations as i32) {
-            if Complex::abs(poly.evaluate(x)) < precision {
-                break;
-            }
-
-            let g = derivative.evaluate(x) / poly.evaluate(x);
-            let h = g * g - second_derivative.evaluate(x) / poly.evaluate(x);
-            let sqrt_term = Complex::sqrt((n - 1.0) * (n * h - g * g));
-            let denominator = if Complex::abs(g + sqrt_term) >= Complex::abs(g - sqrt_term) {
-                g + sqrt_term
-            } else {
-                g - sqrt_term
-            };
-            let delta = n / denominator;
-            x -= delta;
-
-            if (i as f64) == max_iterations {
-                return Complex::zero();
-            }
-        }
-
-        let digits = (-precision.log10()) as i32;
-        Complex::new(x.re.round_to(digits), x.im.round_to(digits))
+impl Default for Polynomial {
+    fn default() -> Self {
+        Polynomial::zero()
     }
 }
+
+// pub mod algorithms {
+//     use super::*;
+//     use num::{BigInt, Complex, Integer, One, Zero};
+//     use num::ToPrimitive;
+//     use std::cmp::Ordering;
+
+//     pub fn eulers_criterion(a: &BigInt, p: &BigInt) -> BigInt {
+//         let exponent = (p - 1) / 2;
+//         a.modpow(&exponent, p)
+//     }
+
+//     pub fn legendre_symbol(a: &BigInt, p: &BigInt) -> i32 {
+//         if p < &BigInt::from(2) {
+//             panic!("Parameter 'p' must not be < 2, but you have supplied: {}", p);
+//         }
+
+//         if a.is_zero() {
+//             return 0;
+//         }
+
+//         if a == &BigInt::one() {
+//             return 1;
+//         }
+
+//         let mut num;
+//         if a % 2 == BigInt::zero() {
+//             num = legendre_symbol(&(a / 2), p);
+//             if ((p * p - 1) & 8) != BigInt::zero() {
+//                 num = -num;
+//             }
+//         } else {
+//             num = legendre_symbol(&(p % a), a);
+//             if (((a - 1) * (p - 1)) & 4) != BigInt::zero() {
+//                 num = -num;
+//             }
+//         }
+
+//         num
+//     }
+
+//     pub fn legendre_symbol_search(start: &BigInt, modulus: &BigInt, goal: &BigInt) -> BigInt {
+//         if goal != &BigInt::from(-1) && goal != &BigInt::zero() && goal != &BigInt::one() {
+//             panic!("Parameter 'goal' may only be -1, 0 or 1. It was {}.", goal);
+//         }
+
+//         let mut i = start.clone();
+//         while legendre_symbol(&i, modulus) != goal.to_i32().unwrap() {
+//             i += 1;
+//         }
+
+//         i
+//     }
+
+//     pub fn tonelli_shanks(n: &BigInt, p: &BigInt) -> BigInt {
+//         let legendre = legendre_symbol(n, p);
+//         if legendre != 1 {
+//             panic!("Parameter n is not a quadratic residue, mod p. Legendre symbol = {}", legendre);
+//         }
+
+//         if p.mod_floor(&BigInt::from(4)) == 3 {
+//             return n.modpow(&((p + 1) / 4), p);
+//         }
+
+//         let mut q = p - 1;
+//         let mut s = BigInt::zero();
+//         while q.mod_floor(&BigInt::from(2)) == BigInt::zero() {
+//             q /= 2;
+//             s += 1;
+//         }
+
+//         if s.is_zero() {
+//             panic!("Unexpected error: s is zero");
+//         }
+
+//         if s == BigInt::one() {
+//             panic!("This case should have already been covered by the p mod 4 check above.");
+//         }
+
+//         let z = legendre_symbol_search(&BigInt::zero(), p, &BigInt::from(-1));
+//         let mut c = n.modpow(&((q + 1) / 2), p);
+//         let mut r = n.modpow(&q, p);
+//         let mut t = BigInt::one();
+//         let mut m = s;
+//         while r != BigInt::one() && t < m {
+//             let exponent = BigInt::from(2).pow((m - t - 1).to_u32().unwrap());
+//             let b = z.modpow(&exponent, p);
+//             c = (c * b).mod_floor(p);
+//             r = (r * b * b).mod_floor(p);
+//             z = b * b;
+//             t += 1;
+//         }
+
+//         c
+//     }
+
+//     pub fn chinese_remainder_theorem(n: &[BigInt], a: &[BigInt]) -> BigInt {
+//         let product = n.iter().fold(BigInt::one(), |acc, &x| acc * x);
+//         let mut sum = BigInt::zero();
+//         for i in 0..n.len() {
+//             let p = &product / &n[i];
+//             sum += &a[i] * modular_multiplicative_inverse(&p, &n[i]) * p;
+//         }
+//         sum % product
+//     }
+
+//     pub fn modular_multiplicative_inverse(a: &BigInt, m: &BigInt) -> BigInt {
+//         let mut r = a % m;
+//         for i in 1..m {
+//             if (&r * i) % m == BigInt::one() {
+//                 return BigInt::from(i);
+//             }
+//         }
+//         BigInt::one()
+//     }
+
+//     pub fn eulers_totient_phi(n: i32) -> i32 {
+//         if n < 3 {
+//             return 1;
+//         }
+//         if n == 3 {
+//             return 2;
+//         }
+
+//         let mut result = n;
+//         if (n & 1) == 0 {
+//             result >>= 1;
+//             while ((n >>= 1) & 1) == 0 {}
+//         }
+
+//         let mut i = 3;
+//         while i * i <= n {
+//             if n % i == 0 {
+//                 result -= result / i;
+//                 while (n /= i) % i == 0 {}
+//             }
+//             i += 2;
+//         }
+
+//         if n > 1 {
+//             result -= result / n;
+//         }
+
+//         result
+//     }
+
+//     pub fn laguerres_method(poly: &Polynomial, guess: f64, max_iterations: f64, precision: f64) -> f64 {
+//         if poly.degree() < 1 {
+//             panic!("No root exists for a constant (degree 0) polynomial!");
+//         }
+
+//         let mut x = guess;
+//         let n = poly.degree() as f64;
+//         let derivative = poly.get_derivative_polynomial();
+//         let second_derivative = derivative.get_derivative_polynomial();
+
+//         for i in 0..(max_iterations as i32) {
+//             if !(poly.evaluate(x).abs() >= precision) {
+//                 break;
+//             }
+
+//             let g = derivative.evaluate(x) / poly.evaluate(x);
+//             let h = g * g - second_derivative.evaluate(x) / poly.evaluate(x);
+//             let sqrt_term = ((n - 1.0) * (n * h - g * g)).sqrt();
+//             let denominator = if (g + sqrt_term).abs() >= (g - sqrt_term).abs() {
+//                 g + sqrt_term
+//             } else {
+//                 g - sqrt_term
+//             };
+//             let delta = n / denominator;
+//             x -= delta;
+
+//             if (i as f64) == max_iterations {
+//                 return f64::NAN;
+//             }
+//         }
+
+//         if poly.evaluate(x).abs() >= precision {
+//             return f64::NAN;
+//         }
+
+//         let digits = (-precision.log10()) as i32;
+//         x.round_to(digits)
+//     }
+
+//     pub fn laguerres_method_complex(poly: &Polynomial, guess: Complex<f64>, max_iterations: f64, precision: f64) -> Complex<f64> {
+//         if poly.degree() < 1 {
+//             panic!("No root exists for a constant (degree 0) polynomial!");
+//         }
+
+//         let mut x = guess;
+//         let n = poly.degree() as f64;
+//         let derivative = poly.get_derivative_polynomial();
+//         let second_derivative = derivative.get_derivative_polynomial();
+
+//         for i in 0..(max_iterations as i32) {
+//             if Complex::abs(poly.evaluate(x)) < precision {
+//                 break;
+//             }
+
+//             let g = derivative.evaluate(x) / poly.evaluate(x);
+//             let h = g * g - second_derivative.evaluate(x) / poly.evaluate(x);
+//             let sqrt_term = Complex::sqrt((n - 1.0) * (n * h - g * g));
+//             let denominator = if Complex::abs(g + sqrt_term) >= Complex::abs(g - sqrt_term) {
+//                 g + sqrt_term
+//             } else {
+//                 g - sqrt_term
+//             };
+//             let delta = n / denominator;
+//             x -= delta;
+
+//             if (i as f64) == max_iterations {
+//                 return Complex::zero();
+//             }
+//         }
+
+//         let digits = (-precision.log10()) as i32;
+//         Complex::new(x.re.round_to(digits), x.im.round_to(digits))
+//     }
+// }

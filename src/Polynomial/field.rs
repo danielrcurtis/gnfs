@@ -1,11 +1,13 @@
 // src/polynomial/field.rs
 
 use super::*;
-use num::{BigInt, Zero, One};
-use num::integer::Integer;
-use std::ops::{Rem, RemAssign};
+use num::{BigInt, Zero, One, BigUint, ToPrimitive, FromPrimitive, Integer, Signed};
+use num::integer::gcd as gcd_bigint;
+use std::ops::{Rem, RemAssign, Sub};
 use std::cmp::Ordering;
 use crate::polynomial::polynomial::Polynomial;
+use crate::polynomial::polynomial::Term;
+use bitvec::prelude::*;
 
 pub fn gcd(left: &Polynomial, right: &Polynomial, modulus: &BigInt) -> Polynomial {
     let mut poly1 = left.clone();
@@ -29,7 +31,7 @@ pub fn gcd(left: &Polynomial, right: &Polynomial, modulus: &BigInt) -> Polynomia
 }
 
 pub fn mod_mod(to_reduce: &Polynomial, mod_poly: &Polynomial, prime_modulus: &BigInt) -> Polynomial {
-    modulus(&modulus(to_reduce, mod_poly), prime_modulus)
+    modulus_bigint(&modulus(to_reduce, mod_poly), prime_modulus)
 }
 
 pub fn modulus(poly: &Polynomial, modulus: &Polynomial) -> Polynomial {
@@ -107,23 +109,25 @@ pub fn pow_mod(poly: &Polynomial, exponent: &BigInt, modulus: &BigInt) -> Polyno
 
 pub fn exponentiate_mod(start_poly: &Polynomial, exponent: &BigInt, f: &Polynomial, p: &BigInt) -> Polynomial {
     let mut result = Polynomial::one();
-
     if exponent == &BigInt::zero() {
         return result;
     }
 
-    let mut base = start_poly.clone();
-    let bits = exponent.to_bytes_be();
-
-    for (i, &bit) in bits.iter().enumerate().skip(1) {
-        base = mod_mod(&base.square(), f, p);
-        if bit {
-            result = mod_mod(&result * &base, f, p);
+    let (sign, bytes) = exponent.to_bytes_be();
+    if let Some(bits) = BigUint::from_bytes_be(bytes.as_slice()) {
+        for (i, &bit) in bits.iter().enumerate().skip(1) {
+            let base = mod_mod(&base.square(), f, p);
+            if bit != 0 {
+                result = mod_mod(&Polynomial::multiply(&result, &base), f, p);
+            }
         }
+    } else {
+        panic!("Failed to convert exponent to BigUint");
     }
 
     result
 }
+
 
 pub fn mod_pow(poly: &Polynomial, exponent: &BigInt, modulus: &Polynomial) -> Polynomial {
     if exponent.sign() == num::bigint::Sign::Minus {
@@ -136,10 +140,11 @@ pub fn mod_pow(poly: &Polynomial, exponent: &BigInt, modulus: &Polynomial) -> Po
         e if e == &BigInt::from(2) => poly.square(),
         _ => {
             let mut result = poly.square();
-            for _ in 0..exponent - 2 {
-                result = &result * poly;
+            let upper_bound = exponent.sub(&BigInt::from(2)).to_usize().expect("Exponent is too large");
+            for _ in 0..upper_bound {
+                result = Polynomial::multiply(&result, poly);
                 if &result < modulus {
-                    result = modulus(&result, modulus);
+                    result = field::modulus(&result, modulus);
                 }
             }
             result
@@ -148,8 +153,8 @@ pub fn mod_pow(poly: &Polynomial, exponent: &BigInt, modulus: &Polynomial) -> Po
 }
 
 pub fn is_irreducible_over_field(f: &Polynomial, p: &BigInt) -> bool {
-    let poly = Polynomial::from_coefficients(vec![BigInt::one(), -BigInt::one()]);
-    let gcd = gcd(&mod_mod(&poly, f, p), f);
+    let poly = Polynomial::new(vec![Term::new(BigInt::one(), 1), Term::new(-BigInt::one(), 0)]);
+    let gcd = gcd(&mod_mod(&poly, f, p), f, p);
     gcd.cmp(&Polynomial::one()) == Ordering::Equal
 }
 
@@ -164,7 +169,7 @@ pub fn is_irreducible_over_p(poly: &Polynomial, p: &BigInt) -> bool {
     let is_monic = leading_remainder != BigInt::zero() && constant_remainder != BigInt::zero();
 
     coefficients.push(p.clone());
-    let gcd = coefficients.iter().gcd();
+    let gcd = coefficients.iter().fold(coefficients[0].clone(), |a, b| gcd_bigint(a, b.clone()));
 
-    is_monic && gcd == &BigInt::one()
+    is_monic && gcd == BigInt::one()
 }

@@ -4,15 +4,16 @@ use std::collections::HashMap;
 use crate::core::gnfs::GNFS;
 use crate::relation_sieve::relation::Relation;
 use crate::matrix::gaussian_row::GaussianRow;
+use num::ToPrimitive;
 
 pub struct GaussianMatrix {
-    m: Vec<Vec<bool>>,
-    free_cols: Vec<bool>,
-    elimination_step: bool,
-    _gnfs: GNFS,
-    relations: Vec<Relation>,
-    column_index_relation_dictionary: HashMap<usize, Relation>,
-    relation_matrix_tuple: Vec<(Relation, Vec<bool>)>,
+    pub m: Vec<Vec<bool>>,
+    pub free_cols: Vec<bool>,
+    pub elimination_step: bool,
+    pub _gnfs: GNFS,
+    pub relations: Vec<Relation>,
+    pub column_index_relation_dictionary: HashMap<usize, Relation>,
+    pub relation_matrix_tuple: Vec<(Relation, Vec<bool>)>,
 }
 
 impl GaussianMatrix {

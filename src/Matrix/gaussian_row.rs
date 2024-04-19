@@ -1,12 +1,13 @@
 // src/matrix/gaussian_row.rs
 
-use num::BigInt;
+use num::{BigInt, Signed};
 use crate::core::gnfs::GNFS;
 use crate::relation_sieve::relation::Relation;
 use crate::core::count_dictionary::CountDictionary;
 use crate::integer_math::prime_factory::PrimeFactory;
 use crate::integer_math::quadratic_residue::QuadraticResidue;
 
+#[derive(Clone)]
 pub struct GaussianRow {
     pub sign: bool,
     pub rational_part: Vec<bool>,
@@ -17,7 +18,7 @@ pub struct GaussianRow {
 
 impl GaussianRow {
     pub fn new(gnfs: &GNFS, relation: Relation) -> Self {
-        let sign = relation.rational_norm.sign() == -1;
+        let sign = relation.rational_norm.is_negative();
 
         let qfb = gnfs.quadratic_factor_pair_collection.clone();
         let rational_max_value = &gnfs.prime_factor_base.rational_factor_base_max;
@@ -39,21 +40,19 @@ impl GaussianRow {
     }
 
     fn get_vector(prime_factorization_dict: &CountDictionary, max_value: &BigInt) -> Vec<bool> {
-        let prime_index = PrimeFactory::get_index_from_value(max_value);
+        let mut prime_factory = PrimeFactory::new();
+        let prime_index = prime_factory.get_index_from_value(max_value);
         let mut result = vec![false; prime_index as usize];
-
-        if prime_factorization_dict.is_empty() {
+        if prime_factorization_dict.len() == 0 {
             return result;
         }
-
         for (key, value) in prime_factorization_dict.to_dict() {
-            if key > max_value || key == &BigInt::from(-1) || value % 2 == BigInt::from(0) {
+            if key > *max_value || key == BigInt::from(-1) || value % 2 == BigInt::from(0) {
                 continue;
             }
-            let index = PrimeFactory::get_index_from_value(&key);
+            let index = prime_factory.get_index_from_value(&key);
             result[index as usize] = true;
         }
-
         result
     }
 

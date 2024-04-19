@@ -89,26 +89,26 @@ impl GNFS {
             info!("Polynomial constructed: {}", gnfs.current_polynomial);
             info!("Polynomial base: {}", gnfs.polynomial_base);
 
-            if cancel_token.is_cancelled() {
+            if cancel_token.is_cancellation_requested() {
                 return gnfs;
             }
 
             gnfs.calculate_prime_factor_base_bounds(prime_bound);
 
-            if cancel_token.is_cancelled() {
+            if cancel_token.is_cancellation_requested() {
                 return gnfs;
             }
 
             gnfs.set_prime_factor_bases();
 
-            if cancel_token.is_cancelled() {
+            if cancel_token.is_cancellation_requested() {
                 return gnfs;
             }
 
             gnfs.new_factor_pair_collections(cancel_token);
             info!("Factor bases populated.");
 
-            if cancel_token.is_cancelled() {
+            if cancel_token.is_cancellation_requested() {
                 return gnfs;
             }
 
@@ -352,6 +352,25 @@ impl ToString for GNFS {
         result.push_str(&format!("{}\n\n", self.quadratic_factor_pair_collection.to_string()));
 
         result
+    }
+}
+
+impl Default for GNFS {
+    fn default() -> Self {
+        GNFS {
+            n: BigInt::from(0),
+            factorization: None,
+            polynomial_degree: 0,
+            polynomial_base: BigInt::from(0),
+            polynomial_collection: Vec::new(),
+            current_polynomial: Polynomial::default(),
+            current_relations_progress: PolyRelationsSieveProgress::default(),
+            prime_factor_base: FactorBase::default(),
+            rational_factor_pair_collection: FactorPairCollection::default(),
+            algebraic_factor_pair_collection: FactorPairCollection::default(),
+            quadratic_factor_pair_collection: FactorPairCollection::default(),
+            save_locations: DirectoryLocations::default(),
+        }
     }
 }
 

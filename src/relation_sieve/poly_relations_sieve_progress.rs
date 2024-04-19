@@ -258,6 +258,22 @@ impl ToString for PolyRelationsSieveProgress {
     }
 }
 
+impl Default for PolyRelationsSieveProgress {
+    fn default() -> Self {
+        PolyRelationsSieveProgress {
+            a: BigInt::from(0),
+            b: BigInt::from(3),
+            smooth_relations_target_quantity: 0,
+            value_range: BigInt::from(0),
+            relations: RelationContainer::new(),
+            max_b: BigInt::from(0),
+            smooth_relations_counter: 0,
+            free_relations_counter: 0,
+            gnfs: Arc::new(GNFS::default()),
+        }
+    }
+}
+
 impl std::fmt::Display for Relation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Customize the formatting of Relation struct

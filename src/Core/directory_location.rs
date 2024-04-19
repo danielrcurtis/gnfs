@@ -67,3 +67,18 @@ impl DirectoryLocations {
         Vec::new()
     }
 }
+
+impl Default for DirectoryLocations {
+    fn default() -> Self {
+        DirectoryLocations {
+            base_directory: "GNFS".to_string(),
+            save_directory: "".to_string(),
+            rational_factor_pair_filepath: "".to_string(),
+            algebraic_factor_pair_filepath: "".to_string(),
+            quadratic_factor_pair_filepath: "".to_string(),
+            parameters_filepath: "".to_string(),
+            smooth_relations_filepath: "".to_string(),
+            rough_relations_filepath: "".to_string(),
+        }
+    }
+}
