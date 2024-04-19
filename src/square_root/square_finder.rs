@@ -12,6 +12,7 @@ use crate::integer_math::prime_factory::PrimeFactory;
 use crate::core::static_random::StaticRandom;
 use crate::square_root::finite_field_arithmetic;
 use crate::core::cancellation_token::CancellationToken;
+use crate::polynomial::algorithms;
 
 pub struct SquareFinder {
     pub rational_product: BigInt,
@@ -157,7 +158,7 @@ impl SquareFinder {
         (self.log_function)("Rational Square Dependency:".to_string());
         (self.log_function)(rational_square_factorization_string);
 
-        if cancel_token.is_cancelled() {
+        if cancel_token.is_cancellation_requested() {
             return;
         }
 
@@ -188,7 +189,7 @@ impl SquareFinder {
             self.roots_of_s.push((rel.a.clone(), rel.b.clone()));
         }
 
-        if cancel_token.is_cancelled() {
+        if cancel_token.is_cancellation_requested() {
             return (BigInt::one(), BigInt::one());
         }
 
@@ -201,7 +202,7 @@ impl SquareFinder {
             self.polynomial_ring_elements.push(new_poly);
         }
 
-        if cancel_token.is_cancelled() {
+        if cancel_token.is_cancellation_requested() {
             return (BigInt::one(), BigInt::one());
         }
 
@@ -215,7 +216,7 @@ impl SquareFinder {
         (self.log_function)(" in ℤ".to_string());
         (self.log_function)("".to_string());
 
-        if cancel_token.is_cancelled() {
+        if cancel_token.is_cancellation_requested() {
             return (BigInt::one(), BigInt::one());
         }
 
@@ -246,7 +247,7 @@ impl SquareFinder {
             }
 
             loop {
-                if cancel_token.is_cancelled() {
+                if cancel_token.is_cancellation_requested() {
                     return (BigInt::one(), BigInt::one());
                 }
 
@@ -280,7 +281,7 @@ impl SquareFinder {
                 continue;
             }
 
-            if cancel_token.is_cancelled() {
+            if cancel_token.is_cancellation_requested() {
                 return (BigInt::one(), BigInt::one());
             }
 
@@ -302,7 +303,7 @@ impl SquareFinder {
                 take_inverse = !take_inverse;
             }
 
-            let common_modulus = Polynomial::algorithms::chinese_remainder_theorem(&primes, &values);
+            let common_modulus = algorithms::chinese_remainder_theorem(&primes, &values);
             self.algebraic_square_root_residue = common_modulus.mod_floor(&self.n);
 
             (self.log_function)("".to_string());
@@ -345,7 +346,7 @@ impl SquareFinder {
             }
 
             if !solution_found {
-                GNFS::log_function(format!("No solution found amongst the algebraic square roots {{ {} }} mod primes {{ {} }}",
+                GNFS::log_message(format!("No solution found amongst the algebraic square roots {{ {} }} mod primes {{ {} }}",
                     values.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(", "),
                     primes.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(", ")));
                 attempts -= 1;
@@ -366,7 +367,7 @@ impl SquareFinder {
         let mut solution_found = false;
     
         while !solution_found {
-            if cancel_token.is_cancelled() {
+            if cancel_token.is_cancellation_requested() {
                 return solution_found;
             }
     
@@ -397,7 +398,7 @@ impl SquareFinder {
             gnfs.log_message("".to_string());
             square_root_finder.calculate_rational_side(cancel_token, selected_relation_set.clone());
     
-            if cancel_token.is_cancelled() {
+            if cancel_token.is_cancellation_requested() {
                 gnfs.log_message("Abort: Task canceled by user!".to_string());
                 break;
             }
@@ -411,7 +412,7 @@ impl SquareFinder {
     
             let found_factors = square_root_finder.calculate_algebraic_side(cancel_token);
     
-            if cancel_token.is_cancelled() {
+            if cancel_token.is_cancellation_requested() {
                 gnfs.log_message("Abort: Task canceled by user!".to_string());
                 break;
             }
@@ -442,7 +443,7 @@ impl SquareFinder {
                     gnfs.log_message("".to_string());
                 }
                 break;
-            } else if cancel_token.is_cancelled() {
+            } else if cancel_token.is_cancellation_requested() {
                 gnfs.log_message("Abort: Task canceled by user!".to_string());
                 break;
             } else {

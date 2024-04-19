@@ -30,7 +30,7 @@ impl MatrixSolve {
                 selected_relations.push(smooth_relations.remove(random_index));
             }
 
-            let mut gaussian_reduction = GaussianMatrix::new(gnfs, &selected_relations);
+            let mut gaussian_reduction = GaussianMatrix::new(*gnfs, &selected_relations);
             gaussian_reduction.transpose_append();
             gaussian_reduction.elimination();
 
