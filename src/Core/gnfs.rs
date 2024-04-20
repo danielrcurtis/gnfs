@@ -1,6 +1,6 @@
 // src/core/gnfs.rs
 
-use log::{info, warn, debug, trace, error};
+use log::info;
 use num::{BigInt, ToPrimitive, Zero};
 use std::path::{Path,PathBuf};
 use std::sync::{atomic::AtomicBool, Arc};
@@ -137,6 +137,10 @@ impl GNFS {
         gnfs
     }
 
+    pub fn log_message(&mut self, message: String) {
+        info!("{}", message);
+    }
+    
     pub fn log_message_slice(&mut self, message: &String) {
         info!("{}", message);
     }

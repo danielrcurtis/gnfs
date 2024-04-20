@@ -8,19 +8,19 @@ use num::ToPrimitive;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct FactorPair {
-    pub p: i32,
-    pub r: i32,
+    pub p: i128,
+    pub r: i128,
 }
 
 impl FactorPair {
-    pub fn new_from_bigint(p: &BigInt, r: &BigInt) -> Self {
-        FactorPair {
-            p: p.to_i32().unwrap(),
-            r: r.to_i32().unwrap(),
+    pub fn new_from_bigint(p: &BigInt, r: &BigInt) -> Result<Self, String> {
+        let p = p.to_i128().ok_or("BigInt value for p is out of range for i128")?;
+        let r = r.to_i128().ok_or("BigInt value for r is out of range for i128")?;
+        Ok(FactorPair { p, r })
         }
-    }
+    
 
-    pub fn new(p: i32, r: i32) -> Self {
+    pub fn new(p: i128, r: i128) -> Self {
         FactorPair { p, r }
     }
 }

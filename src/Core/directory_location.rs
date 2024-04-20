@@ -1,5 +1,4 @@
 // src/core/directory_locations.rs
-use std::path::PathBuf;
 use num::BigInt;
 
 const SHOW_DIGITS: usize = 22;

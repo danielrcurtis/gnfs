@@ -1,6 +1,6 @@
 // src/integer_math/factorization_factory.rs
 
-use num::{BigInt, FromPrimitive, One, Zero};
+use num::{BigInt, One, Zero};
 use crate::core::count_dictionary::CountDictionary;
 
 pub struct FactorizationFactory;

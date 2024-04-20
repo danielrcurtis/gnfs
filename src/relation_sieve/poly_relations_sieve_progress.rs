@@ -7,12 +7,12 @@ use crate::core::sieve_range::SieveRange;
 use crate::core::gnfs::GNFS;
 use crate::relation_sieve::relation::Relation;
 use crate::relation_sieve::relation_container::RelationContainer;
-use crate::core::serialization::save::relations::{smooth, rough, free};
+use crate::core::serialization::save::relations::{smooth, free};
 use crate::integer_math::prime_factory::PrimeFactory;
 use crate::core::count_dictionary::CountDictionary;
 use crate::core::serialization::save;
 use crate::integer_math::factorization_factory::FactorizationFactory;
-use crate::core::cancellation_token::{self, CancellationToken};
+use crate::core::cancellation_token::CancellationToken;
 use crate::square_root::square_finder::is_square;
 #[derive(Debug, Clone)]
 pub struct PolyRelationsSieveProgress {
@@ -59,10 +59,10 @@ impl PolyRelationsSieveProgress {
 
     pub fn smooth_relations_required_for_matrix_step(&self) -> usize {
         let mut prime_factory = PrimeFactory::new();
-        (PrimeFactory::get_index_from_value(&mut prime_factory, &self.gnfs.prime_factor_base.rational_factor_base_max) as usize
+        PrimeFactory::get_index_from_value(&mut prime_factory, &self.gnfs.prime_factor_base.rational_factor_base_max) as usize
             + PrimeFactory::get_index_from_value(&mut prime_factory, &self.gnfs.prime_factor_base.algebraic_factor_base_max) as usize
             + self.gnfs.quadratic_factor_pair_collection.0.len()
-            + 3)
+            + 3
     }
 
     pub fn generate_relations(&mut self, cancel_token: &CancellationToken) {

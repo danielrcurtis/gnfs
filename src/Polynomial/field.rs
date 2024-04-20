@@ -1,13 +1,12 @@
 // src/polynomial/field.rs
 
 use super::*;
-use num::{BigInt, Zero, One, BigUint, ToPrimitive, FromPrimitive, Integer, Signed};
+use num::{BigInt, Zero, One, BigUint, ToPrimitive};
 use num::integer::gcd as gcd_bigint;
-use std::ops::{Rem, RemAssign, Sub};
+use std::ops::{Rem, Sub};
 use std::cmp::Ordering;
 use crate::polynomial::polynomial::Polynomial;
 use crate::polynomial::polynomial::Term;
-use bitvec::prelude::*;
 
 pub fn gcd(left: &Polynomial, right: &Polynomial, modulus: &BigInt) -> Polynomial {
     let mut poly1 = left.clone();

@@ -1,6 +1,5 @@
 // src/core/count_dictionary.rs
 use num::{BigInt, One, Zero};
-use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, PartialEq, Eq)]

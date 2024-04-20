@@ -2,6 +2,7 @@
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use log::warn;
 use num::BigInt;
 use serde::{Deserialize, Serialize};
 use crate::core::gnfs::GNFS;
@@ -60,7 +61,7 @@ impl Factory {
     // quantity = phi(bound)
     pub fn build_rational_factor_pair_collection(gnfs: &GNFS) -> FactorPairCollection {
         let result: Vec<FactorPair> = gnfs.prime_factor_base.rational_factor_base.iter()
-            .map(|&p| FactorPair::new(p.to_i32().unwrap(), (&gnfs.polynomial_base % p).to_i32().unwrap())) // Use to_i32() instead of as
+            .map(|&p| FactorPair::new(p.to_i128().unwrap(), (&gnfs.polynomial_base % p).to_i128().unwrap())) // Convert BigInt to i128
             .collect();
         FactorPairCollection::from_collection(&result)
     }
@@ -107,10 +108,17 @@ impl Factory {
         let mod_list: Vec<BigInt> = primes.to_vec();
 
         while !cancel_token.load(Ordering::SeqCst) && &r < range_to && result.len() < total_factor_pairs {
-            // Finds p such that ƒ(r) ≡ 0 (mod p)
             let roots = Self::get_roots_mod(polynomial, &r, &mod_list);
             if !roots.is_empty() {
-                result.extend(roots.iter().map(|&p| FactorPair::new_from_bigint(&p, &r)));
+                roots.iter().filter_map(|p| {
+                    match FactorPair::new_from_bigint(p, &r) {
+                        Ok(pair) => Some(pair),
+                        Err(e) => {
+                            warn!("Error creating factor pair: {}", e.to_string());
+                            None
+                        }
+                    }
+                }).for_each(|pair| result.push(pair));
             }
             r += 1;
         }

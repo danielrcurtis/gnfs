@@ -3,7 +3,7 @@
 use num::BigInt;
 use serde::{Deserialize, Deserializer};
 use serde::de::{self, Visitor, SeqAccess};
-use serde::ser::{Serializer, SerializeStruct, Serialize};
+use serde::ser::{Serializer, SerializeStruct};
 use crate::polynomial::polynomial::{Polynomial, Term};
 
 

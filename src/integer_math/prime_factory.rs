@@ -1,7 +1,7 @@
 // src/integer_math/prime_factory.rs
 
 use num::{BigInt, BigUint, FromPrimitive, Integer, Signed};
-use num::bigint::ToBigInt;
+use num::bigint::{ToBigInt, ToBigUint};
 use std::cmp::{max, min};
 use std::ops::Range;
 use crate::integer_math::fast_prime_sieve::FastPrimeSieve;
@@ -100,6 +100,17 @@ impl PrimeFactory {
     }
 
     pub fn get_next_prime(from_value: &BigInt) -> BigInt {
+        let mut result: BigUint = from_value.to_biguint().unwrap() + 1u32;
+        if result.is_even() {
+            result += 1u32;
+        }
+        while !FactorizationFactory::is_probable_prime(&result.to_bigint().unwrap()) {
+            result += 2u32;
+        }
+        result.to_bigint().unwrap()
+    }
+
+    pub fn get_next_prime_from_i128(from_value: i128) -> BigInt {
         let mut result: BigUint = from_value.to_biguint().unwrap() + 1u32;
         if result.is_even() {
             result += 1u32;

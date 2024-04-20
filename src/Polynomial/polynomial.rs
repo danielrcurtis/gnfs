@@ -2,8 +2,8 @@
 
 use std::cmp::Ordering;
 use std::ops::{Add, Sub, Mul, Div, Index, IndexMut};
-use num::{BigInt, Zero, One, Integer, Signed, ToPrimitive};
-use log::{info, warn, debug, trace, error};
+use num::{BigInt, Zero, One, Integer, Signed};
+use log::error;
 use std::fmt::{Display, Formatter, Result};
 use crate::square_root::finite_field_arithmetic::remainder;
 

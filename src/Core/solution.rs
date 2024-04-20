@@ -1,6 +1,7 @@
 // src/core/solution.rs
 
 use num::BigInt;
+use std::fmt::Display;
 
 #[derive(Debug, Clone)]
 pub struct Solution {
@@ -14,5 +15,11 @@ impl Solution {
             p: p.clone(),
             q: q.clone(),
         }
+    }
+}
+
+impl Display for Solution {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "p: {}, q: {}", self.p, self.q)
     }
 }

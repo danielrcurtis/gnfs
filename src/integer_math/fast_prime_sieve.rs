@@ -32,7 +32,7 @@ impl FastPrimeSieve {
     }
 
     pub fn get_range<'a>(floor: &'a BigUint, ceiling: &'a BigUint) -> impl Iterator<Item = BigUint> + 'a {
-        let mut primes_paged = FastPrimeSieve::new();
+        let primes_paged = FastPrimeSieve::new();
         let mut enumerator = primes_paged.iterator();
     
         while let Some(current) = enumerator.next() {
