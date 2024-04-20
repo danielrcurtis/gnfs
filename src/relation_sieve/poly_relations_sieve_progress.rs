@@ -179,11 +179,15 @@ impl PolyRelationsSieveProgress {
         self.relations.rough_relations = rough_relations;
     }
 
-    pub fn add_free_relation_solution(&mut self, free_relation_solution: Vec<Relation>) {
+    pub fn add_free_relation_solution(&mut self, mut free_relation_solution: Vec<Relation>) {
         self.relations.free_relations.push(free_relation_solution.clone());
-        free::single_solution(&mut self.gnfs.as_ref().clone(), &free_relation_solution);
-        self.gnfs.log_message_slice(&format!("Added free relation solution: Relation count = {}", free_relation_solution.len()));
+        // Use `Arc::get_mut` to obtain a mutable reference to the inner value of `self.gnfs`.
+        if let Some(gnfs) = Arc::get_mut(&mut self.gnfs) {
+            free::single_solution(gnfs, &mut free_relation_solution);
+            gnfs.log_message_slice(&format!("Added free relation solution: Relation count = {}", free_relation_solution.len()));
+        }
     }
+    
 
     pub fn format_relations(&self, relations: &[Relation]) -> String {
         let mut result = String::new();

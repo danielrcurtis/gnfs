@@ -16,7 +16,7 @@ pub fn gcd(left: &Polynomial, right: &Polynomial, modulus: &BigInt) -> Polynomia
         std::mem::swap(&mut poly1, &mut poly2);
     }
 
-    while !poly2.terms.is_empty() && poly2.terms[0].get_coefficient() != &BigInt::zero() {
+    while !poly2.terms.is_empty() && poly2.terms.values().any(|coef| coef != &BigInt::zero()) { // Validate that values() works as expected.
         let to_reduce = poly1.clone();
         poly1 = poly2.clone();
         poly2 = mod_mod(&to_reduce, &poly2, modulus);
@@ -46,15 +46,15 @@ pub fn modulus(poly: &Polynomial, modulus: &Polynomial) -> Polynomial {
 
 pub fn modulus_bigint(poly: &Polynomial, modulus: &BigInt) -> Polynomial {
     let mut result = poly.clone();
-    for term in &mut result.terms {
-        let remainder = term.get_coefficient().rem(modulus);
-        term.set_coefficient(if remainder.sign() == num::bigint::Sign::Minus {
+    result.terms = result.terms.iter().map(|(&exp, coef)| {
+        let remainder = coef.rem(modulus);
+        let new_coef = if remainder.sign() == num::bigint::Sign::Minus {
             remainder + modulus
         } else {
             remainder
-        });
-    }
-    result.remove_zeros();
+        };
+        (exp, new_coef)
+    }).collect();
     result
 }
 
@@ -84,25 +84,29 @@ pub fn divide(left: &Polynomial, right: &Polynomial, modulus: &BigInt) -> (Polyn
 
 pub fn multiply(poly: &Polynomial, multiplier: &BigInt, modulus: &BigInt) -> Polynomial {
     let mut result = poly.clone();
-    for term in &mut result.terms {
-        if term.get_coefficient() != &BigInt::zero() {
-            term.set_coefficient((term.get_coefficient() * multiplier) % modulus);
+    result.terms = result.terms.iter().map(|(&exp, coef)| {
+        if coef != &BigInt::zero() {
+            (exp, (coef * multiplier) % modulus)
+        } else {
+            (exp, coef.clone())
         }
-    }
+    }).collect();
     result
 }
 
 pub fn pow_mod(poly: &Polynomial, exponent: &BigInt, modulus: &BigInt) -> Polynomial {
     let mut result = poly.clone();
-    for term in &mut result.terms {
-        if term.get_coefficient() != &BigInt::zero() {
-            let coeff = term.get_coefficient().modpow(exponent, modulus);
-            if coeff.sign() == num::bigint::Sign::Minus {
+    result.terms = result.terms.iter().map(|(&exp, coef)| {
+        if coef != &BigInt::zero() {
+            let new_coef = coef.modpow(exponent, modulus);
+            if new_coef.sign() == num::bigint::Sign::Minus {
                 panic!("BigInt::modpow returned negative number");
             }
-            term.set_coefficient(coeff);
+            (exp, new_coef)
+        } else {
+            (exp, coef.clone())
         }
-    }
+    }).collect();
     result
 }
 
@@ -158,7 +162,7 @@ pub fn is_irreducible_over_field(f: &Polynomial, p: &BigInt) -> bool {
 }
 
 pub fn is_irreducible_over_p(poly: &Polynomial, p: &BigInt) -> bool {
-    let mut coefficients: Vec<BigInt> = poly.terms.iter().map(|term| term.get_coefficient().clone()).collect();
+    let mut coefficients: Vec<BigInt> = poly.terms.values().cloned().collect();
     let leading_coeff = coefficients.pop().unwrap();
     let constant_coeff = coefficients.remove(0);
 

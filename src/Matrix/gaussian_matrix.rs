@@ -6,19 +6,19 @@ use crate::relation_sieve::relation::Relation;
 use crate::matrix::gaussian_row::GaussianRow;
 use num::ToPrimitive;
 
-pub struct GaussianMatrix {
+pub struct GaussianMatrix<'a> {
     pub m: Vec<Vec<bool>>,
     pub free_cols: Vec<bool>,
     pub elimination_step: bool,
-    pub _gnfs: GNFS,
+    pub _gnfs: &'a mut GNFS,  // Apply the lifetime to this reference
     pub relations: Vec<Relation>,
     pub column_index_relation_dictionary: HashMap<usize, Relation>,
     pub relation_matrix_tuple: Vec<(Relation, Vec<bool>)>,
 }
 
-impl GaussianMatrix {
+impl GaussianMatrix<'_> {
     
-    pub fn new(gnfs: GNFS, rels: &[Relation]) -> Self {
+    pub fn new<'a>(gnfs: &'a mut GNFS, rels: &[Relation]) -> GaussianMatrix<'a> {
         let mut relation_matrix_tuple = Vec::new();
         let elimination_step = false;
         let free_cols = Vec::new();
@@ -41,20 +41,8 @@ impl GaussianMatrix {
         let max_index_alg = selected_rows.iter().map(|row| row.last_index_of_algebraic().unwrap_or(0)).max().unwrap();
         let max_index_qua = selected_rows.iter().map(|row| row.last_index_of_quadratic().unwrap_or(0)).max().unwrap();
 
-        for row in &mut relations_as_rows {
-            row.resize_rational_part(max_index_rat);
-            row.resize_algebraic_part(max_index_alg);
-            row.resize_quadratic_part(max_index_qua);
-        }
-
-        let example_row = relations_as_rows.first().unwrap();
-        let mut new_length = example_row.get_bool_array().len();
-        new_length += 1;
-
-        relations_as_rows = relations_as_rows.into_iter().take(new_length).collect();
-
         for row in relations_as_rows {
-            relation_matrix_tuple.push((row.source_relation, row.get_bool_array()));
+            relation_matrix_tuple.push((row.source_relation.clone(), row.get_bool_array()));
         }
 
         GaussianMatrix {

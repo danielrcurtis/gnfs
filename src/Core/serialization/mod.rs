@@ -3,3 +3,4 @@
 pub mod json_converter;
 pub mod load;
 pub mod save;
+pub mod types;

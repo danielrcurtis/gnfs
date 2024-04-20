@@ -595,9 +595,9 @@ fn algebraic_square_root(f: &Polynomial, m: &BigInt, degree: i32, dd: &Polynomia
 
 fn modular_inverse(poly: &Polynomial, mod_: &BigInt) -> Polynomial {
     let terms = poly.terms.iter()
-        .map(|trm| Term::new((mod_ - &trm.coefficient).mod_floor(mod_), trm.exponent))
+        .map(|(&exp, coef)| (exp, (mod_ - coef).mod_floor(mod_)))
         .collect();
-    Polynomial::new(terms)
+    Polynomial { terms }
 }
 
 pub fn is_square(n: &BigInt) -> bool {

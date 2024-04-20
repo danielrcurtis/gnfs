@@ -1,10 +1,10 @@
 // src/core/directory_locations.rs
 use num::BigInt;
-
+use serde::{Serialize, Deserialize};
 const SHOW_DIGITS: usize = 22;
 const ELLIPSIS: &str = "[...]";
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DirectoryLocations {
     pub base_directory: String,
     pub save_directory: String,

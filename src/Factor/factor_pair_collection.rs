@@ -61,7 +61,7 @@ impl Factory {
     // quantity = phi(bound)
     pub fn build_rational_factor_pair_collection(gnfs: &GNFS) -> FactorPairCollection {
         let result: Vec<FactorPair> = gnfs.prime_factor_base.rational_factor_base.iter()
-            .map(|&p| FactorPair::new(p.to_i128().unwrap(), (&gnfs.polynomial_base % p).to_i128().unwrap())) // Convert BigInt to i128
+            .map(|p| FactorPair::new(p.to_i128().unwrap(), (&gnfs.polynomial_base % p).to_i128().unwrap())) // Convert BigInt to i128
             .collect();
         FactorPairCollection::from_collection(&result)
     }

@@ -52,8 +52,8 @@ impl PrimeFactory {
         if &self.primes_last < value {
             self.increase_max_value(value);
         }
-        let prime_value = self.primes.iter().find(|&&p| &p >= value).unwrap();
-        self.primes.iter().position(|&p| p == *prime_value).unwrap() as i32 + 1
+        let prime_index = self.primes.iter().position(|p| p >= value).unwrap();
+        prime_index as i32 + 1
     }
 
     pub fn get_approximate_value_from_index(n: u64) -> BigUint {

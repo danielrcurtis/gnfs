@@ -57,7 +57,7 @@ impl FactorizationFactory {
         }
 
         let mut divisor = BigInt::from(3);
-        while divisor * divisor <= quotient {
+        while divisor.clone() * divisor.clone() <= quotient {
             if &quotient % &divisor == BigInt::zero() {
                 factorization.add(&divisor);
                 quotient /= &divisor;

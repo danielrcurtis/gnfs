@@ -56,31 +56,30 @@ pub fn tonelli_shanks(n: &BigInt, p: &BigInt) -> BigInt {
     if legendre != 1 {
         panic!("Parameter n is not a quadratic residue, mod p. Legendre symbol = {}", legendre);
     }
-
     if p % 4 == BigInt::from(3) {
         return n.modpow(&((p + 1) / 4), p);
     }
 
-    let mut q = p - 1;
+    let q: BigInt = p - 1;
     let mut s = BigInt::zero();
-    while q % 2 == BigInt::zero() {
-        q /= 2;
+    let mut q_clone = q.clone();
+    while q_clone.clone() % 2 == BigInt::zero() {
+        q_clone /= 2;
         s += 1;
     }
 
     if s == BigInt::zero() {
         panic!("Unexpected case: s is zero.");
     }
-
     if s == BigInt::one() {
         panic!("This case should have already been covered by the p mod 4 check above.");
     }
 
     let z = legendre_symbol_search(&BigInt::zero(), p, &BigInt::from(-1));
-    let mut c = n.modpow(&((q + 1) / 2), p);
+    let mut c = n.modpow(&((q.clone() + 1) / 2), p);
     let mut r = n.modpow(&q, p);
     let mut t = BigInt::one();
-    let mut m = s.clone();
+    let m = s.clone();
 
     while r != BigInt::one() && t < m {
         let mut i = BigInt::one();
@@ -92,9 +91,9 @@ pub fn tonelli_shanks(n: &BigInt, p: &BigInt) -> BigInt {
 
         let exp = BigInt::from(2).pow(m.to_u32().unwrap() - t.to_u32().unwrap() - 1);
         let base = z.modpow(&exp, p);
-        let mut z = base.modpow(&BigInt::from(2), p); // Declare z as mutable
-        c = (c * base).mod_floor(p);
-        r = (r * base * base).mod_floor(p);
+        let base = base.clone();
+        c = (c * base.clone()).mod_floor(p);
+        r = (r * base.clone() * base).mod_floor(p);
         t += 1;
     }
 
@@ -104,19 +103,17 @@ pub fn tonelli_shanks(n: &BigInt, p: &BigInt) -> BigInt {
 pub fn chinese_remainder_theorem(n: &[BigInt], a: &[BigInt]) -> BigInt {
     let prod_n: BigInt = n.iter().product();
     let mut sum = BigInt::zero();
-
     for i in 0..n.len() {
-        let p = &prod_n / n[i];
-        sum += a[i] * modular_multiplicative_inverse(&p, &n[i]) * p;
+        let p = &prod_n / &n[i];
+        sum += &a[i] * modular_multiplicative_inverse(&p, &n[i]) * p;
     }
-
     sum % prod_n
 }
 
 pub fn modular_multiplicative_inverse(a: &BigInt, m: &BigInt) -> BigInt {
-    let mut r = a % m;
+    let r = a % m;
     for i in 1..m.to_u32().unwrap() {
-        if (r * i) % m == BigInt::one() {
+        if (r.clone() * i) % m == BigInt::one() {
             return BigInt::from(i);
         }
     }

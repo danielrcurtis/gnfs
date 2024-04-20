@@ -272,24 +272,24 @@ impl GNFS {
 
     pub fn group_rough_numbers(rough_numbers: &[Relation]) -> Vec<Vec<Relation>> {
         let mut results = Vec::new();
-        let mut last_item: Option<&Relation> = None;
-        for pair in rough_numbers.iter()
-            .map(|x| x.clone())
-            .collect::<Vec<Relation>>()
-            {
-                if let Some(last) = last_item {
-                    if pair.algebraic_quotient == last.algebraic_quotient && pair.rational_quotient == last.rational_quotient {
-                        results.push(vec![pair.clone(), last.clone()]);
-                        last_item = None;
-                    } else {
-                        last_item = Some(&pair);
-                    }
+        let mut last_index: Option<usize> = None;
+    
+        for (index, pair) in rough_numbers.iter().enumerate() {
+            if let Some(last_idx) = last_index {
+                let last = &rough_numbers[last_idx];
+                if pair.algebraic_quotient == last.algebraic_quotient && pair.rational_quotient == last.rational_quotient {
+                    results.push(vec![pair.clone(), last.clone()]);
+                    last_index = None;  // Clear last_index as pair is grouped
                 } else {
-                    last_item = Some(&pair);
+                    last_index = Some(index);  // Update last_index to current index
                 }
+            } else {
+                last_index = Some(index);  // Initialize last_index with the first index
             }
+        }
+    
         results
-    }
+    }    
 
     pub fn multiply_like_rough_numbers(gnfs: &GNFS, like_rough_numbers_groups: &[Vec<Relation>]) -> Vec<Relation> {
         let mut result = Vec::new();
@@ -376,5 +376,11 @@ impl Default for GNFS {
             quadratic_factor_pair_collection: FactorPairCollection::default(),
             save_locations: DirectoryLocations::default(),
         }
+    }
+}
+
+impl AsRef<GNFS> for GNFS {
+    fn as_ref(&self) -> &GNFS {
+        self
     }
 }

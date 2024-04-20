@@ -3,7 +3,7 @@ use num::{BigInt, One, Zero};
 use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CountDictionary(BTreeMap<BigInt, BigInt>);
+pub struct CountDictionary(pub BTreeMap<BigInt, BigInt>);
 
 impl CountDictionary {
     pub fn new() -> Self {

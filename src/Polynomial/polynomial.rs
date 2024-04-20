@@ -2,10 +2,12 @@
 
 use std::cmp::Ordering;
 use std::ops::{Add, Sub, Mul, Div, Index, IndexMut};
+use std::collections::HashMap;
 use num::{BigInt, Zero, One, Integer, Signed};
 use log::error;
 use std::fmt::{Display, Formatter, Result};
 use crate::square_root::finite_field_arithmetic::remainder;
+use lazy_static::lazy_static;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Term {
@@ -118,20 +120,22 @@ impl Ord for Term {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Polynomial {
-    pub terms: Vec<Term>,
+    pub terms: HashMap<usize, BigInt>,
 }
 
 impl Polynomial {
     pub fn new(terms: Vec<Term>) -> Self {
-        let mut polynomial = Polynomial { terms };
-        polynomial.remove_zeros();
-        polynomial
+        let mut map = HashMap::new();
+        for term in terms {
+            map.insert(term.exponent, term.coefficient);
+        }
+        Polynomial { terms: map }
     }
 
     pub fn from_term(coefficient: BigInt, exponent: usize) -> Self {
-        Polynomial {
-            terms: vec![Term::new(coefficient, exponent)],
-        }
+        let mut terms = HashMap::new();
+        terms.insert(exponent, coefficient);
+        Polynomial { terms }
     }
 
     pub fn one() -> Self {
@@ -164,17 +168,14 @@ impl Polynomial {
         if polynomial2.degree() > polynomial.degree() {
             std::mem::swap(&mut polynomial, &mut polynomial2);
         }
-
         while !polynomial2.is_zero() {
             let to_reduce = polynomial.clone();
-            polynomial = polynomial2;
-            polynomial2 = Polynomial::mod_mod(&to_reduce, &polynomial2, modulus);
+            std::mem::swap(&mut polynomial, &mut polynomial2);
+            polynomial2 = Polynomial::mod_mod(&to_reduce, &polynomial2.clone(), modulus);
         }
-
         if polynomial.degree() == 0 {
             return Polynomial::one();
         }
-
         polynomial
     }
 
@@ -192,7 +193,7 @@ impl Polynomial {
     }
 
     pub fn degree(&self) -> usize {
-        self.terms.last().map_or(0, |term| term.exponent)
+        self.terms.keys().max().copied().unwrap_or(0)
     }
     
     pub fn divide(&self, other: &Polynomial) -> (Polynomial, Polynomial) {
@@ -224,76 +225,72 @@ impl Polynomial {
 
     pub fn evaluate(&self, x: &BigInt) -> BigInt {
         let mut result = BigInt::zero();
-        for term in &self.terms {
-            result += term.coefficient.clone() * x.pow(term.exponent as u32);
+        for (&exponent, coefficient) in &self.terms {
+            result += coefficient.clone() * x.pow(exponent as u32);
         }
         result
     }
 
-    // pub fn evaluate<T: ToPrimitive>(&self, x: T) -> BigInt {
-    //     let mut result = BigInt::zero();
-    //     for term in &self.terms {
-    //         let x_bigint = BigInt::from(x.to_i64().unwrap());
-    //         result += term.coefficient.clone() * x_bigint.pow(term.exponent as u32);
-    //     }
-    //     result
-    // }
-
     pub fn derivative(&self) -> Self {
-        let terms: Vec<Term> = self.terms.iter().filter_map(|term| {
-            if term.exponent > 0 {
-                let new_coefficient = term.coefficient.clone() * BigInt::from(term.exponent);
-                let new_exponent = term.exponent - 1;
-                Some(Term::new(new_coefficient, new_exponent))
-            } else {
-                None
+        let mut terms = HashMap::new();
+        for (&exponent, coefficient) in &self.terms {
+            if exponent > 0 {
+                let new_coefficient = coefficient.clone() * BigInt::from(exponent);
+                terms.insert(exponent - 1, new_coefficient);
             }
-        }).collect();
-        Polynomial::new(terms)
+        }
+        Polynomial { terms }
     }
 
     pub fn indefinite_integral(&self, c: &BigInt) -> Self {
-        let mut terms = vec![Term::new(c.clone(), 0)];
-        for term in &self.terms {
-            let new_exponent = term.exponent + 1;
-            let new_coefficient = term.coefficient.clone() / BigInt::from(new_exponent);
-            terms.push(Term::new(new_coefficient, new_exponent));
+        let mut terms = HashMap::new();
+        terms.insert(0, c.clone());
+        for (&exponent, coefficient) in &self.terms {
+            let new_exponent = exponent + 1;
+            let new_coefficient = coefficient.clone() / BigInt::from(new_exponent);
+            terms.insert(new_exponent, new_coefficient);
         }
-        Polynomial::new(terms)
+        Polynomial { terms }
     }
 
     pub fn remove_zeros(&mut self) {
-        self.terms.retain(|term| !term.coefficient.is_zero());
+        self.terms.retain(|_, coefficient| !coefficient.is_zero());
         if self.terms.is_empty() {
-            self.terms.push(Term::new(BigInt::zero(), 0));
+            self.terms.insert(0, BigInt::zero());
         }
     }
 
     pub fn is_zero(&self) -> bool {
-        self.terms.len() == 1 && self.terms[0].get_coefficient() == &BigInt::zero()
+        self.terms.len() == 1 && self.terms.contains_key(&0) && self.terms[&0].is_zero()
     }
 
-    pub fn combine_like_terms(&mut self) {
-        let mut terms: Vec<Term> = Vec::new();
-        for term in &self.terms {
-            if let Some(t) = terms.iter_mut().find(|t| t.get_exponent() == term.get_exponent()) {
-                *t.get_coefficient_mut() += term.get_coefficient();
-            } else {
-                terms.push(term.clone());
-            }
-        }
-        self.terms = terms;
-        self.remove_zeros();
-    }
+    // pub fn combine_like_terms(&mut self) {
+    //     let mut terms: Vec<Term> = Vec::new();
+    //     for term in &self.terms {
+    //         if let Some(t) = terms.iter_mut().find(|t| t.get_exponent() == term.get_exponent()) {
+    //             *t.get_coefficient_mut() += term.get_coefficient();
+    //         } else {
+    //             terms.push(term.clone());
+    //         }
+    //     }
+    //     self.terms = terms;
+    //     self.remove_zeros();
+    // }
 
-    pub fn get_coefficient_mut(&mut self, exponent: usize) -> &mut BigInt {
-        if let Some(term) = self.terms.iter_mut().find(|t| t.get_exponent() == exponent) {
-            &mut term.coefficient
-        } else {
-            self.terms.push(Term::new(BigInt::zero(), exponent));
-            &mut self.terms.last_mut().unwrap().coefficient
-        }
-    }
+    // pub fn get_coefficient_mut(&mut self, exponent: usize) -> &mut BigInt {
+    // // Check if the term exists and get its index
+    // if let Some(index) = self.terms.iter().position(|t| t.get_exponent() == exponent) {
+    //     // Return a mutable reference to the coefficient of the existing term
+    //     &mut self.terms[index].coefficient
+    // } else {
+    //     // Create a new term and add it to the list
+    //     let new_term = Term::new(BigInt::zero(), exponent);
+    //     self.terms.push(new_term);
+    //     // Return a mutable reference to the coefficient of the new term
+    //     &mut self.terms.last_mut().unwrap().coefficient
+    // }
+    // }
+
 
     pub fn zero() -> Self {
         Polynomial::new(vec![Term::new(BigInt::zero(), 0)])
@@ -304,11 +301,11 @@ impl Polynomial {
     }
 
     pub fn field_modulus(&self, modulus: &BigInt) -> Self {
-        let terms: Vec<Term> = self.terms.iter().map(|term| {
-            let coefficient = term.coefficient.mod_floor(modulus);
-            Term::new(coefficient, term.exponent)
-        }).collect();
-        Polynomial::new(terms)
+        let terms: HashMap<_, _> = self.terms
+            .iter()
+            .map(|(&exponent, coefficient)| (exponent, coefficient.mod_floor(modulus)))
+            .collect();
+        Polynomial { terms }
     }
 
     pub fn field_modulus_from_polynomial(&self, mod_poly: &Polynomial) -> Polynomial {
@@ -347,7 +344,8 @@ impl Polynomial {
                 }
             }
 
-            Polynomial::new(rem.terms)
+            let terms: Vec<Term> = rem.terms.into_iter().map(|(exponent, coefficient)| Term::new(coefficient, exponent)).collect();
+            Polynomial::new(terms)
         }
     }
 
@@ -385,16 +383,13 @@ impl Polynomial {
     }
 
     pub fn get_derivative_polynomial(&self) -> Self {
-        let terms: Vec<Term> = self.terms.iter().filter_map(|term| {
-            let exponent = term.exponent;
+        let mut terms = HashMap::new();
+        for (&exponent, coefficient) in &self.terms {
             if exponent > 0 {
-                let coefficient = &term.coefficient * BigInt::from(exponent);
-                Some(Term::new(coefficient, exponent - 1))
-            } else {
-                None
+                terms.insert(exponent - 1, coefficient * BigInt::from(exponent));
             }
-        }).collect();
-        Polynomial::new(terms)
+        }
+        Polynomial { terms }
     }
 
     pub fn exponentiate_mod(base: &Polynomial, exponent: &BigInt, modulus: &Polynomial, prime: &BigInt) -> Polynomial {
@@ -416,25 +411,21 @@ impl Polynomial {
     }
 }
 
+lazy_static! {
+    static ref ZERO: BigInt = BigInt::zero();
+}
 
 impl Index<usize> for Polynomial {
     type Output = BigInt;
 
     fn index(&self, index: usize) -> &BigInt {
-        self.terms.iter().find(|term| term.exponent == index)
-            .map_or(&BigInt::zero(), |term| &term.coefficient)
+        self.terms.get(&index).unwrap_or_else(|| &ZERO)
     }
 }
 
 impl IndexMut<usize> for Polynomial {
     fn index_mut(&mut self, index: usize) -> &mut BigInt {
-        let term = self.terms.iter_mut().find(|term| term.exponent == index);
-        if let Some(term) = term {
-            &mut term.coefficient
-        } else {
-            self.terms.push(Term::new(BigInt::zero(), index));
-            &mut self.terms.last_mut().unwrap().coefficient
-        }
+        self.terms.entry(index).or_insert(BigInt::zero())
     }
 }
 
@@ -442,41 +433,11 @@ impl Add for Polynomial {
     type Output = Polynomial;
 
     fn add(self, other: Polynomial) -> Polynomial {
-        let mut terms = Vec::new();
-        let mut i = 0;
-        let mut j = 0;
-
-        while i < self.terms.len() && j < other.terms.len() {
-            let term1 = &self.terms[i];
-            let term2 = &other.terms[j];
-
-            if term1.get_exponent() == term2.get_exponent() {
-                let coefficient = term1.get_coefficient() + term2.get_coefficient();
-                if coefficient != BigInt::zero() {
-                    terms.push(Term::new(coefficient, term1.get_exponent()));
-                }
-                i += 1;
-                j += 1;
-            } else if term1.get_exponent() > term2.get_exponent() {
-                terms.push(term1.clone());
-                i += 1;
-            } else {
-                terms.push(term2.clone());
-                j += 1;
-            }
+        let mut terms = self.terms;
+        for (exponent, coefficient) in other.terms {
+            *terms.entry(exponent).or_insert(BigInt::zero()) += coefficient;
         }
-
-        while i < self.terms.len() {
-            terms.push(self.terms[i].clone());
-            i += 1;
-        }
-
-        while j < other.terms.len() {
-            terms.push(other.terms[j].clone());
-            j += 1;
-        }
-
-        Polynomial::new(terms)
+        Polynomial { terms }
     }
 }
 
@@ -484,11 +445,12 @@ impl Sub for Polynomial {
     type Output = Polynomial;
 
     fn sub(self, other: Polynomial) -> Polynomial {
-        let negated_terms: Vec<Term> = other.terms.iter().map(|term| {
-            Term::new(-term.get_coefficient(), term.get_exponent())
-        }).collect();
-        
-        self + Polynomial::new(negated_terms)
+        let mut terms = self.terms;
+        for (exponent, coefficient) in other.terms {
+            *terms.entry(exponent).or_insert(BigInt::zero()) -= coefficient;
+        }
+        terms.retain(|_, coefficient| !coefficient.is_zero());
+        Polynomial { terms }
     }
 }
 
@@ -496,19 +458,15 @@ impl Mul for Polynomial {
     type Output = Polynomial;
 
     fn mul(self, other: Polynomial) -> Polynomial {
-        let mut terms = Vec::new();
-
-        for term1 in &self.terms {
-            for term2 in &other.terms {
-                let coefficient = term1.get_coefficient() * term2.get_coefficient();
-                let exponent = term1.get_exponent() + term2.get_exponent();
-                terms.push(Term::new(coefficient, exponent));
+        let mut terms = HashMap::new();
+        for (&exp1, coef1) in &self.terms {
+            for (&exp2, coef2) in &other.terms {
+                let exponent = exp1 + exp2;
+                let coefficient = coef1 * coef2;
+                *terms.entry(exponent).or_insert(BigInt::zero()) += coefficient;
             }
         }
-
-        let mut result = Polynomial::new(terms);
-        result.combine_like_terms();
-        result
+        Polynomial { terms }
     }
 }
 
@@ -520,22 +478,32 @@ impl Div for Polynomial {
             error!("Division by zero polynomial");
         }
 
-        let mut quotient = Polynomial::zero();
-        let mut remainder = self;
+        let mut quotient = HashMap::new();
+        let mut remainder = self.terms;
 
-        while !remainder.is_zero() && remainder.degree() >= other.degree() {
-            let leading_term = remainder.terms.last().unwrap();
-            let divisor_term = other.terms.last().unwrap();
-            let term_quotient = Term::new(
-                leading_term.get_coefficient() / divisor_term.get_coefficient(),
-                leading_term.get_exponent() - divisor_term.get_exponent(),
-            );
-            let term_polynomial = Polynomial::new(vec![term_quotient]);
-            quotient = quotient + term_polynomial.clone();
-            remainder = remainder - term_polynomial * other.clone();
+        while !remainder.is_empty() && remainder.keys().max().unwrap() >= other.terms.keys().max().unwrap() {
+            let remainder_degree = *remainder.keys().max().unwrap();
+            let divisor_degree = *other.terms.keys().max().unwrap();
+
+            let leading_term_remainder = remainder.remove(&remainder_degree).unwrap();
+            let leading_term_divisor = other.terms.get(&divisor_degree).unwrap();
+
+            let term_quotient_exponent = remainder_degree - divisor_degree;
+            let term_quotient_coefficient = leading_term_remainder / leading_term_divisor;
+
+            let term_quotient = Term::new(term_quotient_coefficient.clone(), term_quotient_exponent);
+            quotient.insert(term_quotient.exponent, term_quotient_coefficient);
+
+            for (&exp, coef) in &other.terms {
+                let exponent = term_quotient.exponent + exp;
+                let coefficient = term_quotient.coefficient.clone() * coef;
+                *remainder.entry(exponent).or_insert(BigInt::zero()) -= coefficient;
+            }
+
+            remainder.retain(|_, coef| !coef.is_zero());
         }
 
-        (quotient, remainder)
+        (Polynomial { terms: quotient }, Polynomial { terms: remainder })
     }
 }
 
@@ -566,11 +534,13 @@ impl Ord for Polynomial {
 impl Display for Polynomial {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         let mut output = String::new();
-        for (i, term) in self.terms.iter().enumerate() {
-            if i > 0 {
+        let mut first = true;
+        for (exponent, coefficient) in self.terms.iter() {
+            if !first {
                 output += " + ";
             }
-            output += &term.to_string();
+            first = false;
+            output += &format!("{}X^{}", coefficient, exponent);
         }
         write!(f, "{}", output)
     }
@@ -581,223 +551,3 @@ impl Default for Polynomial {
         Polynomial::zero()
     }
 }
-
-// pub mod algorithms {
-//     use super::*;
-//     use num::{BigInt, Complex, Integer, One, Zero};
-//     use num::ToPrimitive;
-//     use std::cmp::Ordering;
-
-//     pub fn eulers_criterion(a: &BigInt, p: &BigInt) -> BigInt {
-//         let exponent = (p - 1) / 2;
-//         a.modpow(&exponent, p)
-//     }
-
-//     pub fn legendre_symbol(a: &BigInt, p: &BigInt) -> i32 {
-//         if p < &BigInt::from(2) {
-//             panic!("Parameter 'p' must not be < 2, but you have supplied: {}", p);
-//         }
-
-//         if a.is_zero() {
-//             return 0;
-//         }
-
-//         if a == &BigInt::one() {
-//             return 1;
-//         }
-
-//         let mut num;
-//         if a % 2 == BigInt::zero() {
-//             num = legendre_symbol(&(a / 2), p);
-//             if ((p * p - 1) & 8) != BigInt::zero() {
-//                 num = -num;
-//             }
-//         } else {
-//             num = legendre_symbol(&(p % a), a);
-//             if (((a - 1) * (p - 1)) & 4) != BigInt::zero() {
-//                 num = -num;
-//             }
-//         }
-
-//         num
-//     }
-
-//     pub fn legendre_symbol_search(start: &BigInt, modulus: &BigInt, goal: &BigInt) -> BigInt {
-//         if goal != &BigInt::from(-1) && goal != &BigInt::zero() && goal != &BigInt::one() {
-//             panic!("Parameter 'goal' may only be -1, 0 or 1. It was {}.", goal);
-//         }
-
-//         let mut i = start.clone();
-//         while legendre_symbol(&i, modulus) != goal.to_i32().unwrap() {
-//             i += 1;
-//         }
-
-//         i
-//     }
-
-//     pub fn tonelli_shanks(n: &BigInt, p: &BigInt) -> BigInt {
-//         let legendre = legendre_symbol(n, p);
-//         if legendre != 1 {
-//             panic!("Parameter n is not a quadratic residue, mod p. Legendre symbol = {}", legendre);
-//         }
-
-//         if p.mod_floor(&BigInt::from(4)) == 3 {
-//             return n.modpow(&((p + 1) / 4), p);
-//         }
-
-//         let mut q = p - 1;
-//         let mut s = BigInt::zero();
-//         while q.mod_floor(&BigInt::from(2)) == BigInt::zero() {
-//             q /= 2;
-//             s += 1;
-//         }
-
-//         if s.is_zero() {
-//             panic!("Unexpected error: s is zero");
-//         }
-
-//         if s == BigInt::one() {
-//             panic!("This case should have already been covered by the p mod 4 check above.");
-//         }
-
-//         let z = legendre_symbol_search(&BigInt::zero(), p, &BigInt::from(-1));
-//         let mut c = n.modpow(&((q + 1) / 2), p);
-//         let mut r = n.modpow(&q, p);
-//         let mut t = BigInt::one();
-//         let mut m = s;
-//         while r != BigInt::one() && t < m {
-//             let exponent = BigInt::from(2).pow((m - t - 1).to_u32().unwrap());
-//             let b = z.modpow(&exponent, p);
-//             c = (c * b).mod_floor(p);
-//             r = (r * b * b).mod_floor(p);
-//             z = b * b;
-//             t += 1;
-//         }
-
-//         c
-//     }
-
-//     pub fn chinese_remainder_theorem(n: &[BigInt], a: &[BigInt]) -> BigInt {
-//         let product = n.iter().fold(BigInt::one(), |acc, &x| acc * x);
-//         let mut sum = BigInt::zero();
-//         for i in 0..n.len() {
-//             let p = &product / &n[i];
-//             sum += &a[i] * modular_multiplicative_inverse(&p, &n[i]) * p;
-//         }
-//         sum % product
-//     }
-
-//     pub fn modular_multiplicative_inverse(a: &BigInt, m: &BigInt) -> BigInt {
-//         let mut r = a % m;
-//         for i in 1..m {
-//             if (&r * i) % m == BigInt::one() {
-//                 return BigInt::from(i);
-//             }
-//         }
-//         BigInt::one()
-//     }
-
-//     pub fn eulers_totient_phi(n: i32) -> i32 {
-//         if n < 3 {
-//             return 1;
-//         }
-//         if n == 3 {
-//             return 2;
-//         }
-
-//         let mut result = n;
-//         if (n & 1) == 0 {
-//             result >>= 1;
-//             while ((n >>= 1) & 1) == 0 {}
-//         }
-
-//         let mut i = 3;
-//         while i * i <= n {
-//             if n % i == 0 {
-//                 result -= result / i;
-//                 while (n /= i) % i == 0 {}
-//             }
-//             i += 2;
-//         }
-
-//         if n > 1 {
-//             result -= result / n;
-//         }
-
-//         result
-//     }
-
-//     pub fn laguerres_method(poly: &Polynomial, guess: f64, max_iterations: f64, precision: f64) -> f64 {
-//         if poly.degree() < 1 {
-//             panic!("No root exists for a constant (degree 0) polynomial!");
-//         }
-
-//         let mut x = guess;
-//         let n = poly.degree() as f64;
-//         let derivative = poly.get_derivative_polynomial();
-//         let second_derivative = derivative.get_derivative_polynomial();
-
-//         for i in 0..(max_iterations as i32) {
-//             if !(poly.evaluate(x).abs() >= precision) {
-//                 break;
-//             }
-
-//             let g = derivative.evaluate(x) / poly.evaluate(x);
-//             let h = g * g - second_derivative.evaluate(x) / poly.evaluate(x);
-//             let sqrt_term = ((n - 1.0) * (n * h - g * g)).sqrt();
-//             let denominator = if (g + sqrt_term).abs() >= (g - sqrt_term).abs() {
-//                 g + sqrt_term
-//             } else {
-//                 g - sqrt_term
-//             };
-//             let delta = n / denominator;
-//             x -= delta;
-
-//             if (i as f64) == max_iterations {
-//                 return f64::NAN;
-//             }
-//         }
-
-//         if poly.evaluate(x).abs() >= precision {
-//             return f64::NAN;
-//         }
-
-//         let digits = (-precision.log10()) as i32;
-//         x.round_to(digits)
-//     }
-
-//     pub fn laguerres_method_complex(poly: &Polynomial, guess: Complex<f64>, max_iterations: f64, precision: f64) -> Complex<f64> {
-//         if poly.degree() < 1 {
-//             panic!("No root exists for a constant (degree 0) polynomial!");
-//         }
-
-//         let mut x = guess;
-//         let n = poly.degree() as f64;
-//         let derivative = poly.get_derivative_polynomial();
-//         let second_derivative = derivative.get_derivative_polynomial();
-
-//         for i in 0..(max_iterations as i32) {
-//             if Complex::abs(poly.evaluate(x)) < precision {
-//                 break;
-//             }
-
-//             let g = derivative.evaluate(x) / poly.evaluate(x);
-//             let h = g * g - second_derivative.evaluate(x) / poly.evaluate(x);
-//             let sqrt_term = Complex::sqrt((n - 1.0) * (n * h - g * g));
-//             let denominator = if Complex::abs(g + sqrt_term) >= Complex::abs(g - sqrt_term) {
-//                 g + sqrt_term
-//             } else {
-//                 g - sqrt_term
-//             };
-//             let delta = n / denominator;
-//             x -= delta;
-
-//             if (i as f64) == max_iterations {
-//                 return Complex::zero();
-//             }
-//         }
-
-//         let digits = (-precision.log10()) as i32;
-//         Complex::new(x.re.round_to(digits), x.im.round_to(digits))
-//     }
-// }
