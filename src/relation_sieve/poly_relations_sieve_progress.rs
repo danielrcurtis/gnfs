@@ -69,58 +69,61 @@ impl PolyRelationsSieveProgress {
         if !self.relations.smooth_relations.is_empty() {
             smooth::append(&mut self.gnfs.as_ref().clone());
         }
-
+    
         self.smooth_relations_target_quantity = std::cmp::max(
             self.smooth_relations_target_quantity,
             self.smooth_relations_required_for_matrix_step(),
         );
-
+    
         if self.a >= self.value_range {
             self.value_range += BigInt::from(200);
         }
-
+    
         self.value_range = if self.value_range.is_even() {
             &self.value_range + 1
         } else {
             self.value_range.clone()
         };
-
+    
         self.a = if self.a.is_even() {
             &self.a + 1
         } else {
             self.a.clone()
         };
-
+    
         let start_a = self.a.clone();
-
+    
         while &self.b >= &self.max_b {
             self.max_b += 100;
         }
-
-        self.gnfs.log_message_slice(&format!(
-            "GenerateRelations: TargetQuantity = {}, ValueRange = {}, A = {}, B = {}, Max B = {}",
-            self.smooth_relations_target_quantity, self.value_range, self.a, self.b, self.max_b
-        ));
-
+    
+        if let Some(gnfs) = Arc::get_mut(&mut self.gnfs) {
+            gnfs.log_message_slice(&format!(
+                "GenerateRelations: TargetQuantity = {}, ValueRange = {}, A = {}, B = {}, Max B = {}",
+                self.smooth_relations_target_quantity, self.value_range, self.a, self.b, self.max_b
+            ));
+        }
+    
         while self.smooth_relations_counter < self.smooth_relations_target_quantity {
             if cancel_token.is_cancellation_requested() {
                 break;
             }
-        
+    
             if &self.b > &self.max_b {
                 break;
             }
-        
+    
             for a in SieveRange::get_sieve_range_continuation(&self.a, &self.value_range) {
                 if cancel_token.is_cancellation_requested() {
                     break;
                 }
-        
+    
                 self.a = a;
+    
                 if GCD::are_coprime(&[self.a.clone(), self.b.clone()]) {
-                    let mut rel = Relation::new(self.gnfs.as_ref(), &self.a, &self.b);
-                    rel.sieve(self.gnfs.as_ref(), self); // Pass self.gnfs.as_ref() as the first argument
-        
+                    let gnfs_clone = Arc::clone(&self.gnfs); // Clone the Arc
+                    let mut rel = Relation::new(&gnfs_clone, &self.a, &self.b); // Pass the cloned Arc
+                    rel.sieve(&gnfs_clone, self); // Pass self directly
                     let smooth = rel.is_smooth();
                     if smooth {
                         self.relations.smooth_relations.push(rel);
@@ -128,18 +131,19 @@ impl PolyRelationsSieveProgress {
                     }
                 }
             }
-        
+    
             if cancel_token.is_cancellation_requested() {
                 break;
             }
-        
+    
             self.b += 1;
             self.a = start_a.clone();
-        
-            self.gnfs.log_message_slice(&format!("B = {}", self.b));
-            self.gnfs.log_message_slice(&format!("SmoothRelations.Count: {}", self.relations.smooth_relations.len()));
+    
+            let gnfs_ref = Arc::get_mut(&mut self.gnfs).unwrap();
+            gnfs_ref.log_message_slice(&format!("B = {}", self.b));
+            gnfs_ref.log_message_slice(&format!("SmoothRelations.Count: {}", self.relations.smooth_relations.len()));
         }
-        
+    
         // After the loop, call smooth::append() with a mutable reference to self.gnfs
         smooth::append(&mut self.gnfs.as_ref().clone());
     }
@@ -198,7 +202,7 @@ impl PolyRelationsSieveProgress {
         result.push_str("\t```````````````````````````````````````````````\n");
     
         let mut sorted_relations: Vec<_> = relations.iter().collect();
-        sorted_relations.sort_by(|a, b| (b.a * b.b).cmp(&(a.a * a.b)));
+        sorted_relations.sort_by(|a, b| (b.a.clone() * b.b.clone()).cmp(&(a.a.clone() * a.b.clone())));
     
         for rel in sorted_relations {
             result.push_str(&format!("{}\n", rel.to_string()));
@@ -248,7 +252,7 @@ impl ToString for PolyRelationsSieveProgress {
                     if rel.b == BigInt::from(0) {
                         String::new()
                     } else {
-                        format!("ƒ({}) ≡ {} ≡ {} (mod {})", rel.a, f, f % &rel.b, rel.b)
+                        format!("ƒ({}) ≡ {} ≡ {} (mod {})", rel.a, f.clone(), f % &rel.b, rel.b)
                     }
                 })
                 .collect::<Vec<_>>()

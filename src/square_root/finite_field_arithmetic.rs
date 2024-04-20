@@ -51,23 +51,27 @@ pub fn square_root(start_polynomial: &Polynomial, f: &Polynomial, p: &BigInt, de
     omega_poly
 }
 
-pub fn modular_multiplicative_inverse(a: &BigInt, p: &BigInt) -> BigInt {
+pub fn modular_multiplicative_inverse(a: &BigInt, p: &BigInt) -> Option<BigInt> {
     if p == &BigInt::one() {
-        return BigInt::zero();
+        return Some(BigInt::zero());
+    }
+
+    if a.gcd(p) != BigInt::one() {
+        return None;
     }
 
     let mut dividend = a.clone();
     let mut divisor = p.clone();
     let mut result = BigInt::zero();
     let mut last_result = BigInt::one();
+    let mut temp_result;
 
     while divisor > BigInt::zero() {
         let (quotient, remainder) = dividend.div_rem(&divisor);
         dividend = divisor;
         divisor = remainder;
-
-        let temp_result = result;
-        result = last_result - &quotient * &result;
+        temp_result = result.clone();
+        result = last_result - &quotient * &temp_result;
         last_result = temp_result;
     }
 
@@ -75,24 +79,23 @@ pub fn modular_multiplicative_inverse(a: &BigInt, p: &BigInt) -> BigInt {
         last_result += p;
     }
 
-    last_result
+    Some(last_result)
 }
 
-pub fn chinese_remainder(primes: &[BigInt], values: &[BigInt]) -> BigInt {
+pub fn chinese_remainder(primes: &[BigInt], values: &[BigInt]) -> Option<BigInt> {
     let prime_product: BigInt = primes.iter().product();
-
     let mut z = BigInt::zero();
+
     for (i, pi) in primes.iter().enumerate() {
         let pj = &prime_product / pi;
-        let aj = modular_multiplicative_inverse(&pj, &pi);
+        let aj = modular_multiplicative_inverse(&pj, &pi)?; // Use ? to handle the Option
         let ax_pj = &values[i] * &aj * pj;
-
         z += ax_pj;
     }
 
     let r = &z / &prime_product;
     let r_p = &r * &prime_product;
-    &z - r_p
+    Some(&z - r_p) // Return the result wrapped in Some
 }
 
 pub fn mod_mod(to_reduce: &Polynomial, mod_poly: &Polynomial, prime_modulus: &BigInt) -> Polynomial {

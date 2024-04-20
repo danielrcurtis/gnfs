@@ -7,6 +7,9 @@ use crate::polynomial::polynomial::Polynomial;
 use crate::core::gnfs::GNFS;
 use crate::relation_sieve::relation::Relation;
 use std::cmp::Ordering;
+use std::cell::RefCell;
+use std::rc::Rc;
+use std::borrow::Borrow;
 use crate::core::count_dictionary::CountDictionary;
 use crate::polynomial::polynomial::Term;
 use crate::integer_math::gcd::GCD;
@@ -66,6 +69,7 @@ pub struct SquareFinder {
 
 impl SquareFinder {
     pub fn new(sieve: &GNFS) -> Self {
+        let sieve_ref = sieve.borrow();
 
         let mut square_finder = SquareFinder {
             rational_product: BigInt::zero(),
@@ -82,13 +86,13 @@ impl SquareFinder {
             algebraic_results: Vec::new(),
             is_algebraic_square: false,
             is_algebraic_irreducible: false,
-            n: sieve.n.clone(),
+            n: sieve_ref.n.clone(),
             s: Polynomial::zero(),
             total_s: Polynomial::zero(),
             roots_of_s: Vec::new(),
             polynomial_ring: Polynomial::zero(),
             polynomial_ring_elements: Vec::new(),
-            polynomial_base: sieve.polynomial_base.clone(),
+            polynomial_base: sieve_ref.polynomial_base.clone(),
             monic_polynomial: Polynomial::zero(),
             polynomial_derivative: Polynomial::zero(),
             monic_polynomial_derivative: Polynomial::zero(),
@@ -234,15 +238,14 @@ impl SquareFinder {
 
         // In this block, we need to evaluate using BigInt wrapper in a struct to derive the next prime number
         // Copy, Serialize, Deserialize are not implemented for BigInt, so this is a workaround
-        let mut last_p = self.gnfs.quadratic_factor_pair_collection.last().unwrap().p;
+        let mut last_p = self.gnfs.quadratic_factor_pair_collection.clone().last().unwrap().p;
         let mut last_p_i128 = last_p.clone() as i128;
         last_p_i128 = PrimeFactory::get_next_prime_from_i128(last_p_i128 + 1).to_i128().unwrap();
         let last_p = last_p_i128.to_bigint().unwrap();
-
         let mut primes = Vec::new();
         let mut values = Vec::new();
-
         let mut attempts = 7;
+
         while !solution_found && attempts > 0 {
             if !primes.is_empty() && !values.is_empty() {
                 primes.clear();
@@ -254,18 +257,16 @@ impl SquareFinder {
                     return (BigInt::one(), BigInt::one());
                 }
 
-                let mut last_p = self.gnfs.quadratic_factor_pair_collection.last().unwrap().p;
+                let mut last_p = self.gnfs.quadratic_factor_pair_collection.clone().last().unwrap().p;
                 let mut last_p_i128 = last_p.clone() as i128;
                 last_p_i128 = PrimeFactory::get_next_prime_from_i128(last_p_i128 + 1).to_i128().unwrap();
                 let last_p = last_p_i128.to_bigint().unwrap();
 
-
                 let g = Polynomial::parse(&format!("X^{} - X", last_p));
                 let h = finite_field_arithmetic::mod_mod(&g, f, &last_p);
-
                 let gcd = Polynomial::field_gcd(&h, f, &last_p);
-
                 let is_irreducible = gcd.cmp(&Polynomial::one()) == Ordering::Equal;
+
                 if !is_irreducible {
                     continue;
                 }
@@ -298,11 +299,11 @@ impl SquareFinder {
                 let eval = chosen_poly.evaluate(&self.gnfs.polynomial_base);
                 let x = eval.mod_floor(p);
 
-                values.push(x);
+                values.push(x.clone());
 
                 info!("{}", "".to_string());
                 info!("{}", format!(" β = {}", chosen_poly));
-                info!("{}", format!("xi = {}", x));
+                info!("{}", format!("xi = {}", x.clone()));
                 info!("{}", format!(" p = {}", p));
                 info!("{}", format!("{}", &prime_product / p));
                 info!("{}", "".to_string());
@@ -315,16 +316,18 @@ impl SquareFinder {
 
             info!("{}", "".to_string());
 
-            for (i, &p) in primes.iter().enumerate() {
+            for (i, p) in primes.iter().enumerate() {
                 let tv = &values[i];
+                let p = p.clone(); // Clone the value of p
                 info!("{}", format!("{} ≡ {} (mod {})", p, tv, self.algebraic_square_root_residue));
             }
 
             info!("{}", "".to_string());
             info!("{}", format!("γ = {}", self.algebraic_square_root_residue));
 
-            let min = BigInt::min(self.rational_square_root_residue, self.algebraic_square_root_residue);
-            let max = BigInt::max(self.rational_square_root_residue, self.algebraic_square_root_residue);
+            let min = BigInt::min(self.rational_square_root_residue.clone(), self.algebraic_square_root_residue.clone());
+            let max = BigInt::max(self.rational_square_root_residue.clone(), self.algebraic_square_root_residue.clone());
+
 
             let a = &max + &min;
             let b = &max - &min;
@@ -367,7 +370,7 @@ impl SquareFinder {
         let mut tried_free_relation_indices = Vec::new();
     
         let poly_base = gnfs.polynomial_base.clone();
-        let free_relations = &gnfs.current_relations_progress.relations.free_relations;
+        let free_relations = gnfs.current_relations_progress.relations.free_relations.clone();
         let mut square_root_finder = SquareFinder::new(gnfs);
     
         let mut free_relation_index = 0;
@@ -379,10 +382,10 @@ impl SquareFinder {
             }
     
             if tried_free_relation_indices.len() == free_relations.len() {
-                gnfs.log_message_slice(&"ERROR: ALL RELATION SETS HAVE BEEN TRIED...?".to_string());
-                gnfs.log_message_slice(&format!("If the number of solution sets ({}) is low, you may need to sieve some more and then re-run the matrix solving step.", free_relations.len()));
-                gnfs.log_message_slice(&"If there are many solution sets, and you have tried them all without finding non-trivial factors, then something is wrong...".to_string());
-                gnfs.log_message_slice(&"".to_string());
+                gnfs.log_message("ERROR: ALL RELATION SETS HAVE BEEN TRIED...?".to_string());
+                gnfs.log_message(format!("If the number of solution sets ({}) is low, you may need to sieve some more and then re-run the matrix solving step.", free_relations.len()));
+                gnfs.log_message("If there are many solution sets, and you have tried them all without finding non-trivial factors, then something is wrong...".to_string());
+                gnfs.log_message("".to_string());
                 break;
             }
     
@@ -398,37 +401,36 @@ impl SquareFinder {
     
             let selected_relation_set: &_ = &free_relations[free_relation_index as usize];
     
-            gnfs.log_message_slice(&"".to_string());
-            gnfs.log_message_slice(&format!("Selected solution set index # {}", free_relation_index + 1));
-            gnfs.log_message_slice(&"".to_string());
-            gnfs.log_message_slice(&"Calculating Rational Square Root β ∈ ℤ[θ] ...".to_string());
-            gnfs.log_message_slice(&"".to_string());
+            gnfs.log_message("".to_string());
+            gnfs.log_message(format!("Selected solution set index # {}", free_relation_index + 1));
+            gnfs.log_message("".to_string());
+            gnfs.log_message("Calculating Rational Square Root β ∈ ℤ[θ] ...".to_string());
+            gnfs.log_message("".to_string());
             square_root_finder.calculate_rational_side(cancel_token, selected_relation_set.clone() as Vec<Relation>);
     
             if cancel_token.is_cancellation_requested() {
-                gnfs.log_message_slice(&"Abort: Task canceled by user!".to_string());
+                gnfs.log_message("Abort: Task canceled by user!".to_string());
                 break;
             }
     
-            gnfs.log_message_slice(&"SquareFinder.CalculateRationalSide() Completed.".to_string());
-            gnfs.log_message_slice(&"".to_string());
-            gnfs.log_message_slice(&"Calculating Algebraic Square Root...".to_string());
-            gnfs.log_message_slice(&"                    y ∈ ℤ ...".to_string());
-            gnfs.log_message_slice(&"δ in a finite field 𝔽ᵨ(θᵨ) ...".to_string());
-            gnfs.log_message_slice(&"".to_string());
+            gnfs.log_message("SquareFinder.CalculateRationalSide() Completed.".to_string());
+            gnfs.log_message("".to_string());
+            gnfs.log_message("Calculating Algebraic Square Root...".to_string());
+            gnfs.log_message("                    y ∈ ℤ ...".to_string());
+            gnfs.log_message("δ in a finite field 𝔽ᵨ(θᵨ) ...".to_string());
+            gnfs.log_message("".to_string());
     
             let found_factors = square_root_finder.calculate_algebraic_side(cancel_token);
     
             if cancel_token.is_cancellation_requested() {
-                gnfs.log_message_slice(&"Abort: Task canceled by user!".to_string());
+                gnfs.log_message("Abort: Task canceled by user!".to_string());
                 break;
             }
     
-            gnfs.log_message_slice(&"SquareFinder.CalculateAlgebraicSide() Completed.".to_string());
-    
-            gnfs.log_message_slice(&"".to_string());
-            gnfs.log_message_slice(&format!("{}² ≡ {}² (mod {})", square_root_finder.algebraic_square_root_residue, square_root_finder.rational_square_root_residue, square_root_finder.n));
-            gnfs.log_message_slice(&"".to_string());
+            gnfs.log_message("SquareFinder.CalculateAlgebraicSide() Completed.".to_string());
+            gnfs.log_message("".to_string());
+            gnfs.log_message(format!("{}² ≡ {}² (mod {})", square_root_finder.algebraic_square_root_residue, square_root_finder.rational_square_root_residue, square_root_finder.n));
+            gnfs.log_message("".to_string());
     
             let p = found_factors.0;
             let q = found_factors.1;
@@ -437,31 +439,30 @@ impl SquareFinder {
             if non_trivial_factors_found {
                 solution_found = gnfs.set_factorization_solution(&p, &q);
     
-                gnfs.log_message_slice(&format!("Selected solution set index # {}", free_relation_index + 1));
-                gnfs.log_message_slice(&"".to_string());
+                gnfs.log_message(format!("Selected solution set index # {}", free_relation_index + 1));
+                gnfs.log_message("".to_string());
     
                 if solution_found {
-                    gnfs.log_message_slice(&"NON-TRIVIAL FACTORS FOUND!".to_string());
-                    gnfs.log_message_slice(&"".to_string());
-                    gnfs.log_message_slice(&&square_root_finder.to_string());
-                    gnfs.log_message_slice(&"".to_string());
-                    gnfs.log_message_slice(&"".to_string());
+                    gnfs.log_message("NON-TRIVIAL FACTORS FOUND!".to_string());
+                    gnfs.log_message("".to_string());
+                    gnfs.log_message(square_root_finder.to_string());
+                    gnfs.log_message("".to_string());
+                    gnfs.log_message("".to_string());
                     match &gnfs.factorization {
-                        Some(solution) => gnfs.log_message_slice(&solution.to_string()),
-                        None => gnfs.log_message_slice(&"No solution found.".to_string()),
+                        Some(solution) => gnfs.log_message(solution.to_string()),
+                        None => gnfs.log_message("No solution found.".to_string()),
                     }
-                    gnfs.log_message_slice(&"".to_string());
+                    gnfs.log_message("".to_string());
                 }
                 break;
             } else if cancel_token.is_cancellation_requested() {
-                gnfs.log_message_slice(&"Abort: Task canceled by user!".to_string());
+                gnfs.log_message("Abort: Task canceled by user!".to_string());
                 break;
             } else {
-                gnfs.log_message_slice(&"".to_string());
-                gnfs.log_message_slice(&"Unable to locate a square root in solution set!".to_string());
-                gnfs.log_message_slice(&"".to_string());
-                gnfs.log_message_slice(&"Trying a different solution set...".to_string());
-                gnfs.log_message_slice(&"".to_string());
+                gnfs.log_message("Trying a different solution set...".to_string());
+                gnfs.log_message("".to_string());
+                gnfs.log_message("Unable to locate a square root in solution set!".to_string());
+                gnfs.log_message("".to_string());
             }
         }
     
@@ -526,8 +527,8 @@ impl SquareFinder {
         result.push_str("\n");
         result.push_str("\n");
 
-        let min = BigInt::min(self.rational_square_root_residue, self.algebraic_square_root_residue);
-        let max = BigInt::max(self.rational_square_root_residue, self.algebraic_square_root_residue);
+        let min = BigInt::min(self.rational_square_root_residue.clone(), self.algebraic_square_root_residue.clone());
+        let max = BigInt::max(self.rational_square_root_residue.clone(), self.algebraic_square_root_residue.clone());
 
         let add = &max + &min;
         let sub = &max - &min;
