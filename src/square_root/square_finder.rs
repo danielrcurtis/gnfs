@@ -536,7 +536,7 @@ impl SquareFinder {
         let gcd_add = GCD::find_gcd(&[self.n.clone(), add.clone()]);
         let gcd_sub = GCD::find_gcd(&[self.n.clone(), sub.clone()]);
 
-        let answer = BigInt::max(gcd_add, gcd_sub);
+        let answer = BigInt::max(gcd_add.clone(), gcd_sub.clone());
 
         result.push_str("\n");
         result.push_str(&format!("GCD(N, γ+χ) = {}\n", gcd_add));
@@ -563,12 +563,9 @@ impl SquareFinder {
 
 }
 
-fn algebraic_square_root(f: &Polynomial, m: &BigInt, degree: i32, dd: &Polynomial, p: &BigInt) -> (BigInt, BigInt) {
+pub fn algebraic_square_root(f: &Polynomial, m: &BigInt, degree: i32, dd: &Polynomial, p: &BigInt) -> (BigInt, BigInt) {
     let start_polynomial = Polynomial::field_modulus(dd, p);
-    let start_inverse_polynomial = modular_inverse(&start_polynomial, p);
-
-    let start_squared1 = Polynomial::mod_mod(&Polynomial::square(&start_polynomial), f, p);
-    let start_squared2 = Polynomial::mod_mod(&Polynomial::square(&start_inverse_polynomial), f, p);
+    //let start_inverse_polynomial = modular_inverse(&start_polynomial, p);
 
     let result_poly1 = finite_field_arithmetic::square_root(&start_polynomial, f, p, degree, m);
     let result_poly2 = modular_inverse(&result_poly1, p);
@@ -576,10 +573,7 @@ fn algebraic_square_root(f: &Polynomial, m: &BigInt, degree: i32, dd: &Polynomia
     let result_squared1 = Polynomial::mod_mod(&Polynomial::square(&result_poly1), f, p);
     let result_squared2 = Polynomial::mod_mod(&Polynomial::square(&result_poly2), f, p);
 
-    let both_results_agree = result_squared1.cmp(&result_squared2) == Ordering::Equal;
-
-    let result_squared_equals_input1 = start_polynomial.cmp(&result_squared1) == Ordering::Equal;
-    let result_squared_equals_input2 = start_inverse_polynomial.cmp(&result_squared1) == Ordering::Equal;
+    let both_results_agree = result_squared1 == result_squared2;
 
     let result1 = result_poly1.evaluate(m).mod_floor(p);
     let result2 = result_poly2.evaluate(m).mod_floor(p);
@@ -588,13 +582,13 @@ fn algebraic_square_root(f: &Polynomial, m: &BigInt, degree: i32, dd: &Polynomia
     let test_evaluations_are_modular_inverses = inverse_prime == result2;
 
     if both_results_agree && test_evaluations_are_modular_inverses {
-        (BigInt::min(result1, result2), BigInt::max(result1, result2))
+        (result1, result2)
     } else {
         (BigInt::zero(), BigInt::zero())
     }
 }
 
-fn modular_inverse(poly: &Polynomial, mod_: &BigInt) -> Polynomial {
+pub fn modular_inverse(poly: &Polynomial, mod_: &BigInt) -> Polynomial {
     let terms = poly.terms.iter()
         .map(|(&exp, coef)| (exp, (mod_ - coef).mod_floor(mod_)))
         .collect();

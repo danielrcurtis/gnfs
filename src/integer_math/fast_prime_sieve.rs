@@ -77,7 +77,7 @@ impl IntoIterator for FastPrimeSieve {
     }
 }
 
-struct FastPrimeSieveIterator {
+pub struct FastPrimeSieveIterator {
     base_primes_array: RefCell<Vec<u32>>,
     page_size: usize,
     buffer_bits: usize,
