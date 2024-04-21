@@ -1,36 +1,32 @@
-Rust GNFS Implementation
+# Rust GNFS Implementation
+
 Welcome to the Rust implementation of the General Number Field Sieve (GNFS), the most advanced algorithm used for factoring large integers. This project aims to provide a robust and efficient implementation of GNFS, leveraging the power and safety of Rust.
 
-Project Inspiration
+## Project Inspiration
+
 This project is inspired by AdamWhiteHat's GNFS implementation and a deep interest in cryptography. It is intended for educational and research purposes, focusing on continuous improvement and validation of the implementation.
 
-Getting Started
-Prerequisites
+## Getting Started
+
+### Prerequisites
+
 Ensure you have the following installed:
 
-Rust (latest stable version)
-Cargo (Rust's package manager and build system)
+- Rust (latest stable version)
+- Cargo (Rust's package manager and build system)
+
 You can install Rust and Cargo using rustup, which is the recommended toolchain manager for Rust projects.
 
-Building the Project
+### Building the Project
+
 Clone the repository:
 
-bash
-Copy code
+```bash
 git clone https://github.com/danielrcurtis/gnfs
 cd rust-gnfs
-Build the project using Cargo:
-
-bash
-Copy code
 cargo build --release
-Running Tests
-To run the automated test suite:
-
-bash
-Copy code
 cargo test
-
+```
 Contributing
 We welcome contributions from the community, whether they are bug fixes, improvements, or new features. Here's how you can contribute:
 
