@@ -12,7 +12,7 @@ This project is inspired by AdamWhiteHat's GNFS implementation and a deep intere
 
 Ensure you have the following installed:
 
-- Rust (latest stable version)
+- Rust (latest stable version) https://www.rust-lang.org/
 - Cargo (Rust's package manager and build system)
 
 You can install Rust and Cargo using rustup, which is the recommended toolchain manager for Rust projects.
@@ -42,16 +42,23 @@ Use issues to discuss potential changes before starting work on a pull request.
 ### Pull Requests
 
 Fork the repository.
+
 Create a new branch for each feature or fix.
+
 Develop your feature or fix, adhering to the existing code style.
+
 Write or adapt tests as necessary.
+
 Ensure your code passes all tests.
+
 Submit a pull request targeting the main branch of the original repository.
 
 ### Guidelines
 
 Keep your code clean and well-commented.
+
 Make sure to document new code accordingly.
+
 Follow Rust's idiomatic practices.
 
 ## Roadmap
