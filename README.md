@@ -27,26 +27,37 @@ cd rust-gnfs
 cargo build --release
 cargo test
 ```
-Contributing
+## Contributing
+
 We welcome contributions from the community, whether they are bug fixes, improvements, or new features. Here's how you can contribute:
 
-Issues
+### Issues
+
 Check out the Issues tab on GitHub to see a list of known issues and feature requests.
+
 Feel free to submit new issues for bugs, enhancements, or feature requests.
+
 Use issues to discuss potential changes before starting work on a pull request.
-Pull Requests
+
+### Pull Requests
+
 Fork the repository.
 Create a new branch for each feature or fix.
 Develop your feature or fix, adhering to the existing code style.
 Write or adapt tests as necessary.
 Ensure your code passes all tests.
 Submit a pull request targeting the main branch of the original repository.
-Guidelines
+
+### Guidelines
+
 Keep your code clean and well-commented.
 Make sure to document new code accordingly.
 Follow Rust's idiomatic practices.
-Roadmap
+
+## Roadmap
+
 The project roadmap is tracked through GitHub issues. We use issues to outline future plans and track ongoing progress.
 
-License
+## License
+
 This project is licensed under MIT License. See the LICENSE file in the repository for full license text.
