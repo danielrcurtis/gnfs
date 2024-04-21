@@ -1,6 +1,6 @@
 # Rust GNFS Implementation
 
-Welcome to the Rust implementation of the General Number Field Sieve (GNFS), the most advanced algorithm used for factoring large integers. This project aims to provide a robust and efficient implementation of GNFS, leveraging the power and safety of Rust.
+Welcome to the Rust implementation of the General Number Field Sieve (GNFS), the most advanced classical algorithm used for factoring large integers. This project aims to provide a robust and efficient implementation of GNFS, leveraging the power and safety of Rust.
 
 ## Project Inspiration
 
