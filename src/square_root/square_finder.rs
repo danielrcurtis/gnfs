@@ -7,7 +7,6 @@ use crate::polynomial::polynomial::Polynomial;
 use crate::core::gnfs::GNFS;
 use crate::relation_sieve::relation::Relation;
 use std::cmp::Ordering;
-use std::borrow::Borrow;
 use crate::core::count_dictionary::CountDictionary;
 use crate::polynomial::polynomial::Term;
 use crate::integer_math::gcd::GCD;

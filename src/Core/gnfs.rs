@@ -1,6 +1,6 @@
 // src/core/gnfs.rs
 
-use log::info;
+use log::{debug, info};
 use num::{BigInt, ToPrimitive, Zero};
 use std::path::{Path,PathBuf};
 use std::sync::{atomic::AtomicBool, Arc};
@@ -123,7 +123,7 @@ impl GNFS {
             }
 
             gnfs.current_relations_progress = PolyRelationsSieveProgress::new(
-                Arc::new(gnfs.clone()),
+                Arc::downgrade(&Arc::new(gnfs.clone())),
                 relation_quantity.try_into().unwrap(),
                 relation_value_range.into(),
             );
@@ -214,6 +214,7 @@ impl GNFS {
         info!("Constructing new prime bases (- of 3)...");
 
         let mut prime_factory = PrimeFactory::new();
+        debug!("Prime factory initialized.");
         self.prime_factor_base.rational_factor_base = PrimeFactory::get_primes_to(&mut prime_factory, &self.prime_factor_base.rational_factor_base_max)
             .collect::<Vec<BigInt>>(); // Collect the iterator into a Vec<BigInt>
         info!("Completed rational prime base (1 of 3).");

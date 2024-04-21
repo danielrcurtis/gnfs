@@ -1,6 +1,8 @@
 // src/relation_sieve/poly_relations_sieve_progress.rs
 
-use std::sync::Arc;
+
+use std::sync::{Arc, Weak};
+use log::{debug, info};
 use num::{BigInt, Integer};
 use crate::integer_math::gcd::GCD;
 use crate::core::sieve_range::SieveRange;
@@ -14,6 +16,7 @@ use crate::core::serialization::save;
 use crate::integer_math::factorization_factory::FactorizationFactory;
 use crate::core::cancellation_token::CancellationToken;
 use crate::square_root::square_finder::is_square;
+
 #[derive(Debug, Clone)]
 pub struct PolyRelationsSieveProgress {
     pub a: BigInt,
@@ -24,11 +27,11 @@ pub struct PolyRelationsSieveProgress {
     pub max_b: BigInt,
     pub smooth_relations_counter: usize,
     pub free_relations_counter: usize,
-    pub gnfs: Arc<GNFS>,
+    pub gnfs: Weak<GNFS>,
 }
 
 impl PolyRelationsSieveProgress {
-    pub fn new(gnfs: Arc<GNFS>, smooth_relations_target_quantity: isize, value_range: BigInt) -> Self {
+    pub fn new(gnfs: Weak<GNFS>, smooth_relations_target_quantity: isize, value_range: BigInt) -> Self {
         let mut progress = PolyRelationsSieveProgress {
             a: BigInt::from(0),
             b: BigInt::from(3),
@@ -40,7 +43,7 @@ impl PolyRelationsSieveProgress {
             free_relations_counter: 0,
             gnfs,
         };
-
+    
         if smooth_relations_target_quantity == -1 {
             progress.smooth_relations_target_quantity = progress.smooth_relations_required_for_matrix_step();
         } else {
@@ -49,25 +52,32 @@ impl PolyRelationsSieveProgress {
                 progress.smooth_relations_required_for_matrix_step(),
             );
         }
-
+    
         if progress.max_b == BigInt::from(0) {
-            progress.max_b = progress.gnfs.prime_factor_base.algebraic_factor_base_max.clone();
+            if let Some(gnfs) = progress.gnfs.upgrade() {
+                progress.max_b = gnfs.prime_factor_base.algebraic_factor_base_max.clone();
+            }
         }
-
+    
         progress
     }
-
+    
     pub fn smooth_relations_required_for_matrix_step(&self) -> usize {
-        let mut prime_factory = PrimeFactory::new();
-        PrimeFactory::get_index_from_value(&mut prime_factory, &self.gnfs.prime_factor_base.rational_factor_base_max) as usize
-            + PrimeFactory::get_index_from_value(&mut prime_factory, &self.gnfs.prime_factor_base.algebraic_factor_base_max) as usize
-            + self.gnfs.quadratic_factor_pair_collection.0.len()
-            + 3
+        if let Some(gnfs) = self.gnfs.upgrade() {
+            let mut prime_factory = PrimeFactory::new();
+            PrimeFactory::get_index_from_value(&mut prime_factory, &gnfs.prime_factor_base.rational_factor_base_max) as usize
+                + PrimeFactory::get_index_from_value(&mut prime_factory, &gnfs.prime_factor_base.algebraic_factor_base_max) as usize
+                + gnfs.quadratic_factor_pair_collection.0.len()
+                + 3
+        } else {
+            0
+        }
     }
 
     pub fn generate_relations(&mut self, cancel_token: &CancellationToken) {
-        if !self.relations.smooth_relations.is_empty() {
-            smooth::append(&mut self.gnfs.as_ref().clone());
+        if let Some(gnfs) = self.gnfs.upgrade() {
+            let mut gnfs = (*gnfs).clone();
+            smooth::append(&mut gnfs);
         }
     
         self.smooth_relations_target_quantity = std::cmp::max(
@@ -94,15 +104,15 @@ impl PolyRelationsSieveProgress {
         let start_a = self.a.clone();
     
         while &self.b >= &self.max_b {
-            self.max_b += 100;
+            self.max_b += 1000;
         }
     
-        if let Some(gnfs) = Arc::get_mut(&mut self.gnfs) {
-            gnfs.log_message_slice(&format!(
-                "GenerateRelations: TargetQuantity = {}, ValueRange = {}, A = {}, B = {}, Max B = {}",
-                self.smooth_relations_target_quantity, self.value_range, self.a, self.b, self.max_b
-            ));
-        }
+        
+        debug!("{}", format!(
+            "GenerateRelations: TargetQuantity = {}, ValueRange = {}, A = {}, B = {}, Max B = {}",
+            self.smooth_relations_target_quantity, self.value_range, self.a, self.b, self.max_b
+        ));
+        
     
         while self.smooth_relations_counter < self.smooth_relations_target_quantity {
             if cancel_token.is_cancellation_requested() {
@@ -121,13 +131,14 @@ impl PolyRelationsSieveProgress {
                 self.a = a;
     
                 if GCD::are_coprime(&[self.a.clone(), self.b.clone()]) {
-                    let gnfs_clone = Arc::clone(&self.gnfs); // Clone the Arc
-                    let mut rel = Relation::new(&gnfs_clone, &self.a, &self.b); // Pass the cloned Arc
-                    rel.sieve(&gnfs_clone, self); // Pass self directly
-                    let smooth = rel.is_smooth();
-                    if smooth {
-                        self.relations.smooth_relations.push(rel);
-                        self.smooth_relations_counter += 1;
+                    if let Some(gnfs) = self.gnfs.upgrade() {
+                        let mut rel = Relation::new(&gnfs, &self.a, &self.b);
+                        rel.sieve(&gnfs, self);
+                        let smooth = rel.is_smooth();
+                        if smooth {
+                            self.relations.smooth_relations.push(rel);
+                            self.smooth_relations_counter += 1;
+                        }
                     }
                 }
             }
@@ -139,18 +150,23 @@ impl PolyRelationsSieveProgress {
             self.b += 1;
             self.a = start_a.clone();
     
-            let gnfs_ref = Arc::get_mut(&mut self.gnfs).unwrap();
-            gnfs_ref.log_message_slice(&format!("B = {}", self.b));
-            gnfs_ref.log_message_slice(&format!("SmoothRelations.Count: {}", self.relations.smooth_relations.len()));
+            
+            debug!("{}", &format!("B = {}", self.b));
+            debug!("{}", &format!("SmoothRelations.Count: {}", self.relations.smooth_relations.len()));
+            
         }
     
-        // After the loop, call smooth::append() with a mutable reference to self.gnfs
-        smooth::append(&mut self.gnfs.as_ref().clone());
+        if let Some(gnfs) = self.gnfs.upgrade() {
+            let mut gnfs = (*gnfs).clone();
+            smooth::append(&mut gnfs);
+        }
     }
-
+    
     pub fn increase_target_quantity(&mut self, amount: usize) {
         self.smooth_relations_target_quantity += amount;
-        save::gnfs(&self.gnfs);
+        if let Some(gnfs) = self.gnfs.upgrade() {
+            save::gnfs(&gnfs);
+        }
     }
 
     pub fn purge_prime_rough_relations(&mut self) {
@@ -185,10 +201,11 @@ impl PolyRelationsSieveProgress {
 
     pub fn add_free_relation_solution(&mut self, mut free_relation_solution: Vec<Relation>) {
         self.relations.free_relations.push(free_relation_solution.clone());
-        // Use `Arc::get_mut` to obtain a mutable reference to the inner value of `self.gnfs`.
-        if let Some(gnfs) = Arc::get_mut(&mut self.gnfs) {
-            free::single_solution(gnfs, &mut free_relation_solution);
-            gnfs.log_message_slice(&format!("Added free relation solution: Relation count = {}", free_relation_solution.len()));
+        if let Some(arc_gnfs) = self.gnfs.upgrade() {
+            if let Some(gnfs) = Arc::get_mut(&mut arc_gnfs.clone()) {
+                free::single_solution(gnfs, &mut free_relation_solution);
+                info!("{}", &format!("Added free relation solution: Relation count = {}", free_relation_solution.len()));
+            }
         }
     }
     
@@ -214,6 +231,7 @@ impl PolyRelationsSieveProgress {
     
         result
     }
+
 }
 
 impl ToString for PolyRelationsSieveProgress {
@@ -248,7 +266,7 @@ impl ToString for PolyRelationsSieveProgress {
             result.push_str(&relations
                 .iter()
                 .map(|rel| {
-                    let f = self.gnfs.current_polynomial.evaluate(&rel.a);
+                    let f = self.gnfs.upgrade().unwrap().current_polynomial.evaluate(&rel.a);
                     if rel.b == BigInt::from(0) {
                         String::new()
                     } else {
@@ -277,7 +295,7 @@ impl Default for PolyRelationsSieveProgress {
             max_b: BigInt::from(0),
             smooth_relations_counter: 0,
             free_relations_counter: 0,
-            gnfs: Arc::new(GNFS::default()),
+            gnfs: Weak::new(),
         }
     }
 }

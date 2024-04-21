@@ -1,5 +1,6 @@
+use gnfs::integer_math::prime_factory;
 // src/main.rs
-use log::info;
+use log::{debug, info};
 use env_logger::Env;
 use gnfs::core::cpu_info::CPUInfo;
 use gnfs::core::gnfs::GNFS;
@@ -10,7 +11,7 @@ use std::path::Path;
 fn main() {
     // Initialize the logger
     let env = Env::default()
-        .filter_or("MY_LOG_LEVEL", "debug")
+        .filter_or("MY_LOG_LEVEL", "info")
         .write_style_or("MY_LOG_STYLE", "always");
     env_logger::Builder::from_env(env).init();
 
@@ -30,8 +31,11 @@ fn main() {
     info!("L3 cache size: {} bytes", l3_cache_size);
     info!("L3 cache line size: {} bytes", l3_cache_line_size);
 
+    let prime_factory = prime_factory::PrimeFactory::new();
+    let is_prime = prime_factory.is_prime(&BigInt::from(5));
+    info!("Is 5 prime? {}", is_prime);
     // Create or load GNFS instance
-    let n = BigInt::from(45113); // Replace with the number you want to factorize
+    let n = BigInt::from(45113); // RNumber to test.
     let mut gnfs = create_or_load_gnfs(&n);
 
     // Start the factorization process
@@ -60,19 +64,19 @@ fn create_new_gnfs(n: &BigInt) -> GNFS {
     info!("Creating a new GNFS instance...");
     let cancel_token = CancellationToken::new();
     let polynomial_base = BigInt::from(31);
-    let poly_degree = -1; // Use the default degree calculation
-    let prime_bound = BigInt::from(1000000); // Adjust the prime bound as needed
-    let relation_quantity = 10; // Adjust the relation quantity as needed
-    let relation_value_range = 1001; // Adjust the relation value range as needed
+    let poly_degree = 3;
+    let prime_bound = BigInt::from(100); // Adjust the prime bound as needed
+    let relation_quantity = 1; // Adjust the relation quantity as needed
+    let relation_value_range = 1000; // Adjust the relation value range as needed
     let created_new_data = true;
 
-    dbg!(n);
-    dbg!(polynomial_base.clone());
-    dbg!(poly_degree);
-    dbg!(prime_bound.clone());
-    dbg!(relation_quantity);
-    dbg!(relation_value_range);
-    dbg!(created_new_data);
+    info!("n: {}", n);
+    info!("Polynomial Base: {}", polynomial_base.clone());
+    info!("Polynomial Degree: {}", poly_degree);
+    info!("Prime Bound: {}", prime_bound.clone());
+    info!("Relation Target: {}", relation_quantity);
+    info!("Relation Value: {}", relation_value_range);
+    info!("GNFS: {}", created_new_data);
 
     GNFS::new(
         &cancel_token,
@@ -87,18 +91,19 @@ fn create_new_gnfs(n: &BigInt) -> GNFS {
 }
 
 fn find_relations(cancel_token: &CancellationToken, mut gnfs: GNFS, one_round: bool) -> GNFS {
+    info!("Sieving for relations...");
     while !cancel_token.is_cancellation_requested() {
         if gnfs.current_relations_progress.smooth_relations_counter >= gnfs.current_relations_progress.smooth_relations_target_quantity {
-            gnfs.current_relations_progress.increase_target_quantity(100);
+            gnfs.current_relations_progress.increase_target_quantity(1);
         }
 
         gnfs.current_relations_progress.generate_relations(cancel_token);
 
-        info!("");
-        info!("Sieving progress saved at:");
-        info!(" A = {}", gnfs.current_relations_progress.a);
-        info!(" B = {}", gnfs.current_relations_progress.b);
-        info!("");
+        debug!("");
+        debug!("Sieving progress saved at:");
+        debug!(" A = {}", gnfs.current_relations_progress.a);
+        debug!(" B = {}", gnfs.current_relations_progress.b);
+        debug!("");
 
         if one_round {
             break;
@@ -107,6 +112,13 @@ fn find_relations(cancel_token: &CancellationToken, mut gnfs: GNFS, one_round: b
         if gnfs.current_relations_progress.smooth_relations_counter >= gnfs.current_relations_progress.smooth_relations_target_quantity {
             break;
         }
+    }
+    if cancel_token.is_cancellation_requested() {
+        info!("Sieving cancelled.");
+        info!("Saving progress...");
+        info!("Relations found: {}", gnfs.current_relations_progress.smooth_relations_counter);
+    } else {
+        info!("Sieving complete.");
     }
 
     gnfs

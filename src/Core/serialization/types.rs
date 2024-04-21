@@ -138,6 +138,10 @@ pub struct SerializablePolyRelationsSieveProgress {
 
 impl From<PolyRelationsSieveProgress> for SerializablePolyRelationsSieveProgress {
     fn from(progress: PolyRelationsSieveProgress) -> Self {
+        let gnfs = progress.gnfs.upgrade().map(|arc_gnfs| {
+            Box::new(SerializableGNFS::from((*arc_gnfs).clone()))
+        }).unwrap_or_else(|| Box::new(SerializableGNFS::default()));
+
         SerializablePolyRelationsSieveProgress {
             a: progress.a.to_string(),
             b: progress.b.to_string(),
@@ -147,15 +151,15 @@ impl From<PolyRelationsSieveProgress> for SerializablePolyRelationsSieveProgress
             max_b: progress.max_b.to_string(),
             smooth_relations_counter: progress.smooth_relations_counter,
             free_relations_counter: progress.free_relations_counter,
-            // Clone the GNFS object itself before passing it to the from function
-            gnfs: Box::new(SerializableGNFS::from((*Arc::clone(&progress.gnfs)).clone())),
+            gnfs: gnfs,
         }
     }
 }
 
-
 impl From<SerializablePolyRelationsSieveProgress> for PolyRelationsSieveProgress {
     fn from(progress: SerializablePolyRelationsSieveProgress) -> Self {
+        let gnfs = Arc::new(GNFS::from(*progress.gnfs));
+
         PolyRelationsSieveProgress {
             a: BigInt::parse_bytes(progress.a.as_bytes(), 10).unwrap(),
             b: BigInt::parse_bytes(progress.b.as_bytes(), 10).unwrap(),
@@ -165,7 +169,7 @@ impl From<SerializablePolyRelationsSieveProgress> for PolyRelationsSieveProgress
             max_b: BigInt::parse_bytes(progress.max_b.as_bytes(), 10).unwrap(),
             smooth_relations_counter: progress.smooth_relations_counter,
             free_relations_counter: progress.free_relations_counter,
-            gnfs: Arc::new(GNFS::from(*progress.gnfs)),
+            gnfs: Arc::downgrade(&gnfs),
         }
     }
 }
@@ -384,5 +388,79 @@ impl From<SerializableCountDictionary> for CountDictionary {
             ))
             .collect();
         CountDictionary(original_map)
+    }
+}
+
+impl Default for SerializableGNFS {
+    fn default() -> Self {
+        SerializableGNFS {
+            n: String::default(),
+            factorization: None,
+            polynomial_degree: 0,
+            polynomial_base: String::default(),
+            polynomial_collection: Vec::default(),
+            current_polynomial: SerializablePolynomial::default(),
+            current_relations_progress: Box::new(SerializablePolyRelationsSieveProgress::default()),
+            prime_factor_base: SerializableFactorBase::default(),
+            rational_factor_pair_collection: SerializableFactorPairCollection::default(),
+            algebraic_factor_pair_collection: SerializableFactorPairCollection::default(),
+            quadratic_factor_pair_collection: SerializableFactorPairCollection::default(),
+            save_locations: DirectoryLocations::default(),
+        }
+    }
+}
+
+impl Default for SerializablePolyRelationsSieveProgress {
+    fn default() -> Self {
+        SerializablePolyRelationsSieveProgress {
+            a: String::default(),
+            b: String::default(),
+            smooth_relations_target_quantity: 0,
+            value_range: String::default(),
+            relations: SerializableRelationContainer::default(),
+            max_b: String::default(),
+            smooth_relations_counter: 0,
+            free_relations_counter: 0,
+            gnfs: Box::new(SerializableGNFS::default()),
+        }
+    }
+}
+
+impl Default for SerializableFactorBase {
+    fn default() -> Self {
+        SerializableFactorBase {
+            rational_factor_base_max: String::default(),
+            algebraic_factor_base_max: String::default(),
+            quadratic_factor_base_min: String::default(),
+            quadratic_factor_base_max: String::default(),
+            quadratic_base_count: 0,
+            rational_factor_base: Vec::default(),
+            algebraic_factor_base: Vec::default(),
+            quadratic_factor_base: Vec::default(),
+        }
+    }
+}
+
+impl Default for SerializableFactorPairCollection {
+    fn default() -> Self {
+        SerializableFactorPairCollection(Vec::default())
+    }
+}
+
+impl Default for SerializablePolynomial {
+    fn default() -> Self {
+        SerializablePolynomial {
+            terms: Vec::default(),
+        }
+    }
+}
+
+impl Default for SerializableRelationContainer {
+    fn default() -> Self {
+        SerializableRelationContainer {
+            smooth_relations: Vec::default(),
+            rough_relations: Vec::default(),
+            free_relations: Vec::default(),
+        }
     }
 }

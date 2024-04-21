@@ -57,12 +57,11 @@ pub fn all(filename: &str) -> GNFS {
     gnfs.polynomial_degree = gnfs.current_polynomial.degree();
 
     load::factor_base(&mut gnfs);
-
     load::factor_pair::rational(&mut gnfs);
     load::factor_pair::algebraic(&mut gnfs);
     load::factor_pair::quadratic(&mut gnfs);
 
-    gnfs.current_relations_progress.gnfs = Arc::new(gnfs.clone());
+    gnfs.current_relations_progress.gnfs = Arc::downgrade(&Arc::new(gnfs.clone()));
 
     load::relations::smooth(&mut gnfs);
     load::relations::rough(&mut gnfs);
