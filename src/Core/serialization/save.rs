@@ -181,7 +181,7 @@ pub mod relations {
         use super::*;
     
         pub fn all_solutions(gnfs: &mut GNFS) {
-            let mut solutions_to_save = Vec::new();
+            let solutions_to_save = Vec::new();
             let mut free_relations = Vec::new();
             
             // Extract the free relations into a separate vector

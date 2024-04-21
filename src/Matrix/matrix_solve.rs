@@ -2,7 +2,6 @@
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use rand::Rng;
 use num::{BigInt, ToPrimitive};
 use crate::core::gnfs::GNFS;
 use crate::core::count_dictionary::CountDictionary;
@@ -18,7 +17,7 @@ impl MatrixSolve {
         save::relations::smooth::append(gnfs);
         load::relations::smooth(gnfs);
     
-        let mut smooth_relations = gnfs.current_relations_progress.relations.smooth_relations.clone();
+        let smooth_relations = gnfs.current_relations_progress.relations.smooth_relations.clone();
         let smooth_count = smooth_relations.len();
         let required_relations_count = &gnfs.current_relations_progress.smooth_relations_required_for_matrix_step();
     

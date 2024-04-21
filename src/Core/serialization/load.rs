@@ -128,7 +128,7 @@ pub mod relations {
 
     pub fn rough(gnfs: &mut GNFS) {
         if Path::new(&gnfs.save_locations.rough_relations_filepath).exists() {
-            let mut temp: Vec<SerializableRelation> = load::generic_fixed_array(&gnfs.save_locations.rough_relations_filepath);
+            let temp: Vec<SerializableRelation> = load::generic_fixed_array(&gnfs.save_locations.rough_relations_filepath);
             let mut relations: Vec<Relation> = temp.into_iter().map(|rel| Relation::from(rel)).collect();
             relations.iter_mut().for_each(|rel| rel.is_persisted = true);
             gnfs.current_relations_progress.relations.rough_relations = relations;

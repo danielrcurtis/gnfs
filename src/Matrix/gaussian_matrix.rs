@@ -23,28 +23,41 @@ impl GaussianMatrix<'_> {
         let elimination_step = false;
         let free_cols = Vec::new();
         let m = Vec::new();
-
+    
         let relations = rels.to_vec();
-
+    
         let mut relations_as_rows: Vec<GaussianRow> = relations
             .iter()
             .map(|rel| GaussianRow::new(&gnfs, rel.clone()))
             .collect();
-
-        let selected_rows: Vec<GaussianRow> = relations_as_rows
+    
+        let mut selected_rows: Vec<GaussianRow> = relations_as_rows
             .iter_mut()
             .take(gnfs.current_relations_progress.smooth_relations_required_for_matrix_step().to_usize().unwrap())
             .map(|row| row.to_owned())
             .collect();
-
+    
         let max_index_rat = selected_rows.iter().map(|row| row.last_index_of_rational().unwrap_or(0)).max().unwrap();
         let max_index_alg = selected_rows.iter().map(|row| row.last_index_of_algebraic().unwrap_or(0)).max().unwrap();
         let max_index_qua = selected_rows.iter().map(|row| row.last_index_of_quadratic().unwrap_or(0)).max().unwrap();
-
-        for row in relations_as_rows {
+    
+        for row in &mut selected_rows {
+            row.resize_rational_part(max_index_rat);
+            row.resize_algebraic_part(max_index_alg);
+            row.resize_quadratic_part(max_index_qua);
+        }
+    
+        let example_row = selected_rows.first().unwrap();
+        let mut new_length = example_row.get_bool_array().len();
+    
+        new_length += 1;
+    
+        let selected_rows: Vec<GaussianRow> = selected_rows.into_iter().take(new_length).collect();
+    
+        for row in selected_rows {
             relation_matrix_tuple.push((row.source_relation.clone(), row.get_bool_array()));
         }
-
+    
         GaussianMatrix {
             m,
             free_cols,
@@ -77,28 +90,28 @@ impl GaussianMatrix<'_> {
         if self.elimination_step {
             return;
         }
-
+    
         let num_rows = self.m.len();
         let num_cols = self.m[0].len();
-
+    
         self.free_cols = vec![false; num_cols];
-
+    
         let mut h = 0;
-
+    
         for i in 0..num_rows {
             if h >= num_cols {
                 break;
             }
-
+    
             let mut next = false;
-
+    
             if !self.m[i][h] {
                 let mut t = i + 1;
-
+    
                 while t < num_rows && !self.m[t][h] {
                     t += 1;
                 }
-
+    
                 if t < num_rows {
                     self.m.swap(i, t);
                 } else {
@@ -106,24 +119,24 @@ impl GaussianMatrix<'_> {
                     next = true;
                 }
             }
-
+    
             if !next {
                 for j in i + 1..num_rows {
                     if self.m[j][h] {
                         self.m[j] = Self::add(&self.m[j], &self.m[i]);
                     }
                 }
-
+    
                 for j in 0..i {
                     if self.m[j][h] {
                         self.m[j] = Self::add(&self.m[j], &self.m[i]);
                     }
                 }
             }
-
+    
             h += 1;
         }
-
+    
         self.elimination_step = true;
     }
 

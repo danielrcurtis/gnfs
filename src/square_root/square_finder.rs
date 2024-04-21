@@ -7,8 +7,6 @@ use crate::polynomial::polynomial::Polynomial;
 use crate::core::gnfs::GNFS;
 use crate::relation_sieve::relation::Relation;
 use std::cmp::Ordering;
-use std::cell::RefCell;
-use std::rc::Rc;
 use std::borrow::Borrow;
 use crate::core::count_dictionary::CountDictionary;
 use crate::polynomial::polynomial::Term;
@@ -69,7 +67,7 @@ pub struct SquareFinder {
 
 impl SquareFinder {
     pub fn new(sieve: &GNFS) -> Self {
-        let sieve_ref = sieve.borrow();
+        let sieve_ref = sieve;
 
         let mut square_finder = SquareFinder {
             rational_product: BigInt::zero(),
@@ -238,10 +236,6 @@ impl SquareFinder {
 
         // In this block, we need to evaluate using BigInt wrapper in a struct to derive the next prime number
         // Copy, Serialize, Deserialize are not implemented for BigInt, so this is a workaround
-        let mut last_p = self.gnfs.quadratic_factor_pair_collection.clone().last().unwrap().p;
-        let mut last_p_i128 = last_p.clone() as i128;
-        last_p_i128 = PrimeFactory::get_next_prime_from_i128(last_p_i128 + 1).to_i128().unwrap();
-        let last_p = last_p_i128.to_bigint().unwrap();
         let mut primes = Vec::new();
         let mut values = Vec::new();
         let mut attempts = 7;
@@ -257,7 +251,7 @@ impl SquareFinder {
                     return (BigInt::one(), BigInt::one());
                 }
 
-                let mut last_p = self.gnfs.quadratic_factor_pair_collection.clone().last().unwrap().p;
+                let last_p = self.gnfs.quadratic_factor_pair_collection.clone().last().unwrap().p;
                 let mut last_p_i128 = last_p.clone() as i128;
                 last_p_i128 = PrimeFactory::get_next_prime_from_i128(last_p_i128 + 1).to_i128().unwrap();
                 let last_p = last_p_i128.to_bigint().unwrap();

@@ -35,7 +35,6 @@ pub struct GNFS {
 impl GNFS {
     pub fn new(
         cancel_token: &CancellationToken,
-        self_logger: &mut dyn FnMut(String),
         n: &BigInt,
         polynomial_base: &BigInt,
         poly_degree: i32,
@@ -160,9 +159,9 @@ impl GNFS {
         }
     }
 
-    fn get_prime_bounds_approximation(&mut self) {
+    pub fn get_prime_bounds_approximation(&mut self) {
         let base_10 = self.n.to_string().len();
-        let bound = if base_10 <= 10 {
+        let _bound = if base_10 <= 10 {
             BigInt::from(100)
         } else if base_10 <= 18 {
             BigInt::from(base_10) * BigInt::from(1000)
@@ -239,7 +238,7 @@ impl GNFS {
         }
     }
 
-    fn construct_new_polynomial(&mut self, polynomial_base: &BigInt, poly_degree: usize) {
+    pub fn construct_new_polynomial(&mut self, _polynomial_base: &BigInt, _poly_degree: usize) {
         self.current_polynomial = Polynomial::new(vec![Term::new(self.n.clone(), 0)]);
 
         self.polynomial_collection.push(self.current_polynomial.clone());
@@ -313,7 +312,7 @@ impl GNFS {
         let n = p * q;
         if n == self.n {
             self.factorization = Some(Solution::new(p, q));
-            let path = PathBuf::from(&self.save_locations.save_directory).join("Solution.txt");
+            let _path = PathBuf::from(&self.save_locations.save_directory).join("Solution.txt");
             // TODO: Implement writing the solution to a file
             true
         } else {

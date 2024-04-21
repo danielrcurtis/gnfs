@@ -1,6 +1,6 @@
 // src/main.rs
 
-use log::{info, warn, debug, trace, error};
+use log::info;
 use env_logger::Env;
 use gnfs::core::cpu_info::CPUInfo;
 

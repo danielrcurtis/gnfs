@@ -57,7 +57,6 @@ impl FastPrimeSieve {
     fn iterator(&self) -> FastPrimeSieveIterator {
         FastPrimeSieveIterator {
             base_primes_array: RefCell::new(vec![]),
-            page_size: self.page_size,
             buffer_bits: self.buffer_bits,
             buffer_bits_next: self.buffer_bits_next,
             low: 0,
@@ -77,15 +76,30 @@ impl IntoIterator for FastPrimeSieve {
     }
 }
 
+struct BasePrimes {
+    primes: std::iter::Flatten<std::iter::Once<FastPrimeSieve>>,
+}
+
+impl Iterator for BasePrimes {
+    type Item = BigUint;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.primes.next()
+    }
+}
+
+impl BasePrimesTrait for BasePrimes {}
+
+trait BasePrimesTrait: Iterator<Item = BigUint> {}
+
 pub struct FastPrimeSieveIterator {
     base_primes_array: RefCell<Vec<u32>>,
-    page_size: usize,
+    base_primes: Option<Box<dyn BasePrimesTrait>>,
     buffer_bits: usize,
     buffer_bits_next: usize,
     low: u32,
     bottom_item: usize,
     cull_buffer: Vec<u32>,
-    base_primes: Option<std::iter::Flatten<std::iter::Once<FastPrimeSieve>>>,
 }
 
 impl Iterator for FastPrimeSieveIterator {
@@ -94,7 +108,7 @@ impl Iterator for FastPrimeSieveIterator {
     fn next(&mut self) -> Option<Self::Item> {
         while self.bottom_item < self.buffer_bits {
             if self.bottom_item < 1 {
-                if self.bottom_item < 0 {
+                if self.bottom_item <= 0 {
                     self.bottom_item = 0;
                     return Some(BigUint::from(2u32));
                 }
@@ -123,7 +137,9 @@ impl Iterator for FastPrimeSieveIterator {
 
                     if self.base_primes_array.borrow().is_empty() {
                         // Init second base primes stream
-                        self.base_primes = Some(std::iter::once(FastPrimeSieve::new()).flatten());
+                        self.base_primes = Some(Box::new(BasePrimes {
+                            primes: std::iter::once(FastPrimeSieve::new()).flatten(),
+                        }));
                         self.base_primes.as_mut().unwrap().next();
                         self.base_primes.as_mut().unwrap().next();
                         let prime = self.base_primes.as_mut().unwrap().next().unwrap().to_u32().expect("base prime is too large");

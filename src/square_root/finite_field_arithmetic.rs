@@ -31,13 +31,12 @@ pub fn square_root(start_polynomial: &Polynomial, f: &Polynomial, p: &BigInt, de
     let mut omega_poly = Polynomial::exponentiate_mod(start_polynomial, &half_s, f, p);
 
     let mut lambda = minus_one;
-    let mut zeta = BigInt::zero();
 
     let mut i = 0;
     loop {
         i += 1;
 
-        zeta = theta.modpow(&(&i * &s), p);
+        let zeta = theta.modpow(&(&i * &s), p);  // Declare zeta here since it's used right after
 
         lambda = (&lambda * &zeta.pow((2u32.pow((r - i) as u32)) as u32)).mod_floor(p);
 

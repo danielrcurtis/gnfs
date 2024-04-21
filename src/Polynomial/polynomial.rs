@@ -325,29 +325,29 @@ impl Polynomial {
         } else {
             let right_degree = right.degree();
             let quotient_degree = left.degree() - right_degree + 1;
-
+    
             let leading_coefficient = right[right_degree].clone();
             if leading_coefficient != BigInt::one() {
                 panic!("This method expects only monomials (leading coefficient is 1) for the right-hand-side polynomial.");
             }
-
+    
             let mut rem = left.clone();
-            let mut quot = BigInt::zero();
-
+    
             for i in (0..quotient_degree).rev() {
-                quot = rem[right_degree + i].clone();
-
+                let quot = rem[right_degree + i].clone(); // Declaration moved here
+    
                 rem[right_degree + i] = BigInt::zero();
-
+    
                 for j in (i..=right_degree + i - 1).rev() {
                     rem[j] -= &quot * &right[j - i];
                 }
             }
-
+    
             let terms: Vec<Term> = rem.terms.into_iter().map(|(exponent, coefficient)| Term::new(coefficient, exponent)).collect();
             Polynomial::new(terms)
         }
     }
+    
 
     pub fn multiply(left: &Polynomial, right: &Polynomial) -> Self {
         let mut terms = vec![Term::new(BigInt::zero(), 0); left.degree() + right.degree() + 1];

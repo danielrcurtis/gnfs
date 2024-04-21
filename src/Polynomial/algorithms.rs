@@ -165,7 +165,7 @@ pub fn laguerre_method(poly: &Polynomial, guess: f64, max_iterations: u32, preci
     let derivative_poly = poly.derivative();
     let derivative_poly2 = derivative_poly.derivative();
 
-    for i in 0..max_iterations {
+    for _i in 0..max_iterations {
         if poly.evaluate(&BigInt::from(x as i64)).abs().to_f64().unwrap() < precision {
             break;
         }
@@ -207,7 +207,7 @@ pub fn laguerre_method_complex(poly: &Polynomial, guess: Complex<f64>, max_itera
     let derivative_poly = poly.derivative();
     let derivative_poly2 = derivative_poly.derivative();
 
-    for i in 0..max_iterations {
+    for _i in 0..max_iterations {
         let x_bigint = BigInt::from(x.re.round() as i64);
         if poly.evaluate(&x_bigint).abs().to_f64().unwrap() < precision {
             break;
