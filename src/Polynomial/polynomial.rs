@@ -197,39 +197,56 @@ impl Polynomial {
     }
     
     pub fn divide(&self, other: &Polynomial) -> (Polynomial, Polynomial) {
-        if other.degree() > self.degree() || other.cmp(self) == Ordering::Greater {
+        if other.is_zero() {
+            log::error!("Attempt to divide by zero polynomial");
             return (Polynomial::zero(), self.clone());
         }
-
-        let right_degree = other.degree();
-        let quotient_degree = self.degree() - right_degree + 1;
-        let divisor = other[right_degree].clone();
-
-        let mut polynomial = self.clone();
-        let mut quotient = Polynomial::zero();
-
-        for i in (0..quotient_degree).rev() {
-            quotient[i] = polynomial[right_degree + i].clone() / divisor.clone();
-            polynomial[right_degree + i] = BigInt::zero();
-
-            for j in (i..=right_degree + i - 1).rev() {
-                polynomial[j] -= &quotient[i] * &other[j - i];
+    
+        let mut quotient = HashMap::new();
+        let mut remainder = self.terms.clone();
+    
+        while !remainder.is_empty() && remainder.keys().max().unwrap() >= other.terms.keys().max().unwrap() {
+            let remainder_degree = *remainder.keys().max().unwrap();
+            let divisor_degree = *other.terms.keys().max().unwrap();
+    
+            let leading_term_remainder = remainder[&remainder_degree].clone();
+            let leading_term_divisor = other.terms[&divisor_degree].clone();
+    
+            let term_quotient_exponent = remainder_degree - divisor_degree;
+            let term_quotient_coefficient = leading_term_remainder / leading_term_divisor;
+    
+            log::debug!("Computing quotient term: {}*X^{} for remainder degree {}", term_quotient_coefficient, term_quotient_exponent, remainder_degree);
+    
+            quotient.insert(term_quotient_exponent, term_quotient_coefficient.clone());
+    
+            for (&exp, coef) in &other.terms {
+                let exponent = term_quotient_exponent + exp;
+                let coefficient = term_quotient_coefficient.clone() * coef;
+                *remainder.entry(exponent).or_insert(BigInt::zero()) -= coefficient;
             }
+    
+            remainder.retain(|_, coef| !coef.is_zero());
+        
+            log::debug!("Current remainder: {:?}", remainder);
         }
-
-        polynomial.remove_zeros();
-        quotient.remove_zeros();
-
-        (quotient, polynomial)
+    
+        let quotient_poly = Polynomial { terms: quotient };
+        let remainder_poly = Polynomial { terms: remainder };
+    
+        (quotient_poly, remainder_poly)
     }
+    
+    
 
     pub fn evaluate(&self, x: &BigInt) -> BigInt {
         let mut result = BigInt::zero();
         for (&exponent, coefficient) in &self.terms {
-            result += coefficient.clone() * x.pow(exponent as u32);
+            let term_result = coefficient.clone() * x.pow(exponent as u32);
+            result += term_result;
         }
         result
     }
+    
 
     pub fn derivative(&self) -> Self {
         let mut terms = HashMap::new();
@@ -549,5 +566,105 @@ impl Display for Polynomial {
 impl Default for Polynomial {
     fn default() -> Self {
         Polynomial::zero()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_polynomial_creation() {
+        let terms = vec![
+            Term::new(BigInt::from(2), 3),
+            Term::new(BigInt::from(-4), 2),
+            Term::new(BigInt::from(1), 0),
+        ];
+        let poly = Polynomial::new(terms);
+
+        assert_eq!(poly.degree(), 3);
+        assert_eq!(poly[3], BigInt::from(2));
+        assert_eq!(poly[2], BigInt::from(-4));
+        assert_eq!(poly[1], BigInt::from(0));
+        assert_eq!(poly[0], BigInt::from(1));
+    }
+
+    #[test]
+    fn test_polynomial_addition() {
+        let poly1 = Polynomial::parse("2X^3 - 4X^2 + 1");
+        let poly2 = Polynomial::parse("3X^3 + 2X^2 - 5X + 2");
+
+        let result = poly1 + poly2;
+
+        assert_eq!(result.degree(), 3);
+        assert_eq!(result[3], BigInt::from(5));
+        assert_eq!(result[2], BigInt::from(-2));
+        assert_eq!(result[1], BigInt::from(-5));
+        assert_eq!(result[0], BigInt::from(3));
+    }
+
+    #[test]
+    fn test_polynomial_subtraction() {
+        let poly1 = Polynomial::parse("2X^3 - 4X^2 + 1");
+        let poly2 = Polynomial::parse("3X^3 + 2X^2 - 5X + 2");
+
+        let result = poly1 - poly2;
+
+        assert_eq!(result.degree(), 3);
+        assert_eq!(result[3], BigInt::from(-1));
+        assert_eq!(result[2], BigInt::from(-6));
+        assert_eq!(result[1], BigInt::from(5));
+        assert_eq!(result[0], BigInt::from(-1));
+    }
+
+    #[test]
+    fn test_polynomial_multiplication() {
+        let poly1 = Polynomial::parse("2X^2 - 3X + 1");
+        let poly2 = Polynomial::parse("X + 1");
+
+        let result = poly1 * poly2;
+
+        assert_eq!(result.degree(), 3);
+        assert_eq!(result[3], BigInt::from(2));
+        assert_eq!(result[2], BigInt::from(-1));
+        assert_eq!(result[1], BigInt::from(-2));
+        assert_eq!(result[0], BigInt::from(1));
+    }
+
+    #[test]
+    fn test_polynomial_division() {
+        let poly1 = Polynomial::parse("X^3 - 2X^2 + X - 1");
+        let poly2 = Polynomial::parse("X - 1");
+
+        let (quotient, remainder) = poly1.divide(&poly2);
+
+        assert_eq!(quotient.degree(), 2);
+        assert_eq!(quotient[2], BigInt::from(1));
+        assert_eq!(quotient[1], BigInt::from(-1));
+        assert_eq!(quotient[0], BigInt::from(1));
+        
+        assert_eq!(remainder.degree(), 0);
+        assert_eq!(remainder[0], BigInt::from(0));
+    }
+
+    #[test]
+    fn test_polynomial_evaluation() {
+        let poly = Polynomial::parse("2X^3 - 4X^2 + 3X - 1");
+
+        assert_eq!(poly.evaluate(&BigInt::from(1)), BigInt::from(0));
+        assert_eq!(poly.evaluate(&BigInt::from(2)), BigInt::from(5));
+        assert_eq!(poly.evaluate(&BigInt::from(-1)), BigInt::from(-10));
+    }
+
+    #[test]
+    fn test_polynomial_derivative() {
+        let poly = Polynomial::parse("2X^3 - 4X^2 + 3X - 1");
+
+        let derivative = poly.derivative();
+
+        assert_eq!(derivative.degree(), 2);
+        assert_eq!(derivative[2], BigInt::from(6));
+        assert_eq!(derivative[1], BigInt::from(-8));
+        assert_eq!(derivative[0], BigInt::from(3));
     }
 }
