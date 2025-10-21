@@ -3,3 +3,4 @@
 pub mod algorithms;
 pub mod field;
 pub mod polynomial;
+pub mod optimized_exp;

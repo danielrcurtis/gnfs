@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use crate::core::gnfs::GNFS;
 use crate::relation_sieve::relation::Relation;
+use crate::relation_sieve::poly_relations_sieve_progress::PolyRelationsSieveProgress;
 use crate::matrix::gaussian_row::GaussianRow;
 use num::ToPrimitive;
 
@@ -33,7 +34,7 @@ impl GaussianMatrix<'_> {
     
         let mut selected_rows: Vec<GaussianRow> = relations_as_rows
             .iter_mut()
-            .take(gnfs.current_relations_progress.smooth_relations_required_for_matrix_step().to_usize().unwrap())
+            .take(PolyRelationsSieveProgress::smooth_relations_required_for_matrix_step(&gnfs).to_usize().unwrap())
             .map(|row| row.to_owned())
             .collect();
     
@@ -90,28 +91,27 @@ impl GaussianMatrix<'_> {
         if self.elimination_step {
             return;
         }
-    
+
         let num_rows = self.m.len();
         let num_cols = self.m[0].len();
-    
+
+        self._gnfs.log_message_slice(&format!("Gaussian elimination: matrix dimensions = {} rows x {} cols", num_rows, num_cols));
+
         self.free_cols = vec![false; num_cols];
-    
+
         let mut h = 0;
-    
-        for i in 0..num_rows {
-            if h >= num_cols {
-                break;
-            }
-    
+        let mut i = 0;
+
+        while i < num_rows && h < num_cols {
             let mut next = false;
-    
+
             if !self.m[i][h] {
                 let mut t = i + 1;
-    
+
                 while t < num_rows && !self.m[t][h] {
                     t += 1;
                 }
-    
+
                 if t < num_rows {
                     self.m.swap(i, t);
                 } else {
@@ -119,24 +119,28 @@ impl GaussianMatrix<'_> {
                     next = true;
                 }
             }
-    
+
             if !next {
                 for j in i + 1..num_rows {
                     if self.m[j][h] {
                         self.m[j] = Self::add(&self.m[j], &self.m[i]);
                     }
                 }
-    
+
                 for j in 0..i {
                     if self.m[j][h] {
                         self.m[j] = Self::add(&self.m[j], &self.m[i]);
                     }
                 }
+                i += 1;  // Only increment i when we processed the row
             }
-    
+
             h += 1;
         }
-    
+
+        let free_count = self.free_cols.iter().filter(|&&x| x).count();
+        self._gnfs.log_message_slice(&format!("Gaussian elimination complete: {} free variables found", free_count));
+
         self.elimination_step = true;
     }
 

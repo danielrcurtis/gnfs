@@ -1,7 +1,7 @@
 // src/core/gnfs.rs
 
 use log::{debug, info};
-use num::{BigInt, ToPrimitive, Zero};
+use num::{BigInt, ToPrimitive, Zero, Signed};
 use std::path::{Path,PathBuf};
 use std::sync::{atomic::AtomicBool, Arc};
 use std::iter::Iterator;
@@ -123,7 +123,7 @@ impl GNFS {
             }
 
             gnfs.current_relations_progress = PolyRelationsSieveProgress::new(
-                Arc::downgrade(&Arc::new(gnfs.clone())),
+                &gnfs,
                 relation_quantity.try_into().unwrap(),
                 relation_value_range.into(),
             );
@@ -187,10 +187,10 @@ impl GNFS {
         self.prime_factor_base.quadratic_base_count = Self::calculate_quadratic_base_size(self.polynomial_degree).to_i32().unwrap();
 
         self.prime_factor_base.quadratic_factor_base_min = &self.prime_factor_base.algebraic_factor_base_max + 20;
-        // TODO: Implement PrimeFactory::get_approximate_value_from_index
-        // self.prime_factor_base.quadratic_factor_base_max = PrimeFactory::get_approximate_value_from_index(
-        //     (self.prime_factor_base.quadratic_factor_base_min + self.prime_factor_base.quadratic_base_count) as u64,
-        // );
+        // TODO: Implement PrimeFactory::get_approximate_value_from_index for more accurate upper bound
+        // For now, use a simple approximation: min + (count * 15) as an upper bound estimate
+        // This assumes average prime gap of ~15 in this range, which works for smaller primes
+        self.prime_factor_base.quadratic_factor_base_max = &self.prime_factor_base.quadratic_factor_base_min + (self.prime_factor_base.quadratic_base_count * 15);
 
         // TODO: Implement logging
         // info!(format!("Rational  Factor Base Bounds: Min: - Max: {}", self.prime_factor_base.rational_factor_base_max));
@@ -239,8 +239,42 @@ impl GNFS {
         }
     }
 
-    pub fn construct_new_polynomial(&mut self, _polynomial_base: &BigInt, _poly_degree: usize) {
-        self.current_polynomial = Polynomial::new(vec![Term::new(self.n.clone(), 0)]);
+    pub fn construct_new_polynomial(&mut self, polynomial_base: &BigInt, poly_degree: usize) {
+        // Use the base-m method: express N in base m to get polynomial coefficients
+        // f(x) = a₀ + a₁x + a₂x² + ... + aₐxᵈ where f(m) ≡ 0 (mod N)
+
+        let mut coefficients: Vec<BigInt> = Vec::with_capacity(poly_degree + 1);
+        let mut remainder = self.n.clone();
+
+        // Convert N to base m to get coefficients
+        for _ in 0..=poly_degree {
+            let coeff = &remainder % polynomial_base;
+            coefficients.push(coeff);
+            remainder = &remainder / polynomial_base;
+        }
+
+        // Handle case where N requires more digits in base m than poly_degree
+        // Add any remaining value to the highest degree coefficient
+        if remainder > BigInt::zero() {
+            if let Some(last_coeff) = coefficients.last_mut() {
+                *last_coeff = last_coeff.clone() + (remainder * polynomial_base.pow(0));
+            }
+        }
+
+        // Create polynomial terms from coefficients
+        let terms: Vec<Term> = coefficients
+            .iter()
+            .enumerate()
+            .map(|(degree, coeff)| Term::new(coeff.clone(), degree))
+            .collect();
+
+        self.current_polynomial = Polynomial::new(terms);
+
+        // Verify the polynomial satisfies f(m) ≈ N
+        let evaluation = self.current_polynomial.evaluate(polynomial_base);
+        info!("Polynomial evaluation at base m: f({}) = {}", polynomial_base, evaluation);
+        info!("Original N: {}", self.n);
+        info!("Difference: {}", (&evaluation - &self.n).abs());
 
         self.polynomial_collection.push(self.current_polynomial.clone());
         // TODO: Implement saving the state
@@ -248,25 +282,42 @@ impl GNFS {
     }
 
     fn new_factor_pair_collections(&mut self, cancel_token: &CancellationToken) {
+        // Build rational factor pair collection (1 of 3)
         if self.rational_factor_pair_collection.len() == 0 {
-            // TODO: Implement saving the state
-            // Serialization::save_factor_pair_algebraic(self);
-            info!("Completed algebraic factor base (2 of 3).");
-    
-            if cancel_token.is_cancellation_requested() {
-                return;
-            }
-            if self.quadratic_factor_pair_collection.len() == 0 {
-                let cancel_token_arc = Arc::new(AtomicBool::new(cancel_token.is_cancellation_requested()));
-                self.quadratic_factor_pair_collection = Factory::build_quadratic_factor_pair_collection(&cancel_token_arc, self);
-            }
-            // TODO: Implement saving the state
-            // Serialization::save_factor_pair_quadratic(self);
-            info!("Completed quadratic factor base (3 of 3).");
-    
-            if cancel_token.is_cancellation_requested() {
-                return;
-            }
+            self.rational_factor_pair_collection = Factory::build_rational_factor_pair_collection(self);
+        }
+        // TODO: Implement saving the state
+        // Serialization::save_factor_pair_rational(self);
+        info!("Completed rational factor base (1 of 3).");
+
+        if cancel_token.is_cancellation_requested() {
+            return;
+        }
+
+        // Build algebraic factor pair collection (2 of 3)
+        if self.algebraic_factor_pair_collection.len() == 0 {
+            let cancel_token_arc = Arc::new(AtomicBool::new(cancel_token.is_cancellation_requested()));
+            self.algebraic_factor_pair_collection = Factory::build_algebraic_factor_pair_collection(&cancel_token_arc, self);
+        }
+        // TODO: Implement saving the state
+        // Serialization::save_factor_pair_algebraic(self);
+        info!("Completed algebraic factor base (2 of 3).");
+
+        if cancel_token.is_cancellation_requested() {
+            return;
+        }
+
+        // Build quadratic factor pair collection (3 of 3)
+        if self.quadratic_factor_pair_collection.len() == 0 {
+            let cancel_token_arc = Arc::new(AtomicBool::new(cancel_token.is_cancellation_requested()));
+            self.quadratic_factor_pair_collection = Factory::build_quadratic_factor_pair_collection(&cancel_token_arc, self);
+        }
+        // TODO: Implement saving the state
+        // Serialization::save_factor_pair_quadratic(self);
+        info!("Completed quadratic factor base (3 of 3).");
+
+        if cancel_token.is_cancellation_requested() {
+            return;
         }
     }
 
@@ -382,5 +433,176 @@ impl Default for GNFS {
 impl AsRef<GNFS> for GNFS {
     fn as_ref(&self) -> &GNFS {
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_construct_polynomial_base_m_method() {
+        // Test case 1: N = 45113, m = 31, degree = 3
+        let cancel_token = CancellationToken::new();
+        let n = BigInt::from(45113);
+        let polynomial_base = BigInt::from(31);
+        let poly_degree = 3;
+        let prime_bound = BigInt::from(100);
+
+        let gnfs = GNFS::new(
+            &cancel_token,
+            &n,
+            &polynomial_base,
+            poly_degree,
+            &prime_bound,
+            1,
+            1000,
+            true,
+        );
+
+        // Verify polynomial was constructed
+        assert_eq!(gnfs.current_polynomial.degree(), 3);
+
+        // Verify f(m) = N
+        let evaluation = gnfs.current_polynomial.evaluate(&polynomial_base);
+        assert_eq!(evaluation, n, "Polynomial should satisfy f(m) = N");
+
+        // Verify expected coefficients (base-31 representation of 45113)
+        // 45113 = 8 + 29*31 + 15*31^2 + 1*31^3
+        assert_eq!(gnfs.current_polynomial[0], BigInt::from(8));
+        assert_eq!(gnfs.current_polynomial[1], BigInt::from(29));
+        assert_eq!(gnfs.current_polynomial[2], BigInt::from(15));
+        assert_eq!(gnfs.current_polynomial[3], BigInt::from(1));
+    }
+
+    #[test]
+    fn test_construct_polynomial_smaller_number() {
+        // Test case 2: N = 1000, m = 10, degree = 3
+        // 1000 in base 10 = 0 + 0*10 + 0*10^2 + 1*10^3
+        let n = BigInt::from(1000);
+        let polynomial_base = BigInt::from(10);
+        let poly_degree = 3;
+
+        let mut gnfs = GNFS {
+            n: n.clone(),
+            polynomial_degree: poly_degree,
+            polynomial_base: polynomial_base.clone(),
+            ..Default::default()
+        };
+
+        gnfs.construct_new_polynomial(&polynomial_base, poly_degree);
+
+        // Verify f(m) = N
+        let evaluation = gnfs.current_polynomial.evaluate(&polynomial_base);
+        assert_eq!(evaluation, n);
+
+        // Verify coefficients
+        assert_eq!(gnfs.current_polynomial[0], BigInt::from(0));
+        assert_eq!(gnfs.current_polynomial[1], BigInt::from(0));
+        assert_eq!(gnfs.current_polynomial[2], BigInt::from(0));
+        assert_eq!(gnfs.current_polynomial[3], BigInt::from(1));
+    }
+
+    #[test]
+    fn test_construct_polynomial_uses_parameters() {
+        // Verify that the function no longer ignores parameters
+        let n = BigInt::from(12345);
+        let polynomial_base = BigInt::from(17);
+        let poly_degree = 4;
+
+        let mut gnfs = GNFS {
+            n: n.clone(),
+            polynomial_degree: poly_degree,
+            polynomial_base: polynomial_base.clone(),
+            ..Default::default()
+        };
+
+        gnfs.construct_new_polynomial(&polynomial_base, poly_degree);
+
+        // Should create polynomial of specified degree
+        assert_eq!(gnfs.current_polynomial.degree(), poly_degree);
+
+        // Should satisfy f(m) = N
+        let evaluation = gnfs.current_polynomial.evaluate(&polynomial_base);
+        assert_eq!(evaluation, n);
+
+        // Should not be just a constant term equal to N (the old broken behavior)
+        let is_constant_only = gnfs.current_polynomial.degree() == 0
+            && gnfs.current_polynomial[0] == n;
+        assert!(!is_constant_only, "Polynomial should not be just a constant term");
+    }
+
+    #[test]
+    fn test_construct_polynomial_large_number() {
+        // Test with a larger number that requires multiple digits in the base
+        let n = BigInt::from(987654321_i64);
+        let polynomial_base = BigInt::from(100);
+        let poly_degree = 5;
+
+        let mut gnfs = GNFS {
+            n: n.clone(),
+            polynomial_degree: poly_degree,
+            polynomial_base: polynomial_base.clone(),
+            ..Default::default()
+        };
+
+        gnfs.construct_new_polynomial(&polynomial_base, poly_degree);
+
+        // Verify f(m) = N
+        let evaluation = gnfs.current_polynomial.evaluate(&polynomial_base);
+        assert_eq!(evaluation, n, "Polynomial evaluation should equal N for large number");
+
+        // Polynomial should have the correct degree
+        assert!(gnfs.current_polynomial.degree() <= poly_degree,
+                "Polynomial degree should not exceed specified degree");
+
+        // All coefficients should be in range [0, m) except possibly the leading coefficient
+        for i in 0..poly_degree {
+            let coeff = &gnfs.current_polynomial[i];
+            if coeff >= &polynomial_base {
+                // This is acceptable only for the highest degree with remainder
+                assert_eq!(i, gnfs.current_polynomial.degree(),
+                          "Only leading coefficient can exceed base");
+            }
+        }
+    }
+
+    #[test]
+    fn test_factor_pair_collections_initialization() {
+        // Test that all three factor pair collections are properly initialized
+        let cancel_token = CancellationToken::new();
+        let n = BigInt::from(45113);
+        let polynomial_base = BigInt::from(31);
+        let poly_degree = 3;
+        let prime_bound = BigInt::from(100);
+
+        let gnfs = GNFS::new(
+            &cancel_token,
+            &n,
+            &polynomial_base,
+            poly_degree,
+            &prime_bound,
+            1,
+            1000,
+            true,
+        );
+
+        // Verify all three factor pair collections are non-empty
+        assert!(gnfs.rational_factor_pair_collection.len() > 0,
+                "Rational factor pair collection should be initialized");
+        assert!(gnfs.algebraic_factor_pair_collection.len() > 0,
+                "Algebraic factor pair collection should be initialized");
+        assert!(gnfs.quadratic_factor_pair_collection.len() > 0,
+                "Quadratic factor pair collection should be initialized");
+
+        // Verify the rational factor base has expected structure (p, m % p)
+        // The rational factor base should have one entry for each prime <= prime_bound
+        let expected_rational_count = gnfs.prime_factor_base.rational_factor_base.len();
+        assert_eq!(gnfs.rational_factor_pair_collection.len(), expected_rational_count,
+                  "Rational factor pair count should match prime base count");
+
+        info!("Rational factor pairs: {}", gnfs.rational_factor_pair_collection.len());
+        info!("Algebraic factor pairs: {}", gnfs.algebraic_factor_pair_collection.len());
+        info!("Quadratic factor pairs: {}", gnfs.quadratic_factor_pair_collection.len());
     }
 }

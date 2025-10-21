@@ -1,18 +1,15 @@
 // src/relation_sieve/poly_relations_sieve_progress.rs
 
-
-use std::sync::{Arc, Weak};
 use log::{debug, info};
 use num::{BigInt, Integer};
+use rayon::prelude::*;
 use crate::integer_math::gcd::GCD;
 use crate::core::sieve_range::SieveRange;
 use crate::core::gnfs::GNFS;
 use crate::relation_sieve::relation::Relation;
 use crate::relation_sieve::relation_container::RelationContainer;
-use crate::core::serialization::save::relations::{smooth, free};
 use crate::integer_math::prime_factory::PrimeFactory;
 use crate::core::count_dictionary::CountDictionary;
-use crate::core::serialization::save;
 use crate::integer_math::factorization_factory::FactorizationFactory;
 use crate::core::cancellation_token::CancellationToken;
 use crate::square_root::square_finder::is_square;
@@ -27,62 +24,42 @@ pub struct PolyRelationsSieveProgress {
     pub max_b: BigInt,
     pub smooth_relations_counter: usize,
     pub free_relations_counter: usize,
-    pub gnfs: Weak<GNFS>,
 }
 
 impl PolyRelationsSieveProgress {
-    pub fn new(gnfs: Weak<GNFS>, smooth_relations_target_quantity: isize, value_range: BigInt) -> Self {
-        let mut progress = PolyRelationsSieveProgress {
+    pub fn new(gnfs: &GNFS, smooth_relations_target_quantity: isize, value_range: BigInt) -> Self {
+        let required_for_matrix = Self::smooth_relations_required_for_matrix_step(gnfs);
+
+        let target_quantity = if smooth_relations_target_quantity == -1 {
+            required_for_matrix
+        } else {
+            std::cmp::max(smooth_relations_target_quantity as usize, required_for_matrix)
+        };
+
+        PolyRelationsSieveProgress {
             a: BigInt::from(0),
             b: BigInt::from(3),
-            smooth_relations_target_quantity: 0,
+            smooth_relations_target_quantity: target_quantity,
             value_range,
             relations: RelationContainer::new(),
-            max_b: BigInt::from(0),
+            max_b: gnfs.prime_factor_base.algebraic_factor_base_max.clone(),
             smooth_relations_counter: 0,
             free_relations_counter: 0,
-            gnfs,
-        };
-    
-        if smooth_relations_target_quantity == -1 {
-            progress.smooth_relations_target_quantity = progress.smooth_relations_required_for_matrix_step();
-        } else {
-            progress.smooth_relations_target_quantity = std::cmp::max(
-                smooth_relations_target_quantity as usize,
-                progress.smooth_relations_required_for_matrix_step(),
-            );
         }
-    
-        if progress.max_b == BigInt::from(0) {
-            if let Some(gnfs) = progress.gnfs.upgrade() {
-                progress.max_b = gnfs.prime_factor_base.algebraic_factor_base_max.clone();
-            }
-        }
-    
-        progress
     }
     
-    pub fn smooth_relations_required_for_matrix_step(&self) -> usize {
-        if let Some(gnfs) = self.gnfs.upgrade() {
-            let mut prime_factory = PrimeFactory::new();
-            PrimeFactory::get_index_from_value(&mut prime_factory, &gnfs.prime_factor_base.rational_factor_base_max) as usize
-                + PrimeFactory::get_index_from_value(&mut prime_factory, &gnfs.prime_factor_base.algebraic_factor_base_max) as usize
-                + gnfs.quadratic_factor_pair_collection.0.len()
-                + 3
-        } else {
-            0
-        }
+    pub fn smooth_relations_required_for_matrix_step(gnfs: &GNFS) -> usize {
+        let mut prime_factory = PrimeFactory::new();
+        PrimeFactory::get_index_from_value(&mut prime_factory, &gnfs.prime_factor_base.rational_factor_base_max) as usize
+            + PrimeFactory::get_index_from_value(&mut prime_factory, &gnfs.prime_factor_base.algebraic_factor_base_max) as usize
+            + gnfs.quadratic_factor_pair_collection.0.len()
+            + 3
     }
 
-    pub fn generate_relations(&mut self, cancel_token: &CancellationToken) {
-        if let Some(gnfs) = self.gnfs.upgrade() {
-            let mut gnfs = (*gnfs).clone();
-            smooth::append(&mut gnfs);
-        }
-    
+    pub fn generate_relations(&mut self, gnfs: &GNFS, cancel_token: &CancellationToken) {
         self.smooth_relations_target_quantity = std::cmp::max(
             self.smooth_relations_target_quantity,
-            self.smooth_relations_required_for_matrix_step(),
+            Self::smooth_relations_required_for_matrix_step(gnfs),
         );
     
         if self.a >= self.value_range {
@@ -104,7 +81,7 @@ impl PolyRelationsSieveProgress {
         let start_a = self.a.clone();
     
         while &self.b >= &self.max_b {
-            self.max_b += 1000;
+            self.max_b += 100;  // Fixed: C# uses 100, not 1000
         }
     
         
@@ -118,55 +95,95 @@ impl PolyRelationsSieveProgress {
             if cancel_token.is_cancellation_requested() {
                 break;
             }
-    
+
             if &self.b > &self.max_b {
+                debug!("Breaking because B ({}) > MaxB ({})", self.b, self.max_b);
                 break;
             }
-    
-            for a in SieveRange::get_sieve_range_continuation(&self.a, &self.value_range) {
-                if cancel_token.is_cancellation_requested() {
+
+            debug!("About to call get_sieve_range_continuation with self.a = {}, self.value_range = {}", self.a, self.value_range);
+
+            // Batch multiple B values together for better parallelization
+            // This gives Rayon enough work to effectively use multiple cores
+            let batch_size = 50; // Increased from 10 to 50 for more parallel work
+
+            // Collect (A, B) pairs for a batch of B values
+            let mut ab_pairs = Vec::new();
+            let batch_start_b = self.b.clone();
+
+            for b_offset in 0..batch_size {
+                let current_b = &batch_start_b + BigInt::from(b_offset);
+                if &current_b > &self.max_b {
                     break;
                 }
-    
-                self.a = a;
-    
-                if GCD::are_coprime(&[self.a.clone(), self.b.clone()]) {
-                    if let Some(gnfs) = self.gnfs.upgrade() {
-                        let mut rel = Relation::new(&gnfs, &self.a, &self.b);
-                        rel.sieve(&gnfs, self);
-                        let smooth = rel.is_smooth();
-                        if smooth {
-                            self.relations.smooth_relations.push(rel);
-                            self.smooth_relations_counter += 1;
-                        }
-                    }
+
+                let a_values: Vec<BigInt> = SieveRange::get_sieve_range_continuation(&start_a, &self.value_range)
+                    .collect();
+
+                for a in a_values {
+                    ab_pairs.push((a, current_b.clone()));
                 }
             }
-    
-            if cancel_token.is_cancellation_requested() {
-                break;
-            }
-    
-            self.b += 1;
+
+            let total_pairs = ab_pairs.len();
+            let rayon_threads = rayon::current_num_threads();
+
+            info!("=== PARALLEL BATCH START ===");
+            info!("  Batch size (B values): {}", batch_size);
+            info!("  Total (A,B) pairs: {}", total_pairs);
+            info!("  Rayon threads: {}", rayon_threads);
+            info!("  Work per thread (avg): {:.1}", total_pairs as f64 / rayon_threads as f64);
+            info!("  B range: {} to {}", batch_start_b, &batch_start_b + batch_size - 1);
+
+            use std::time::Instant;
+            let parallel_start = Instant::now();
+
+            // Use Rayon's filter_map + collect to avoid mutex contention
+            let found: Vec<Relation> = ab_pairs.par_iter()
+                .filter(|_| !cancel_token.is_cancellation_requested())
+                .filter(|(a, b)| GCD::are_coprime(&[a.clone(), b.clone()]))
+                .filter_map(|(a, b)| {
+                    // Each thread creates and tests its own relation
+                    let mut rel = Relation::new(gnfs, a, b);
+                    rel.sieve(gnfs);
+
+                    if rel.is_smooth() {
+                        Some(rel)
+                    } else {
+                        None
+                    }
+                })
+                .collect();  // Rayon's parallel collect - no mutex needed!
+
+            let parallel_elapsed = parallel_start.elapsed();
+            let num_found = found.len();
+
+            // Update progress tracking
+            self.relations.smooth_relations.extend(found);
+            self.smooth_relations_counter += num_found;
+
+            // Update B to the next batch
+            self.b = &self.b + batch_size;
             self.a = start_a.clone();
-    
-            
-            debug!("{}", &format!("B = {}", self.b));
-            debug!("{}", &format!("SmoothRelations.Count: {}", self.relations.smooth_relations.len()));
-            
-        }
-    
-        if let Some(gnfs) = self.gnfs.upgrade() {
-            let mut gnfs = (*gnfs).clone();
-            smooth::append(&mut gnfs);
+
+            info!("=== PARALLEL BATCH COMPLETE ===");
+            info!("  Time elapsed: {:.2}s", parallel_elapsed.as_secs_f64());
+            info!("  Pairs processed: {}", total_pairs);
+            info!("  Throughput: {:.0} pairs/sec", total_pairs as f64 / parallel_elapsed.as_secs_f64());
+            info!("  Smooth relations found: {}", num_found);
+            info!("  Total smooth relations: {}", self.relations.smooth_relations.len());
+            info!("  Progress: {} / {} ({:.1}%)",
+                  self.smooth_relations_counter,
+                  self.smooth_relations_target_quantity,
+                  100.0 * self.smooth_relations_counter as f64 / self.smooth_relations_target_quantity as f64);
+            debug!("Now at B = {}", self.b);
+
         }
     }
     
     pub fn increase_target_quantity(&mut self, amount: usize) {
         self.smooth_relations_target_quantity += amount;
-        if let Some(gnfs) = self.gnfs.upgrade() {
-            save::gnfs(&gnfs);
-        }
+        // TODO: Re-enable serialization once GNFS serialization is re-implemented
     }
 
     pub fn purge_prime_rough_relations(&mut self) {
@@ -199,14 +216,12 @@ impl PolyRelationsSieveProgress {
         self.relations.rough_relations = rough_relations;
     }
 
-    pub fn add_free_relation_solution(&mut self, mut free_relation_solution: Vec<Relation>) {
+    pub fn add_free_relation_solution(&mut self, free_relation_solution: Vec<Relation>) {
         self.relations.free_relations.push(free_relation_solution.clone());
-        if let Some(arc_gnfs) = self.gnfs.upgrade() {
-            if let Some(gnfs) = Arc::get_mut(&mut arc_gnfs.clone()) {
-                free::single_solution(gnfs, &mut free_relation_solution);
-                info!("{}", &format!("Added free relation solution: Relation count = {}", free_relation_solution.len()));
-            }
-        }
+        // TODO: Re-enable serialization once ownership is properly handled
+        // free::single_solution(gnfs, &mut free_relation_solution);
+        info!("{}", &format!("Added free relation solution: Relation count = {}", free_relation_solution.len()));
+        self.free_relations_counter += 1;
     }
     
 
@@ -263,18 +278,19 @@ impl ToString for PolyRelationsSieveProgress {
 
             result.push_str("\n");
             result.push_str("\n");
-            result.push_str(&relations
-                .iter()
-                .map(|rel| {
-                    let f = self.gnfs.upgrade().unwrap().current_polynomial.evaluate(&rel.a);
-                    if rel.b == BigInt::from(0) {
-                        String::new()
-                    } else {
-                        format!("ƒ({}) ≡ {} ≡ {} (mod {})", rel.a, f.clone(), f % &rel.b, rel.b)
-                    }
-                })
-                .collect::<Vec<_>>()
-                .join("\n"));
+            // TODO: Fix this to take GNFS as parameter
+            // result.push_str(&relations
+            //     .iter()
+            //     .map(|rel| {
+            //         let f = gnfs.current_polynomial.evaluate(&rel.a);
+            //         if rel.b == BigInt::from(0) {
+            //             String::new()
+            //         } else {
+            //             format!("ƒ({}) ≡ {} ≡ {} (mod {})", rel.a, f.clone(), f % &rel.b, rel.b)
+            //         }
+            //     })
+            //     .collect::<Vec<_>>()
+            //     .join("\n"));
             result.push_str("\n");
 
             result
@@ -295,7 +311,6 @@ impl Default for PolyRelationsSieveProgress {
             max_b: BigInt::from(0),
             smooth_relations_counter: 0,
             free_relations_counter: 0,
-            gnfs: Weak::new(),
         }
     }
 }

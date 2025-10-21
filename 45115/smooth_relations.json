@@ -1,0 +1,2213 @@
+[
+{
+  "a": "1",
+  "b": "3",
+  "algebraic_norm": "-53",
+  "rational_norm": "94",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "53": "1"
+  },
+  "rational_factorization": {
+    "2": "1",
+    "47": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "2",
+  "b": "3",
+  "algebraic_norm": "80",
+  "rational_norm": "95",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "2": "4",
+    "5": "1"
+  },
+  "rational_factorization": {
+    "19": "1",
+    "5": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-2",
+  "b": "3",
+  "algebraic_norm": "-980",
+  "rational_norm": "91",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "2": "2",
+    "5": "1",
+    "7": "2"
+  },
+  "rational_factorization": {
+    "13": "1",
+    "7": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "4",
+  "b": "3",
+  "algebraic_norm": "118",
+  "rational_norm": "97",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "2": "1",
+    "59": "1"
+  },
+  "rational_factorization": {
+    "97": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "5",
+  "b": "3",
+  "algebraic_norm": "35",
+  "rational_norm": "98",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "5": "1",
+    "7": "1"
+  },
+  "rational_factorization": {
+    "2": "1",
+    "7": "2"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-5",
+  "b": "3",
+  "algebraic_norm": "-2825",
+  "rational_norm": "88",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "113": "1",
+    "5": "2"
+  },
+  "rational_factorization": {
+    "11": "1",
+    "2": "3"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "7",
+  "b": "3",
+  "algebraic_norm": "-305",
+  "rational_norm": "100",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "5": "1",
+    "61": "1"
+  },
+  "rational_factorization": {
+    "2": "2",
+    "5": "2"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-8",
+  "b": "3",
+  "algebraic_norm": "-5750",
+  "rational_norm": "85",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "2": "1",
+    "23": "1",
+    "5": "3"
+  },
+  "rational_factorization": {
+    "17": "1",
+    "5": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "11",
+  "b": "3",
+  "algebraic_norm": "-1513",
+  "rational_norm": "104",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "17": "1",
+    "89": "1"
+  },
+  "rational_factorization": {
+    "13": "1",
+    "2": "3"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-11",
+  "b": "3",
+  "algebraic_norm": "-9917",
+  "rational_norm": "82",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "211": "1",
+    "47": "1"
+  },
+  "rational_factorization": {
+    "2": "1",
+    "41": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-14",
+  "b": "3",
+  "algebraic_norm": "-15488",
+  "rational_norm": "79",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "11": "2",
+    "2": "7"
+  },
+  "rational_factorization": {
+    "79": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "17",
+  "b": "3",
+  "algebraic_norm": "-3925",
+  "rational_norm": "110",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "157": "1",
+    "5": "2"
+  },
+  "rational_factorization": {
+    "11": "1",
+    "2": "1",
+    "5": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-17",
+  "b": "3",
+  "algebraic_norm": "-22625",
+  "rational_norm": "76",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "181": "1",
+    "5": "3"
+  },
+  "rational_factorization": {
+    "19": "1",
+    "2": "2"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "19",
+  "b": "3",
+  "algebraic_norm": "-4697",
+  "rational_norm": "112",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "11": "1",
+    "61": "1",
+    "7": "1"
+  },
+  "rational_factorization": {
+    "2": "4",
+    "7": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-20",
+  "b": "3",
+  "algebraic_norm": "-31490",
+  "rational_norm": "73",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "2": "1",
+    "47": "1",
+    "5": "1",
+    "67": "1"
+  },
+  "rational_factorization": {
+    "73": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "22",
+  "b": "3",
+  "algebraic_norm": "-5660",
+  "rational_norm": "115",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "2": "2",
+    "283": "1",
+    "5": "1"
+  },
+  "rational_factorization": {
+    "23": "1",
+    "5": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-22",
+  "b": "3",
+  "algebraic_norm": "-38440",
+  "rational_norm": "71",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "2": "3",
+    "31": "2",
+    "5": "1"
+  },
+  "rational_factorization": {
+    "71": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-23",
+  "b": "3",
+  "algebraic_norm": "-42245",
+  "rational_norm": "70",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "17": "1",
+    "5": "1",
+    "7": "1",
+    "71": "1"
+  },
+  "rational_factorization": {
+    "2": "1",
+    "5": "1",
+    "7": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "26",
+  "b": "3",
+  "algebraic_norm": "-6328",
+  "rational_norm": "119",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "113": "1",
+    "2": "3",
+    "7": "1"
+  },
+  "rational_factorization": {
+    "17": "1",
+    "7": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "28",
+  "b": "3",
+  "algebraic_norm": "-6290",
+  "rational_norm": "121",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "17": "1",
+    "2": "1",
+    "37": "1",
+    "5": "1"
+  },
+  "rational_factorization": {
+    "11": "2"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "29",
+  "b": "3",
+  "algebraic_norm": "-6157",
+  "rational_norm": "122",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "131": "1",
+    "47": "1"
+  },
+  "rational_factorization": {
+    "2": "1",
+    "61": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "31",
+  "b": "3",
+  "algebraic_norm": "-5633",
+  "rational_norm": "124",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "131": "1",
+    "43": "1"
+  },
+  "rational_factorization": {
+    "2": "2",
+    "31": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "40",
+  "b": "3",
+  "algebraic_norm": "2170",
+  "rational_norm": "133",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "2": "1",
+    "31": "1",
+    "5": "1",
+    "7": "1"
+  },
+  "rational_factorization": {
+    "19": "1",
+    "7": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-46",
+  "b": "3",
+  "algebraic_norm": "-204832",
+  "rational_norm": "47",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "173": "1",
+    "2": "5",
+    "37": "1"
+  },
+  "rational_factorization": {
+    "47": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "47",
+  "b": "3",
+  "algebraic_norm": "16415",
+  "rational_norm": "140",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "5": "1",
+    "67": "1",
+    "7": "2"
+  },
+  "rational_factorization": {
+    "2": "2",
+    "5": "1",
+    "7": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "50",
+  "b": "3",
+  "algebraic_norm": "25280",
+  "rational_norm": "143",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "2": "6",
+    "5": "1",
+    "79": "1"
+  },
+  "rational_factorization": {
+    "11": "1",
+    "13": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "1",
+  "b": "4",
+  "algebraic_norm": "-235",
+  "rational_norm": "125",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "47": "1",
+    "5": "1"
+  },
+  "rational_factorization": {
+    "5": "3"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-1",
+  "b": "4",
+  "algebraic_norm": "-1165",
+  "rational_norm": "123",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "233": "1",
+    "5": "1"
+  },
+  "rational_factorization": {
+    "3": "1",
+    "41": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-3",
+  "b": "4",
+  "algebraic_norm": "-2599",
+  "rational_norm": "121",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "113": "1",
+    "23": "1"
+  },
+  "rational_factorization": {
+    "11": "2"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "5",
+  "b": "4",
+  "algebraic_norm": "305",
+  "rational_norm": "129",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "5": "1",
+    "61": "1"
+  },
+  "rational_factorization": {
+    "3": "1",
+    "43": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-5",
+  "b": "4",
+  "algebraic_norm": "-4585",
+  "rational_norm": "119",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "131": "1",
+    "5": "1",
+    "7": "1"
+  },
+  "rational_factorization": {
+    "17": "1",
+    "7": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-7",
+  "b": "4",
+  "algebraic_norm": "-7171",
+  "rational_norm": "117",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "101": "1",
+    "71": "1"
+  },
+  "rational_factorization": {
+    "13": "1",
+    "3": "2"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "9",
+  "b": "4",
+  "algebraic_norm": "-595",
+  "rational_norm": "133",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "17": "1",
+    "5": "1",
+    "7": "1"
+  },
+  "rational_factorization": {
+    "19": "1",
+    "7": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "11",
+  "b": "4",
+  "algebraic_norm": "-1465",
+  "rational_norm": "135",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "293": "1",
+    "5": "1"
+  },
+  "rational_factorization": {
+    "3": "3",
+    "5": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "19",
+  "b": "4",
+  "algebraic_norm": "-6625",
+  "rational_norm": "143",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "5": "3",
+    "53": "1"
+  },
+  "rational_factorization": {
+    "11": "1",
+    "13": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-19",
+  "b": "4",
+  "algebraic_norm": "-37975",
+  "rational_norm": "105",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "31": "1",
+    "5": "2",
+    "7": "2"
+  },
+  "rational_factorization": {
+    "3": "1",
+    "5": "1",
+    "7": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "23",
+  "b": "4",
+  "algebraic_norm": "-9541",
+  "rational_norm": "147",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "29": "1",
+    "47": "1",
+    "7": "1"
+  },
+  "rational_factorization": {
+    "3": "1",
+    "7": "2"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "29",
+  "b": "4",
+  "algebraic_norm": "-13255",
+  "rational_norm": "153",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "11": "1",
+    "241": "1",
+    "5": "1"
+  },
+  "rational_factorization": {
+    "17": "1",
+    "3": "2"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "31",
+  "b": "4",
+  "algebraic_norm": "-14125",
+  "rational_norm": "155",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "113": "1",
+    "5": "3"
+  },
+  "rational_factorization": {
+    "31": "1",
+    "5": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-49",
+  "b": "4",
+  "algebraic_norm": "-285085",
+  "rational_norm": "75",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "23": "1",
+    "37": "1",
+    "5": "1",
+    "67": "1"
+  },
+  "rational_factorization": {
+    "3": "1",
+    "5": "2"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "51",
+  "b": "4",
+  "algebraic_norm": "-385",
+  "rational_norm": "175",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "11": "1",
+    "5": "1",
+    "7": "1"
+  },
+  "rational_factorization": {
+    "5": "2",
+    "7": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-1",
+  "b": "5",
+  "algebraic_norm": "-2051",
+  "rational_norm": "154",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "293": "1",
+    "7": "1"
+  },
+  "rational_factorization": {
+    "11": "1",
+    "2": "1",
+    "7": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-2",
+  "b": "5",
+  "algebraic_norm": "-3008",
+  "rational_norm": "153",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "2": "6",
+    "47": "1"
+  },
+  "rational_factorization": {
+    "17": "1",
+    "3": "2"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "3",
+  "b": "5",
+  "algebraic_norm": "277",
+  "rational_norm": "158",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "277": "1"
+  },
+  "rational_factorization": {
+    "2": "1",
+    "79": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "4",
+  "b": "5",
+  "algebraic_norm": "514",
+  "rational_norm": "159",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "2": "1",
+    "257": "1"
+  },
+  "rational_factorization": {
+    "3": "1",
+    "53": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "6",
+  "b": "5",
+  "algebraic_norm": "616",
+  "rational_norm": "161",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "11": "1",
+    "2": "3",
+    "7": "1"
+  },
+  "rational_factorization": {
+    "23": "1",
+    "7": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "7",
+  "b": "5",
+  "algebraic_norm": "493",
+  "rational_norm": "162",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "17": "1",
+    "29": "1"
+  },
+  "rational_factorization": {
+    "2": "1",
+    "3": "4"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "9",
+  "b": "5",
+  "algebraic_norm": "-71",
+  "rational_norm": "164",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "71": "1"
+  },
+  "rational_factorization": {
+    "2": "2",
+    "41": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-9",
+  "b": "5",
+  "algebraic_norm": "-14579",
+  "rational_norm": "146",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "239": "1",
+    "61": "1"
+  },
+  "rational_factorization": {
+    "2": "1",
+    "73": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-11",
+  "b": "5",
+  "algebraic_norm": "-19631",
+  "rational_norm": "144",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "293": "1",
+    "67": "1"
+  },
+  "rational_factorization": {
+    "2": "4",
+    "3": "2"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "13",
+  "b": "5",
+  "algebraic_norm": "-2303",
+  "rational_norm": "168",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "47": "1",
+    "7": "2"
+  },
+  "rational_factorization": {
+    "2": "3",
+    "3": "1",
+    "7": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "14",
+  "b": "5",
+  "algebraic_norm": "-3056",
+  "rational_norm": "169",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "191": "1",
+    "2": "4"
+  },
+  "rational_factorization": {
+    "13": "2"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "17",
+  "b": "5",
+  "algebraic_norm": "-5687",
+  "rational_norm": "172",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "11": "2",
+    "47": "1"
+  },
+  "rational_factorization": {
+    "2": "2",
+    "43": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-19",
+  "b": "5",
+  "algebraic_norm": "-48959",
+  "rational_norm": "136",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "173": "1",
+    "283": "1"
+  },
+  "rational_factorization": {
+    "17": "1",
+    "2": "3"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "22",
+  "b": "5",
+  "algebraic_norm": "-10952",
+  "rational_norm": "177",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "2": "3",
+    "37": "2"
+  },
+  "rational_factorization": {
+    "3": "1",
+    "59": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-22",
+  "b": "5",
+  "algebraic_norm": "-64148",
+  "rational_norm": "133",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "2": "2",
+    "29": "1",
+    "7": "1",
+    "79": "1"
+  },
+  "rational_factorization": {
+    "19": "1",
+    "7": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "23",
+  "b": "5",
+  "algebraic_norm": "-12083",
+  "rational_norm": "178",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "281": "1",
+    "43": "1"
+  },
+  "rational_factorization": {
+    "2": "1",
+    "89": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-29",
+  "b": "5",
+  "algebraic_norm": "-109739",
+  "rational_norm": "126",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "257": "1",
+    "61": "1",
+    "7": "1"
+  },
+  "rational_factorization": {
+    "2": "1",
+    "3": "2",
+    "7": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "32",
+  "b": "5",
+  "algebraic_norm": "-22082",
+  "rational_norm": "187",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "181": "1",
+    "2": "1",
+    "61": "1"
+  },
+  "rational_factorization": {
+    "11": "1",
+    "17": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-34",
+  "b": "5",
+  "algebraic_norm": "-151904",
+  "rational_norm": "121",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "101": "1",
+    "2": "5",
+    "47": "1"
+  },
+  "rational_factorization": {
+    "11": "2"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "41",
+  "b": "5",
+  "algebraic_norm": "-28679",
+  "rational_norm": "196",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "17": "1",
+    "241": "1",
+    "7": "1"
+  },
+  "rational_factorization": {
+    "2": "2",
+    "7": "2"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "46",
+  "b": "5",
+  "algebraic_norm": "-29264",
+  "rational_norm": "201",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "2": "4",
+    "31": "1",
+    "59": "1"
+  },
+  "rational_factorization": {
+    "3": "1",
+    "67": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "48",
+  "b": "5",
+  "algebraic_norm": "-28658",
+  "rational_norm": "203",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "2": "1",
+    "23": "1",
+    "7": "1",
+    "89": "1"
+  },
+  "rational_factorization": {
+    "29": "1",
+    "7": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "1",
+  "b": "6",
+  "algebraic_norm": "-1205",
+  "rational_norm": "187",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "241": "1",
+    "5": "1"
+  },
+  "rational_factorization": {
+    "11": "1",
+    "17": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "19",
+  "b": "6",
+  "algebraic_norm": "-7955",
+  "rational_norm": "205",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "37": "1",
+    "43": "1",
+    "5": "1"
+  },
+  "rational_factorization": {
+    "41": "1",
+    "5": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "49",
+  "b": "6",
+  "algebraic_norm": "-49445",
+  "rational_norm": "235",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "11": "1",
+    "29": "1",
+    "31": "1",
+    "5": "1"
+  },
+  "rational_factorization": {
+    "47": "1",
+    "5": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "2",
+  "b": "7",
+  "algebraic_norm": "-1000",
+  "rational_norm": "219",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "2": "3",
+    "5": "3"
+  },
+  "rational_factorization": {
+    "3": "1",
+    "73": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-2",
+  "b": "7",
+  "algebraic_norm": "-6700",
+  "rational_norm": "215",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "2": "2",
+    "5": "2",
+    "67": "1"
+  },
+  "rational_factorization": {
+    "43": "1",
+    "5": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "3",
+  "b": "7",
+  "algebraic_norm": "-85",
+  "rational_norm": "220",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "17": "1",
+    "5": "1"
+  },
+  "rational_factorization": {
+    "11": "1",
+    "2": "2",
+    "5": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "4",
+  "b": "7",
+  "algebraic_norm": "638",
+  "rational_norm": "221",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "11": "1",
+    "2": "1",
+    "29": "1"
+  },
+  "rational_factorization": {
+    "13": "1",
+    "17": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-4",
+  "b": "7",
+  "algebraic_norm": "-10858",
+  "rational_norm": "213",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "2": "1",
+    "61": "1",
+    "89": "1"
+  },
+  "rational_factorization": {
+    "3": "1",
+    "71": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "5",
+  "b": "7",
+  "algebraic_norm": "1175",
+  "rational_norm": "222",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "47": "1",
+    "5": "2"
+  },
+  "rational_factorization": {
+    "2": "1",
+    "3": "1",
+    "37": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "8",
+  "b": "7",
+  "algebraic_norm": "1730",
+  "rational_norm": "225",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "173": "1",
+    "2": "1",
+    "5": "1"
+  },
+  "rational_factorization": {
+    "3": "2",
+    "5": "2"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-10",
+  "b": "7",
+  "algebraic_norm": "-29140",
+  "rational_norm": "207",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "2": "2",
+    "31": "1",
+    "47": "1",
+    "5": "1"
+  },
+  "rational_factorization": {
+    "23": "1",
+    "3": "2"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "13",
+  "b": "7",
+  "algebraic_norm": "-505",
+  "rational_norm": "230",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "101": "1",
+    "5": "1"
+  },
+  "rational_factorization": {
+    "2": "1",
+    "23": "1",
+    "5": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "15",
+  "b": "7",
+  "algebraic_norm": "-2365",
+  "rational_norm": "232",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "11": "1",
+    "43": "1",
+    "5": "1"
+  },
+  "rational_factorization": {
+    "2": "3",
+    "29": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "18",
+  "b": "7",
+  "algebraic_norm": "-6040",
+  "rational_norm": "235",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "151": "1",
+    "2": "3",
+    "5": "1"
+  },
+  "rational_factorization": {
+    "47": "1",
+    "5": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "20",
+  "b": "7",
+  "algebraic_norm": "-9010",
+  "rational_norm": "237",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "17": "1",
+    "2": "1",
+    "5": "1",
+    "53": "1"
+  },
+  "rational_factorization": {
+    "3": "1",
+    "79": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "23",
+  "b": "7",
+  "algebraic_norm": "-14125",
+  "rational_norm": "240",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "113": "1",
+    "5": "3"
+  },
+  "rational_factorization": {
+    "2": "4",
+    "3": "1",
+    "5": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "26",
+  "b": "7",
+  "algebraic_norm": "-19888",
+  "rational_norm": "243",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "11": "1",
+    "113": "1",
+    "2": "4"
+  },
+  "rational_factorization": {
+    "3": "5"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "30",
+  "b": "7",
+  "algebraic_norm": "-28300",
+  "rational_norm": "247",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "2": "2",
+    "283": "1",
+    "5": "2"
+  },
+  "rational_factorization": {
+    "13": "1",
+    "19": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-30",
+  "b": "7",
+  "algebraic_norm": "-167560",
+  "rational_norm": "187",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "2": "3",
+    "5": "1",
+    "59": "1",
+    "71": "1"
+  },
+  "rational_factorization": {
+    "11": "1",
+    "17": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-31",
+  "b": "7",
+  "algebraic_norm": "-178177",
+  "rational_norm": "186",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "17": "1",
+    "223": "1",
+    "47": "1"
+  },
+  "rational_factorization": {
+    "2": "1",
+    "3": "1",
+    "31": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "33",
+  "b": "7",
+  "algebraic_norm": "-34945",
+  "rational_norm": "250",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "241": "1",
+    "29": "1",
+    "5": "1"
+  },
+  "rational_factorization": {
+    "2": "1",
+    "5": "3"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-43",
+  "b": "7",
+  "algebraic_norm": "-338185",
+  "rational_norm": "174",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "239": "1",
+    "283": "1",
+    "5": "1"
+  },
+  "rational_factorization": {
+    "2": "1",
+    "29": "1",
+    "3": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "48",
+  "b": "7",
+  "algebraic_norm": "-66550",
+  "rational_norm": "265",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "11": "3",
+    "2": "1",
+    "5": "2"
+  },
+  "rational_factorization": {
+    "5": "1",
+    "53": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "1",
+  "b": "8",
+  "algebraic_norm": "-3383",
+  "rational_norm": "249",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "17": "1",
+    "199": "1"
+  },
+  "rational_factorization": {
+    "3": "1",
+    "83": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-1",
+  "b": "8",
+  "algebraic_norm": "-7097",
+  "rational_norm": "247",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "151": "1",
+    "47": "1"
+  },
+  "rational_factorization": {
+    "13": "1",
+    "19": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "5",
+  "b": "8",
+  "algebraic_norm": "1285",
+  "rational_norm": "253",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "257": "1",
+    "5": "1"
+  },
+  "rational_factorization": {
+    "11": "1",
+    "23": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "11",
+  "b": "8",
+  "algebraic_norm": "2107",
+  "rational_norm": "259",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "43": "1",
+    "7": "2"
+  },
+  "rational_factorization": {
+    "37": "1",
+    "7": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "13",
+  "b": "8",
+  "algebraic_norm": "925",
+  "rational_norm": "261",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "37": "1",
+    "5": "2"
+  },
+  "rational_factorization": {
+    "29": "1",
+    "3": "2"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "17",
+  "b": "8",
+  "algebraic_norm": "-3335",
+  "rational_norm": "265",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "23": "1",
+    "29": "1",
+    "5": "1"
+  },
+  "rational_factorization": {
+    "5": "1",
+    "53": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "25",
+  "b": "8",
+  "algebraic_norm": "-18095",
+  "rational_norm": "273",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "11": "1",
+    "47": "1",
+    "5": "1",
+    "7": "1"
+  },
+  "rational_factorization": {
+    "13": "1",
+    "3": "1",
+    "7": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "39",
+  "b": "8",
+  "algebraic_norm": "-55937",
+  "rational_norm": "287",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "131": "1",
+    "61": "1",
+    "7": "1"
+  },
+  "rational_factorization": {
+    "41": "1",
+    "7": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "41",
+  "b": "8",
+  "algebraic_norm": "-61823",
+  "rational_norm": "289",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "211": "1",
+    "293": "1"
+  },
+  "rational_factorization": {
+    "17": "2"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-45",
+  "b": "8",
+  "algebraic_norm": "-422765",
+  "rational_norm": "203",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "257": "1",
+    "47": "1",
+    "5": "1",
+    "7": "1"
+  },
+  "rational_factorization": {
+    "29": "1",
+    "7": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "1",
+  "b": "9",
+  "algebraic_norm": "-5075",
+  "rational_norm": "280",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "29": "1",
+    "5": "2",
+    "7": "1"
+  },
+  "rational_factorization": {
+    "2": "3",
+    "5": "1",
+    "7": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-4",
+  "b": "9",
+  "algebraic_norm": "-18910",
+  "rational_norm": "275",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "2": "1",
+    "31": "1",
+    "5": "1",
+    "61": "1"
+  },
+  "rational_factorization": {
+    "11": "1",
+    "5": "2"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "5",
+  "b": "9",
+  "algebraic_norm": "1205",
+  "rational_norm": "284",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "241": "1",
+    "5": "1"
+  },
+  "rational_factorization": {
+    "2": "2",
+    "71": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "7",
+  "b": "9",
+  "algebraic_norm": "2881",
+  "rational_norm": "286",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "43": "1",
+    "67": "1"
+  },
+  "rational_factorization": {
+    "11": "1",
+    "13": "1",
+    "2": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "8",
+  "b": "9",
+  "algebraic_norm": "3374",
+  "rational_norm": "287",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "2": "1",
+    "241": "1",
+    "7": "1"
+  },
+  "rational_factorization": {
+    "41": "1",
+    "7": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "10",
+  "b": "9",
+  "algebraic_norm": "3700",
+  "rational_norm": "289",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "2": "2",
+    "37": "1",
+    "5": "2"
+  },
+  "rational_factorization": {
+    "17": "2"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "13",
+  "b": "9",
+  "algebraic_norm": "2629",
+  "rational_norm": "292",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "11": "1",
+    "239": "1"
+  },
+  "rational_factorization": {
+    "2": "2",
+    "73": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-13",
+  "b": "9",
+  "algebraic_norm": "-62839",
+  "rational_norm": "266",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "191": "1",
+    "47": "1",
+    "7": "1"
+  },
+  "rational_factorization": {
+    "19": "1",
+    "2": "1",
+    "7": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "16",
+  "b": "9",
+  "algebraic_norm": "-170",
+  "rational_norm": "295",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "17": "1",
+    "2": "1",
+    "5": "1"
+  },
+  "rational_factorization": {
+    "5": "1",
+    "59": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-20",
+  "b": "9",
+  "algebraic_norm": "-116270",
+  "rational_norm": "259",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "11": "1",
+    "151": "1",
+    "2": "1",
+    "5": "1",
+    "7": "1"
+  },
+  "rational_factorization": {
+    "37": "1",
+    "7": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "22",
+  "b": "9",
+  "algebraic_norm": "-10304",
+  "rational_norm": "301",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "2": "6",
+    "23": "1",
+    "7": "1"
+  },
+  "rational_factorization": {
+    "43": "1",
+    "7": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "26",
+  "b": "9",
+  "algebraic_norm": "-19900",
+  "rational_norm": "305",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "199": "1",
+    "2": "2",
+    "5": "2"
+  },
+  "rational_factorization": {
+    "5": "1",
+    "61": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-35",
+  "b": "9",
+  "algebraic_norm": "-297755",
+  "rational_norm": "244",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "113": "1",
+    "17": "1",
+    "31": "1",
+    "5": "1"
+  },
+  "rational_factorization": {
+    "2": "2",
+    "61": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "40",
+  "b": "9",
+  "algebraic_norm": "-65330",
+  "rational_norm": "319",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "139": "1",
+    "2": "1",
+    "47": "1",
+    "5": "1"
+  },
+  "rational_factorization": {
+    "11": "1",
+    "29": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "-41",
+  "b": "9",
+  "algebraic_norm": "-399455",
+  "rational_norm": "238",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "101": "1",
+    "113": "1",
+    "5": "1",
+    "7": "1"
+  },
+  "rational_factorization": {
+    "17": "1",
+    "2": "1",
+    "7": "1"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "46",
+  "b": "9",
+  "algebraic_norm": "-87560",
+  "rational_norm": "325",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "11": "1",
+    "199": "1",
+    "2": "3",
+    "5": "1"
+  },
+  "rational_factorization": {
+    "13": "1",
+    "5": "2"
+  },
+  "is_persisted": false
+}
+,
+{
+  "a": "50",
+  "b": "9",
+  "algebraic_norm": "-102340",
+  "rational_norm": "329",
+  "algebraic_quotient": "1",
+  "rational_quotient": "1",
+  "algebraic_factorization": {
+    "-1": "1",
+    "17": "1",
+    "2": "2",
+    "43": "1",
+    "5": "1",
+    "7": "1"
+  },
+  "rational_factorization": {
+    "47": "1",
+    "7": "1"
+  },
+  "is_persisted": false
+}
+]
