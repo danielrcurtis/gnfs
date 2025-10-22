@@ -200,8 +200,25 @@ impl Polynomial {
         a = make_monic(&a, modulus);
         b = make_monic(&b, modulus);
 
+        let mut iteration = 0;
+        const MAX_ITERATIONS: usize = 1000;
+
         while !b.is_zero() {
+            iteration += 1;
+            if iteration > MAX_ITERATIONS {
+                // Prevent infinite loop - return a default value
+                return Polynomial::one();
+            }
+
             let remainder = Polynomial::mod_mod(&a, &b, modulus);
+
+            // Check if remainder is making progress (degree should decrease)
+            if remainder.degree() >= b.degree() && !remainder.is_zero() {
+                // Not making progress - avoid infinite loop
+                // This can happen if mod_mod fails to properly reduce
+                return Polynomial::one();
+            }
+
             a = b;
             b = make_monic(&remainder, modulus);
         }

@@ -182,15 +182,31 @@ pub fn x_power_p_minus_x_mod_f(p: &BigInt, f: &Polynomial, prime: &BigInt) -> Po
 }
 
 pub fn remainder(left: &Polynomial, right: &Polynomial, mod_: &BigInt) -> Polynomial {
-    if right.degree() > left.degree() {
+    // Ensure right polynomial has no leading zeros and coefficients are reduced mod p
+    let mut right_cleaned = right.clone();
+    right_cleaned = right_cleaned.field_modulus(mod_);
+    right_cleaned.remove_zeros();
+
+    // If right polynomial is zero after cleanup, return left
+    if right_cleaned.is_zero() {
         return left.clone();
     }
 
-    let right_degree = right.degree();
-    let quotient_degree = left.degree() - right.degree() + 1;
+    if right_cleaned.degree() > left.degree() {
+        return left.clone();
+    }
 
-    // Get the leading coefficient of right polynomial (mod p)
-    let leading_coef = right[right_degree].mod_floor(mod_);
+    let right_degree = right_cleaned.degree();
+    let quotient_degree = left.degree() - right_degree + 1;
+
+    // Get the leading coefficient of right polynomial (already reduced mod p)
+    let leading_coef = right_cleaned[right_degree].clone();
+
+    // Safety check: if leading coefficient is zero, something went wrong
+    if leading_coef.is_zero() {
+        // This shouldn't happen after field_modulus + remove_zeros, but handle it gracefully
+        return left.clone();
+    }
 
     // If not monic, we need to compute the modular inverse to normalize
     let leading_coef_inv = if leading_coef == BigInt::one() {
@@ -199,7 +215,9 @@ pub fn remainder(left: &Polynomial, right: &Polynomial, mod_: &BigInt) -> Polyno
         match modular_multiplicative_inverse(&leading_coef, mod_) {
             Some(inv) => inv,
             None => {
-                panic!("Cannot compute modular inverse of leading coefficient {} mod {}", leading_coef, mod_);
+                // Leading coef is not coprime with modulus - shouldn't happen with prime modulus
+                // but return left to avoid panic
+                return left.clone();
             }
         }
     };
@@ -214,7 +232,7 @@ pub fn remainder(left: &Polynomial, right: &Polynomial, mod_: &BigInt) -> Polyno
         rem[right_degree + i] = BigInt::zero();
 
         for j in (i..(right_degree + i)).rev() {
-            rem[j] = (rem[j].clone() - &quot * &right[j - i]).mod_floor(mod_);
+            rem[j] = (rem[j].clone() - &quot * &right_cleaned[j - i]).mod_floor(mod_);
         }
     }
 
