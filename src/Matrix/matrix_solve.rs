@@ -39,8 +39,8 @@ impl MatrixSolve {
                 // Step 1: Build the matrix structure by transposing
                 gaussian_reduction.transpose_append();
 
-                let num_rows = gaussian_reduction.m.len();
-                let num_cols = gaussian_reduction.m[0].len();
+                let num_rows = gaussian_reduction.m.num_rows;
+                let num_cols = gaussian_reduction.m.num_cols;
                 gaussian_reduction._gnfs.log_message_slice(&format!("Matrix after transpose: {} rows x {} cols", num_rows, num_cols));
 
                 // Step 2: Perform Gaussian elimination
