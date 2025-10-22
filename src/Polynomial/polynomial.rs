@@ -388,13 +388,29 @@ impl Polynomial {
     }
 
     fn remainder(left: &Polynomial, right: &Polynomial) -> Polynomial {
+        // Handle zero polynomial divisor
+        if right.is_zero() {
+            log::error!("Cannot compute polynomial remainder: divisor is zero polynomial");
+            panic!("Division by zero: divisor is zero polynomial");
+        }
+
         if right.degree() > left.degree() || right.cmp(left) == Ordering::Greater {
             Polynomial::zero()
         } else {
             let right_degree = right.degree();
             let quotient_degree = left.degree() - right_degree + 1;
-    
+
             let leading_coefficient = right[right_degree].clone();
+
+            // Check for zero leading coefficient to prevent divide-by-zero
+            // This should never happen if polynomials are properly constructed
+            if leading_coefficient.is_zero() {
+                log::error!("Cannot compute polynomial remainder: divisor has zero leading coefficient");
+                log::error!("Divisor polynomial (right): {}", right);
+                log::error!("Dividend polynomial (left): {}", left);
+                log::error!("This indicates a bug in polynomial construction - zero coefficients should be filtered out");
+                panic!("Division by zero: divisor polynomial has zero leading coefficient");
+            }
 
             // Handle non-monic polynomials for GNFS square root extraction
             let mut rem = left.clone();

@@ -7,20 +7,20 @@
     {
       "terms": [
         {
-          "coefficient": "26",
-          "exponent": 1
-        },
-        {
           "coefficient": "29",
           "exponent": 0
         },
         {
           "coefficient": "24",
-          "exponent": 3
+          "exponent": 2
+        },
+        {
+          "coefficient": "26",
+          "exponent": 1
         },
         {
           "coefficient": "24",
-          "exponent": 2
+          "exponent": 3
         }
       ]
     }
@@ -28,20 +28,20 @@
   "current_polynomial": {
     "terms": [
       {
-        "coefficient": "26",
-        "exponent": 1
-      },
-      {
         "coefficient": "29",
         "exponent": 0
       },
       {
         "coefficient": "24",
-        "exponent": 3
+        "exponent": 2
+      },
+      {
+        "coefficient": "26",
+        "exponent": 1
       },
       {
         "coefficient": "24",
-        "exponent": 2
+        "exponent": 3
       }
     ]
   },

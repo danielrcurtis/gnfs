@@ -261,10 +261,11 @@ impl GNFS {
             }
         }
 
-        // Create polynomial terms from coefficients
+        // Create polynomial terms from coefficients, filtering out zero coefficients
         let terms: Vec<Term> = coefficients
             .iter()
             .enumerate()
+            .filter(|(_, coeff)| !coeff.is_zero())
             .map(|(degree, coeff)| Term::new(coeff.clone(), degree))
             .collect();
 
