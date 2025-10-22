@@ -388,24 +388,44 @@ impl Polynomial {
     }
 
     fn remainder(left: &Polynomial, right: &Polynomial) -> Polynomial {
+        // Handle zero polynomial divisor
+        if right.is_zero() {
+            log::error!("Cannot compute polynomial remainder: divisor is zero polynomial");
+            panic!("Division by zero: divisor is zero polynomial");
+        }
+
         if right.degree() > left.degree() || right.cmp(left) == Ordering::Greater {
             Polynomial::zero()
         } else {
             let right_degree = right.degree();
             let quotient_degree = left.degree() - right_degree + 1;
-    
+
             let leading_coefficient = right[right_degree].clone();
-            if leading_coefficient != BigInt::one() {
-                panic!("This method expects only monomials (leading coefficient is 1) for the right-hand-side polynomial.");
+
+            // Check for zero leading coefficient to prevent divide-by-zero
+            // This should never happen if polynomials are properly constructed
+            if leading_coefficient.is_zero() {
+                log::error!("Cannot compute polynomial remainder: divisor has zero leading coefficient");
+                log::error!("Divisor polynomial (right): {}", right);
+                log::error!("Dividend polynomial (left): {}", left);
+                log::error!("This indicates a bug in polynomial construction - zero coefficients should be filtered out");
+                panic!("Division by zero: divisor polynomial has zero leading coefficient");
             }
-    
+
+            // Handle non-monic polynomials for GNFS square root extraction
             let mut rem = left.clone();
-    
+
             for i in (0..quotient_degree).rev() {
-                let quot = rem[right_degree + i].clone(); // Declaration moved here
-    
+                // For non-monic polynomials, divide by leading coefficient
+                let quot = if leading_coefficient == BigInt::one() {
+                    rem[right_degree + i].clone()
+                } else {
+                    // Integer division for non-monic case
+                    &rem[right_degree + i] / &leading_coefficient
+                };
+
                 rem[right_degree + i] = BigInt::zero();
-    
+
                 for j in (i..=right_degree + i - 1).rev() {
                     rem[j] -= &quot * &right[j - i];
                 }
@@ -418,7 +438,11 @@ impl Polynomial {
     
 
     pub fn multiply(left: &Polynomial, right: &Polynomial) -> Self {
-        let mut terms = vec![Term::new(BigInt::zero(), 0); left.degree() + right.degree() + 1];
+        let result_degree = left.degree() + right.degree();
+        let mut terms = Vec::with_capacity(result_degree + 1);
+        for exp in 0..=result_degree {
+            terms.push(Term::new(BigInt::zero(), exp));
+        }
         for i in 0..=left.degree() {
             for j in 0..=right.degree() {
                 let coefficient = &left[i] * &right[j];

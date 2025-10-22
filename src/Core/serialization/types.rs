@@ -1,6 +1,6 @@
 // src/core/serialization/types.rs
 
-use num::BigInt;
+use num::{BigInt, Zero};
 use serde::{Serialize, Deserialize};
 use std::sync::Arc;
 use std::collections::BTreeMap;
@@ -101,10 +101,14 @@ pub struct SerializablePolynomial {
 impl From<Polynomial> for SerializablePolynomial {
     fn from(poly: Polynomial) -> Self {
         SerializablePolynomial {
-            terms: poly.terms.into_iter().map(|(exp, coef)| SerializableTerm {
-                coefficient: coef.to_string(),
-                exponent: exp,
-            }).collect(),
+            terms: poly.terms.into_iter()
+                // Filter out zero coefficients before serialization
+                .filter(|(_, coef)| !coef.is_zero())
+                .map(|(exp, coef)| SerializableTerm {
+                    coefficient: coef.to_string(),
+                    exponent: exp,
+                })
+                .collect(),
         }
     }
 }
@@ -112,10 +116,14 @@ impl From<Polynomial> for SerializablePolynomial {
 impl From<SerializablePolynomial> for Polynomial {
     fn from(poly: SerializablePolynomial) -> Self {
         Polynomial {
-            terms: poly.terms.into_iter().map(|term| {
-                let coefficient = BigInt::from_str(&term.coefficient).unwrap();
-                (term.exponent, coefficient)
-            }).collect(),
+            terms: poly.terms.into_iter()
+                .map(|term| {
+                    let coefficient = BigInt::from_str(&term.coefficient).unwrap();
+                    (term.exponent, coefficient)
+                })
+                // Filter out zero coefficients to prevent divide-by-zero errors
+                .filter(|(_, coef)| !coef.is_zero())
+                .collect(),
         }
     }
 }

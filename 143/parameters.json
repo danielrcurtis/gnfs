@@ -7,20 +7,12 @@
     {
       "terms": [
         {
-          "coefficient": "19",
-          "exponent": 0
-        },
-        {
-          "coefficient": "0",
-          "exponent": 2
-        },
-        {
           "coefficient": "4",
           "exponent": 1
         },
         {
-          "coefficient": "0",
-          "exponent": 3
+          "coefficient": "19",
+          "exponent": 0
         }
       ]
     }
@@ -28,20 +20,12 @@
   "current_polynomial": {
     "terms": [
       {
-        "coefficient": "19",
-        "exponent": 0
-      },
-      {
-        "coefficient": "0",
-        "exponent": 2
-      },
-      {
         "coefficient": "4",
         "exponent": 1
       },
       {
-        "coefficient": "0",
-        "exponent": 3
+        "coefficient": "19",
+        "exponent": 0
       }
     ]
   },

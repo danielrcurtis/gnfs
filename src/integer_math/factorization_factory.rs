@@ -1,6 +1,6 @@
 // src/integer_math/factorization_factory.rs
 
-use num::{BigInt, One, Zero};
+use num::{BigInt, One, Zero, ToPrimitive};
 use crate::core::count_dictionary::CountDictionary;
 
 pub struct FactorizationFactory;
@@ -88,11 +88,47 @@ impl FactorizationFactory {
         let mut factorization = CountDictionary::new();
         let mut quotient = input.clone();
 
+        // OPTIMIZATION 1: Early termination if quotient becomes 1
+        if quotient == BigInt::one() {
+            return (factorization, quotient);
+        }
+
         // Try to divide by each prime in the factor base
         for prime in factor_base {
+            // OPTIMIZATION 2: Skip if quotient < prime² (can't be divisible by this or larger primes)
+            // For small quotients, this check is cheap and saves many expensive modulo operations
+            if &quotient < prime {
+                // quotient < prime means no larger primes can divide it
+                break;
+            }
+
+            // OPTIMIZATION 3: For small quotients, use u64 fast path
+            // BigInt operations are much slower than native u64 arithmetic
+            if let Some(quot_u64) = quotient.to_u64() {
+                if let Some(prime_u64) = prime.to_u64() {
+                    // Fast path: use native u64 arithmetic
+                    let mut q = quot_u64;
+                    while q % prime_u64 == 0 {
+                        factorization.add(prime);
+                        q /= prime_u64;
+                        if q == 1 {
+                            return (factorization, BigInt::one());
+                        }
+                    }
+                    quotient = BigInt::from(q);
+                    continue;
+                }
+            }
+
+            // Slow path: BigInt arithmetic for large numbers
             while &quotient % prime == BigInt::zero() {
                 factorization.add(prime);
                 quotient /= prime;
+
+                // OPTIMIZATION 4: Check if we're done after each division
+                if quotient == BigInt::one() {
+                    return (factorization, quotient);
+                }
             }
         }
 

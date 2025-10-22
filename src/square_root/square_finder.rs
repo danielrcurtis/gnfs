@@ -296,15 +296,10 @@ impl SquareFinder {
                 .filter_map(|test_p| {
                     let start_total = Instant::now();
 
-                    // Time polynomial parsing
-                    let start_parse = Instant::now();
-                    let g = Polynomial::parse(&format!("X^{} - X", test_p));
-                    let parse_time = start_parse.elapsed();
-
-                    // Time mod_mod operation
-                    let start_mod = Instant::now();
-                    let h = finite_field_arithmetic::mod_mod(&g, f, test_p);
-                    let mod_time = start_mod.elapsed();
+                    // Use optimized X^p - X mod f computation (much faster than creating full polynomial)
+                    let start_compute = Instant::now();
+                    let h = finite_field_arithmetic::x_power_p_minus_x_mod_f(test_p, f, test_p);
+                    let compute_time = start_compute.elapsed();
 
                     // Time GCD computation
                     let start_gcd = Instant::now();
@@ -316,8 +311,8 @@ impl SquareFinder {
 
                     // Log timing for first few primes in each batch
                     if test_p < &BigInt::from(450) || (batch_number <= 3) {
-                        info!("Prime {}: parse={}µs, mod={}µs, gcd={}µs, total={}µs, irreducible={}",
-                            test_p, parse_time.as_micros(), mod_time.as_micros(),
+                        info!("Prime {}: compute={}µs, gcd={}µs, total={}µs, irreducible={}",
+                            test_p, compute_time.as_micros(),
                             gcd_time.as_micros(), total_time.as_micros(), is_irreducible);
                     }
 

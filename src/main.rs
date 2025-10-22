@@ -7,7 +7,7 @@ use gnfs::core::gnfs::GNFS;
 use gnfs::core::cancellation_token::CancellationToken;
 use gnfs::matrix::matrix_solve::MatrixSolve;
 use gnfs::square_root::square_finder::SquareFinder;
-use num::BigInt;
+use num::{BigInt, ToPrimitive};
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
@@ -85,6 +85,65 @@ fn main() {
     let prime_factory = prime_factory::PrimeFactory::new();
     let is_prime = prime_factory.is_prime(&BigInt::from(5));
     info!("Is 5 prime? {}", is_prime);
+
+    // Fast pre-check: For small numbers, use trial division instead of GNFS
+    // GNFS is only efficient for numbers with 15+ digits (> 10^15)
+    if n < BigInt::from(10_i64.pow(15)) {
+        info!("");
+        info!("========================================");
+        info!("SMALL NUMBER DETECTED - USING TRIAL DIVISION");
+        info!("========================================");
+        info!("Number: {}", n);
+        info!("GNFS is designed for large numbers (15+ digits). Using fast trial division instead...");
+
+        use gnfs::integer_math::factorization_factory::FactorizationFactory;
+        let (factorization, quotient) = FactorizationFactory::factor(&n);
+
+        if quotient == BigInt::from(1) {
+            // Completely factored
+            info!("");
+            info!("*****************************************");
+            info!("*** FACTORIZATION SUCCESSFUL (Trial Division) ***");
+            info!("*****************************************");
+            info!("");
+            info!("N = {}", n);
+            info!("Prime factorization: {:?}", factorization);
+            info!("");
+
+            // If there are exactly 2 prime factors (counting multiplicity)
+            let dict = factorization.to_dict();
+            let mut all_factors = Vec::new();
+            for (prime, exponent) in dict.iter() {
+                let exp_u32 = if let Some(val) = exponent.to_u32() {
+                    val
+                } else {
+                    exponent.to_u64().unwrap_or(1) as u32
+                };
+                for _ in 0..exp_u32 {
+                    all_factors.push(prime.clone());
+                }
+            }
+
+            if all_factors.len() == 2 {
+                info!("{} = {} × {}", n, all_factors[0], all_factors[1]);
+                info!("Verification: {} × {} = {}", all_factors[0], all_factors[1], &all_factors[0] * &all_factors[1]);
+            } else if all_factors.len() == 1 {
+                info!("{} is PRIME", n);
+            } else {
+                info!("{} = {}", n, all_factors.iter().map(|f| f.to_string()).collect::<Vec<_>>().join(" × "));
+            }
+            info!("*****************************************");
+        } else {
+            // Partially factored - quotient is a large prime or composite
+            info!("");
+            info!("Partial factorization: {:?}", factorization);
+            info!("Unfactored quotient: {}", quotient);
+            info!("");
+            info!("The number contains a large prime factor > sqrt(N).");
+            info!("For complete factorization of very large composites, use GNFS on numbers > 10^15.");
+        }
+        return;
+    }
 
     // Create or load GNFS instance
     let mut gnfs = create_or_load_gnfs(&n);
