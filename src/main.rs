@@ -14,8 +14,17 @@ use std::sync::atomic::AtomicBool;
 use std::str::FromStr;
 
 fn main() {
-    // Parse command-line argument for the number to factor
+    // Parse command-line arguments
     let args: Vec<String> = std::env::args().collect();
+
+    // Check for --bench flag
+    if args.len() > 1 && args[1] == "--bench" {
+        eprintln!("Benchmark mode is temporarily disabled due to compilation issues.");
+        eprintln!("Please use direct factorization instead: {} <number>", args[0]);
+        std::process::exit(1);
+    }
+
+    // Otherwise, parse number to factor
     let n = if args.len() > 1 {
         match BigInt::from_str(&args[1]) {
             Ok(num) => {
@@ -25,7 +34,9 @@ fn main() {
             Err(e) => {
                 eprintln!("Error parsing number '{}': {}", args[1], e);
                 eprintln!("Usage: {} <number_to_factor>", args[0]);
+                eprintln!("       {} --bench [digit_counts...]", args[0]);
                 eprintln!("Example: {} 45113", args[0]);
+                eprintln!("         {} --bench 7 9 11", args[0]);
                 std::process::exit(1);
             }
         }
