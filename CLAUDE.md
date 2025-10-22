@@ -149,3 +149,17 @@ MY_LOG_LEVEL=debug cargo run
 ```
 
 Default level is `info`. Key stages log their progress.
+
+## macOS Development Notes
+
+### Command-Line Tools
+
+**Timeout on macOS:**
+- Use `gtimeout` instead of `timeout` (GNU coreutils)
+- Install via: `brew install coreutils`
+- Example: `gtimeout 60 ./target/release/gnfs 47893197`
+
+**Alternative patterns:**
+- Background with monitoring: `./command & PID=$! ; sleep 60 && kill $PID 2>/dev/null`
+- Built-in timeout on newer macOS: Some systems may have timeout, but gtimeout is more reliable
+
