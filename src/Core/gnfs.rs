@@ -9,6 +9,7 @@ use crate::core::factor_base::FactorBase;
 use crate::factor::factor_pair_collection::{FactorPairCollection, Factory};
 use crate::polynomial::polynomial::Polynomial;
 use crate::polynomial::polynomial::Term;
+use crate::polynomial::polynomial_construction::find_optimal_base;
 use crate::relation_sieve::poly_relations_sieve_progress::PolyRelationsSieveProgress;
 use crate::relation_sieve::relation::Relation;
 use crate::core::solution::Solution;
@@ -95,9 +96,19 @@ impl GNFS {
                 return gnfs;
             }
 
-            gnfs.construct_new_polynomial(polynomial_base, gnfs.polynomial_degree);
+            // Use optimized polynomial selection for better quality
+            info!("Selecting optimal polynomial using Montgomery's method...");
+            let (optimal_poly, optimal_base, quality_metrics) = find_optimal_base(&gnfs.n, gnfs.polynomial_degree as u32);
+
+            gnfs.current_polynomial = optimal_poly;
+            gnfs.polynomial_base = optimal_base.clone();
+            gnfs.polynomial_collection.push(gnfs.current_polynomial.clone());
+
             info!("Polynomial constructed: {}", gnfs.current_polynomial);
             info!("Polynomial base: {}", gnfs.polynomial_base);
+            info!("Polynomial quality score: {:.2}", quality_metrics.overall_score);
+            info!("Root sum of squares: {:.2}", quality_metrics.root_sum_squares);
+            info!("Max coefficient: {}", quality_metrics.max_coefficient);
 
             if cancel_token.is_cancellation_requested() {
                 return gnfs;
