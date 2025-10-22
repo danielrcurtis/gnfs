@@ -7,6 +7,7 @@ use gnfs::core::gnfs::GNFS;
 use gnfs::core::cancellation_token::CancellationToken;
 use gnfs::matrix::matrix_solve::MatrixSolve;
 use gnfs::square_root::square_finder::SquareFinder;
+use gnfs::benchmark_cli;
 use num::{BigInt, ToPrimitive};
 use std::path::Path;
 use std::sync::Arc;
@@ -19,9 +20,8 @@ fn main() {
 
     // Check for --bench flag
     if args.len() > 1 && args[1] == "--bench" {
-        eprintln!("Benchmark mode is temporarily disabled due to compilation issues.");
-        eprintln!("Please use direct factorization instead: {} <number>", args[0]);
-        std::process::exit(1);
+        benchmark_cli::run_benchmarks(&args);
+        return;
     }
 
     // Otherwise, parse number to factor

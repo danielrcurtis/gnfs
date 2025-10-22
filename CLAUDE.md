@@ -150,6 +150,117 @@ MY_LOG_LEVEL=debug cargo run
 
 Default level is `info`. Key stages log their progress.
 
+## Performance Benchmarking
+
+The project includes a comprehensive benchmarking suite for tracking performance across changes and identifying optimization opportunities.
+
+### Running Benchmarks
+
+**Basic usage** (benchmarks 7, 9, and 11 digit numbers by default):
+```bash
+cargo build --release
+./target/release/gnfs --bench
+```
+
+**Custom digit counts**:
+```bash
+./target/release/gnfs --bench 6 7 9 11 12
+```
+
+**With timeout** (recommended for larger numbers):
+```bash
+gtimeout 300 ./target/release/gnfs --bench 9 11 12
+```
+
+### Benchmark Output
+
+Benchmarks produce two outputs:
+
+1. **Console summary**: Real-time progress and final summary showing:
+   - System information (CPU, RAM, OS, Git commit)
+   - Initialization time
+   - Sieving time (breakdown by stage)
+   - Relations found vs required
+   - Percentage of time spent in each stage
+
+2. **JSON file**: Timestamped file `benchmark_results_<timestamp>.json` containing:
+   - Complete system metadata
+   - Detailed timing for each stage
+   - Number of relations found
+   - Git commit hash for reproducibility
+
+### Example Output
+
+```
+================================================================================
+GNFS BENCHMARK SUITE
+================================================================================
+
+System Information:
+  Hostname:     Daniels-MBP.lan
+  OS:           Darwin 26.0.1
+  CPU:          Apple M3 Pro (12 cores, 12 threads)
+  Memory:       18432 MB
+  Git:          5e95bca2 (benchmarking-suite)
+  Rust:         rustc 1.89.0 (29483883e 2025-08-04)
+
+Number:           738883 (6 digits)
+Total Time:       598 ms
+Relations:        886 / 1000 required
+Stage Breakdown:
+  Initialization: 1 ms
+  Sieving:        597 ms (99.8% of total)
+```
+
+### Comparing Benchmarks
+
+To compare performance before/after changes:
+
+1. **Baseline**: Run benchmarks on main branch
+   ```bash
+   git checkout main
+   cargo build --release
+   ./target/release/gnfs --bench 7 9 11
+   mv benchmark_results_*.json baseline.json
+   ```
+
+2. **After changes**: Run benchmarks on your branch
+   ```bash
+   git checkout your-branch
+   cargo build --release
+   ./target/release/gnfs --bench 7 9 11
+   mv benchmark_results_*.json after.json
+   ```
+
+3. **Compare**: Load both JSON files and compare `total_time_ms` and `sieving_ms` values
+
+### Key Insights from Benchmarks
+
+Based on current benchmarks:
+
+- **Sieving dominates**: 98-99% of factorization time is spent in the sieving stage
+- **Initialization is fast**: < 1-2ms regardless of number size
+- **Matrix/square root**: Not yet implemented, so not measured
+
+**Optimization priorities** (based on time spent):
+1. Sieving optimization (98%+ of time) - GPU/OpenCL, SIMD, or algorithmic improvements
+2. Matrix solving (not yet implemented)
+3. Polynomial selection (occurs during initialization, already fast)
+
+### Pre-Selected Test Numbers
+
+The benchmark suite uses pre-selected semiprimes for consistent testing:
+
+| Digit Count | Test Number | Description |
+|-------------|-------------|-------------|
+| 6 | 143 | 11 × 13 |
+| 7 | 738883 | Known composite |
+| 9 | 100085411 | Tested semiprime |
+| 10 | 1000730021 | Tested semiprime |
+| 11 | 10003430467 | Tested semiprime |
+| 12 | 100002599317 | Tested semiprime |
+| 14 | 10000004400000259 | Large semiprime |
+
 ## macOS Development Notes
 
 ### Command-Line Tools
