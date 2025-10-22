@@ -1,10 +1,9 @@
 // src/realation_sieve/relation.rs
 
-use num::BigInt;
+use num::{BigInt, BigRational, Zero, Signed};
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 use crate::core::gnfs::GNFS;
-use crate::relation_sieve::poly_relations_sieve_progress::PolyRelationsSieveProgress;
 use crate::integer_math::factorization_factory::FactorizationFactory;
 use crate::core::count_dictionary::CountDictionary;
 
@@ -22,7 +21,7 @@ pub struct Relation {
 }
 
 impl Relation {
-    pub fn new(gnfs: &GNFS, a: &BigInt, b: &BigInt) -> Self {
+    pub fn new(_gnfs: &GNFS, a: &BigInt, b: &BigInt) -> Self {
         Relation {
             a: a.clone(),
             b: b.clone(),
@@ -52,35 +51,90 @@ impl Relation {
         &self.a + &self.b * x
     }
 
-    pub fn sieve(&mut self, gnfs: &GNFS, progress: &mut PolyRelationsSieveProgress) {
-        let f_a = gnfs.current_polynomial.evaluate(&self.a);
-        let f_b = gnfs.current_polynomial.evaluate(&self.b);
+    pub fn sieve(&mut self, gnfs: &GNFS) {
+        use log::debug;
 
-        self.algebraic_norm = f_a.clone();
-        self.rational_norm = self.apply(&f_b);
+        // Rational norm: a + b*m where m is the polynomial base
+        self.rational_norm = self.apply(&gnfs.polynomial_base);
 
-        let (algebraic_norm, algebraic_quotient) = FactorizationFactory::factor(&self.algebraic_norm);
-        let (rational_norm, rational_quotient) = FactorizationFactory::factor(&self.rational_norm);
+        // Algebraic norm: f(-a/b) × (-b)^degree
+        // This is the correct formula from the C# reference implementation
+        let neg_a = -(&self.a);
+        let ab_ratio = BigRational::new(neg_a, self.b.clone());
 
-        self.algebraic_factorization = algebraic_norm;
-        self.rational_factorization = rational_norm;
+        // Evaluate f(-a/b) using rational arithmetic
+        let poly_value = gnfs.current_polynomial.evaluate_rational(&ab_ratio);
 
-        self.algebraic_quotient = algebraic_quotient;
-        self.rational_quotient = rational_quotient;
+        // Calculate (-b)^degree
+        let neg_b = -(&self.b);
+        let degree = gnfs.current_polynomial.degree();
+        let right = neg_b.pow(degree as u32);
 
-        self.algebraic_factorization
-            .retain(|prime, _| gnfs.prime_factor_base.algebraic_factor_base.contains(prime));
-        self.rational_factorization
-            .retain(|prime, _| gnfs.prime_factor_base.rational_factor_base.contains(prime));
+        // Multiply: f(-a/b) × (-b)^degree
+        let product = poly_value * BigRational::from_integer(right);
 
-        let is_algebraic_quotient_smooth =
-            self.algebraic_quotient == BigInt::from(1) || self.algebraic_quotient == BigInt::from(0);
-        let is_rational_quotient_smooth =
-            self.rational_quotient == BigInt::from(1) || self.rational_quotient == BigInt::from(0);
-
-        if is_algebraic_quotient_smooth && is_rational_quotient_smooth {
-            progress.smooth_relations_counter += 1;
+        // Extract integer part (should have no fractional part for valid relations)
+        if !product.is_integer() {
+            debug!("Warning: Algebraic norm for (a={}, b={}) is not an integer: {}", self.a, self.b, product);
         }
+        self.algebraic_norm = product.numer().clone() / product.denom();
+
+        // Handle negative norms: add -1 to factorization
+        if self.rational_norm < BigInt::zero() {
+            self.rational_factorization.add(&BigInt::from(-1));
+        }
+
+        // Use absolute value for factorization
+        let abs_rational_norm = self.rational_norm.abs();
+
+        // OPTIMIZATION: Sieve rational first (C# does this)
+        // Only sieve algebraic if rational is smooth
+        let (rational_factors, rational_quotient) = FactorizationFactory::factor_with_base(
+            &abs_rational_norm,
+            &gnfs.prime_factor_base.rational_factor_base
+        );
+
+        self.rational_factorization.combine(&rational_factors);
+        self.rational_quotient = rational_quotient.clone();
+
+        // Only continue if rational is smooth
+        if !self.is_rational_quotient_smooth() {
+            // Not smooth on rational side, no point checking algebraic
+            self.algebraic_quotient = self.algebraic_norm.abs();
+            return;
+        }
+
+        // Rational is smooth, now check algebraic
+        if self.algebraic_norm < BigInt::zero() {
+            self.algebraic_factorization.add(&BigInt::from(-1));
+        }
+
+        let abs_algebraic_norm = self.algebraic_norm.abs();
+        let (algebraic_factors, algebraic_quotient) = FactorizationFactory::factor_with_base(
+            &abs_algebraic_norm,
+            &gnfs.prime_factor_base.algebraic_factor_base
+        );
+
+        self.algebraic_factorization.combine(&algebraic_factors);
+        self.algebraic_quotient = algebraic_quotient.clone();
+
+        let is_smooth = self.is_smooth();
+        if is_smooth || (&self.a == &BigInt::from(1) && &self.b <= &BigInt::from(10)) {
+            debug!("Relation (a={}, b={}): alg_norm={}, rat_norm={}, alg_quot={}, rat_quot={}, smooth={}",
+                   self.a, self.b, self.algebraic_norm, self.rational_norm,
+                   algebraic_quotient, rational_quotient, is_smooth);
+        }
+
+        // No need to retain - factor_with_base only returns factors from the base
+        // self.algebraic_factorization
+        //     .retain(|prime, _| gnfs.prime_factor_base.algebraic_factor_base.contains(prime));
+        // self.rational_factorization
+        //     .retain(|prime, _| gnfs.prime_factor_base.rational_factor_base.contains(prime));
+
+        debug!("  Is smooth? {}", self.is_smooth());
+
+        // Note: Do NOT increment smooth_relations_counter here
+        // It's handled in poly_relations_sieve_progress.rs after checking is_smooth()
     }
 }
 

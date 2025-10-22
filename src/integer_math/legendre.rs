@@ -46,6 +46,18 @@ impl Legendre {
             panic!("Parameter 'goal' may only be -1, 0 or 1. It was {}.", goal);
         }
 
+        // OPTIMIZATION: Try small primes first before linear search
+        // Most moduli have small primes as quadratic non-residues
+        // This avoids O(modulus) linear search when modulus is large (e.g., 95 million)
+        let small_candidates = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71];
+        for candidate in small_candidates {
+            let big_candidate = BigInt::from(candidate);
+            if &big_candidate >= start && Self::symbol(&big_candidate, modulus) == goal.to_i32().unwrap() {
+                return big_candidate;
+            }
+        }
+
+        // Fallback to linear search if no small prime works
         let mut counter = start.clone();
         let max = &counter + modulus + 1;
 

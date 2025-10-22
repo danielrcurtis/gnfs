@@ -17,9 +17,10 @@ pub struct FastPrimeSieve {
 impl FastPrimeSieve {
     pub fn new() -> Self {
         let mut cache_size = 393216;
-        let cache_sizes = cpu_info::CPUInfo::l1_cache_size();
-        if cache_sizes.unwrap() != 0 {
-            cache_size = cache_sizes.unwrap() * 1024;
+        if let Some(size) = cpu_info::CPUInfo::l1_cache_size() {
+            if size != 0 {
+                cache_size = size * 1024;
+            }
         }
 
         let page_size = cache_size;

@@ -3,7 +3,7 @@
 use std::cmp::Ordering;
 use std::ops::{Add, Sub, Mul, Div, Index, IndexMut};
 use std::collections::HashMap;
-use num::{BigInt, Zero, One, Integer, Signed};
+use num::{BigInt, BigRational, Zero, One, Integer, Signed};
 use log::error;
 use std::fmt::{Display, Formatter, Result};
 use crate::square_root::finite_field_arithmetic::remainder;
@@ -46,22 +46,23 @@ impl Term {
     pub fn parse(input: &str) -> Self {
         let mut coefficient = BigInt::one();
         let mut exponent = 0;
-    
+
         let parts: Vec<&str> = input.split('*').collect();
-    
+
         for part in parts {
-            if part.starts_with('-') {
-                coefficient *= -BigInt::one();
-            }
-    
             if part.contains('X') {
+                // Handle terms with X
+                if part.starts_with('-') {
+                    coefficient *= -BigInt::one();
+                }
+
                 let exp_parts: Vec<&str> = part.split('^').collect();
                 if exp_parts.len() == 2 {
                     exponent = exp_parts[1].parse().unwrap_or(0);
                 } else {
                     exponent = 1;
                 }
-    
+
                 if let Some(coeff_str) = exp_parts[0].trim_end_matches('X').trim().strip_prefix('-') {
                     if !coeff_str.is_empty() {
                         coefficient *= coeff_str.parse::<BigInt>().unwrap_or(BigInt::one());
@@ -74,10 +75,11 @@ impl Term {
                     coefficient *= exp_parts[0].trim_end_matches('X').trim().parse::<BigInt>().unwrap();
                 }
             } else {
+                // Handle constant terms - parse the sign directly with the number
                 coefficient *= part.parse::<BigInt>().unwrap_or(BigInt::one());
             }
         }
-    
+
         Term::new(coefficient, exponent)
     }
 
@@ -163,20 +165,53 @@ impl Polynomial {
     }
 
     pub fn field_gcd(left: &Polynomial, right: &Polynomial, modulus: &BigInt) -> Polynomial {
-        let mut polynomial = left.clone();
-        let mut polynomial2 = right.clone();
-        if polynomial2.degree() > polynomial.degree() {
-            std::mem::swap(&mut polynomial, &mut polynomial2);
+        use crate::square_root::finite_field_arithmetic;
+
+        let mut a = left.clone();
+        let mut b = right.clone();
+
+        // Normalize (make monic) by dividing by leading coefficient mod p
+        let make_monic = |poly: &Polynomial, p: &BigInt| -> Polynomial {
+            if poly.is_zero() {
+                return poly.clone();
+            }
+            let degree = poly.degree();
+            let leading_coef = &poly[degree];
+            if leading_coef.is_zero() {
+                return poly.clone();
+            }
+
+            // Find modular inverse of leading coefficient
+            let inv = finite_field_arithmetic::modular_multiplicative_inverse(leading_coef, p);
+            if inv.is_none() {
+                return poly.clone();
+            }
+            let inv = inv.unwrap();
+
+            // Multiply all coefficients by the inverse
+            let mut result = poly.clone();
+            for (_, coef) in result.terms.iter_mut() {
+                *coef = (coef.clone() * &inv).mod_floor(p);
+            }
+            result
+        };
+
+        // Make both polynomials monic
+        a = make_monic(&a, modulus);
+        b = make_monic(&b, modulus);
+
+        while !b.is_zero() {
+            let remainder = Polynomial::mod_mod(&a, &b, modulus);
+            a = b;
+            b = make_monic(&remainder, modulus);
         }
-        while !polynomial2.is_zero() {
-            let to_reduce = polynomial.clone();
-            std::mem::swap(&mut polynomial, &mut polynomial2);
-            polynomial2 = Polynomial::mod_mod(&to_reduce, &polynomial2.clone(), modulus);
-        }
-        if polynomial.degree() == 0 {
+
+        if a.degree() == 0 {
             return Polynomial::one();
         }
-        polynomial
+
+        // Return the monic form of the GCD
+        make_monic(&a, modulus)
     }
 
     pub fn parse(input: &str) -> Self {
@@ -246,7 +281,23 @@ impl Polynomial {
         }
         result
     }
-    
+
+    /// Evaluate the polynomial at a rational number using Horner's method
+    pub fn evaluate_rational(&self, x: &BigRational) -> BigRational {
+        if self.terms.is_empty() {
+            return BigRational::zero();
+        }
+
+        let degree = self.degree();
+        let mut result = BigRational::from(self.terms.get(&degree).unwrap_or(&BigInt::zero()).clone());
+
+        // Horner's method: go from highest degree down to 0
+        for exp in (0..degree).rev() {
+            result = result * x + BigRational::from(self.terms.get(&exp).unwrap_or(&BigInt::zero()).clone());
+        }
+
+        result
+    }
 
     pub fn derivative(&self) -> Self {
         let mut terms = HashMap::new();
@@ -633,18 +684,21 @@ mod tests {
 
     #[test]
     fn test_polynomial_division() {
+        // Test (X^3 - 2X^2 + X - 1) / (X - 1)
+        // Expected: quotient = X^2 - X, remainder = -1
+        // Verification: (X - 1)(X^2 - X) + (-1) = X^3 - X^2 - X^2 + X - 1 = X^3 - 2X^2 + X - 1 ✓
         let poly1 = Polynomial::parse("X^3 - 2X^2 + X - 1");
         let poly2 = Polynomial::parse("X - 1");
 
         let (quotient, remainder) = poly1.divide(&poly2);
 
         assert_eq!(quotient.degree(), 2);
-        assert_eq!(quotient[2], BigInt::from(1));
-        assert_eq!(quotient[1], BigInt::from(-1));
-        assert_eq!(quotient[0], BigInt::from(1));
-        
+        assert_eq!(quotient[2], BigInt::from(1));  // X^2 coefficient
+        assert_eq!(quotient[1], BigInt::from(-1)); // X coefficient
+        assert_eq!(quotient[0], BigInt::from(0));  // constant term (no constant in quotient)
+
         assert_eq!(remainder.degree(), 0);
-        assert_eq!(remainder[0], BigInt::from(0));
+        assert_eq!(remainder[0], BigInt::from(-1)); // remainder is -1
     }
 
     #[test]

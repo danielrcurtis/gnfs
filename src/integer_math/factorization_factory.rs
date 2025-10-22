@@ -67,10 +67,96 @@ impl FactorizationFactory {
         }
 
         if quotient > BigInt::one() {
-            factorization.add(&quotient);
+            // quotient is the remaining unfactored part
+            // Don't add it to the factorization
+            // Return it as-is so the caller knows there's an unfactored part
+        } else {
+            // Fully factored, quotient should be 1
+            quotient = BigInt::one();
         }
 
         (factorization, quotient)
     }
-    
+
+    /// Factor a number using only primes from a given factor base.
+    /// This is much faster than trial division when the factor base is small.
+    ///
+    /// Returns:
+    /// - CountDictionary: The factorization over the factor base
+    /// - BigInt: The unfactored quotient (1 if completely factored, >1 otherwise)
+    pub fn factor_with_base(input: &BigInt, factor_base: &[BigInt]) -> (CountDictionary, BigInt) {
+        let mut factorization = CountDictionary::new();
+        let mut quotient = input.clone();
+
+        // Try to divide by each prime in the factor base
+        for prime in factor_base {
+            while &quotient % prime == BigInt::zero() {
+                factorization.add(prime);
+                quotient /= prime;
+            }
+        }
+
+        (factorization, quotient)
+    }
+
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use num::BigInt;
+
+    #[test]
+    fn test_factor_with_base_smooth() {
+        // Test with a number that factors completely over the base
+        // 60 = 2^2 * 3 * 5
+        let input = BigInt::from(60);
+        let factor_base = vec![BigInt::from(2), BigInt::from(3), BigInt::from(5), BigInt::from(7)];
+
+        let (factorization, quotient) = FactorizationFactory::factor_with_base(&input, &factor_base);
+
+        // Should be completely factored
+        assert_eq!(quotient, BigInt::one());
+
+        // Check that we got the right factors
+        let dict = factorization.to_dict();
+        assert_eq!(dict.get(&BigInt::from(2)), Some(&BigInt::from(2))); // 2^2
+        assert_eq!(dict.get(&BigInt::from(3)), Some(&BigInt::from(1))); // 3^1
+        assert_eq!(dict.get(&BigInt::from(5)), Some(&BigInt::from(1))); // 5^1
+        assert_eq!(dict.get(&BigInt::from(7)), None);                   // 7 not used
+    }
+
+    #[test]
+    fn test_factor_with_base_not_smooth() {
+        // Test with a number that doesn't factor completely
+        // 210 = 2 * 3 * 5 * 7, but 7 is not in our base
+        let input = BigInt::from(210);
+        let factor_base = vec![BigInt::from(2), BigInt::from(3), BigInt::from(5)];
+
+        let (factorization, quotient) = FactorizationFactory::factor_with_base(&input, &factor_base);
+
+        // Quotient should be 7 (the unfactored part)
+        assert_eq!(quotient, BigInt::from(7));
+
+        // Check factors
+        let dict = factorization.to_dict();
+        assert_eq!(dict.get(&BigInt::from(2)), Some(&BigInt::from(1))); // 2^1
+        assert_eq!(dict.get(&BigInt::from(3)), Some(&BigInt::from(1))); // 3^1
+        assert_eq!(dict.get(&BigInt::from(5)), Some(&BigInt::from(1))); // 5^1
+    }
+
+    #[test]
+    fn test_factor_with_base_prime() {
+        // Test with a prime number
+        let input = BigInt::from(13);
+        let factor_base = vec![BigInt::from(2), BigInt::from(3), BigInt::from(5), BigInt::from(7)];
+
+        let (factorization, quotient) = FactorizationFactory::factor_with_base(&input, &factor_base);
+
+        // 13 is prime and not in the base, so quotient should be 13
+        assert_eq!(quotient, BigInt::from(13));
+
+        // No factors
+        assert_eq!(factorization.len(), 0);
+    }
 }

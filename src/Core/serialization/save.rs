@@ -19,7 +19,8 @@ pub fn object<T: Serialize>(obj: &T, filename: &str) {
 }
 
 pub fn all(gnfs: &GNFS) {
-    save::gnfs(gnfs);
+    // TODO: Re-enable once GNFS serialization is re-implemented
+    // save::gnfs(gnfs);
 
     let mut counter = 1;
     for poly in &gnfs.polynomial_collection {
@@ -39,9 +40,15 @@ pub fn all(gnfs: &GNFS) {
     save::relations::free::all_solutions(gnfs);
 }
 
-pub fn gnfs(gnfs: &GNFS) {
+pub fn parameters(gnfs: &GNFS) {
     let serializable_gnfs = SerializableGNFS::from(gnfs.clone());
     save::object(&serializable_gnfs, &gnfs.save_locations.parameters_filepath);
+}
+
+pub fn progress(gnfs: &GNFS) {
+    use crate::core::serialization::types::SerializablePolyRelationsSieveProgress;
+    let serializable_progress = SerializablePolyRelationsSieveProgress::from(gnfs.current_relations_progress.clone());
+    save::object(&serializable_progress, &gnfs.save_locations.progress_filepath);
 }
 
 pub mod factor_pair {
@@ -78,17 +85,17 @@ pub mod relations {
         pub fn append(gnfs: &mut GNFS) {
             let mut relations_to_update = Vec::new();
             let mut smooth_relations = Vec::new();
-        
+
             // Extract the smooth relations into a separate vector
             std::mem::swap(&mut gnfs.current_relations_progress.relations.smooth_relations, &mut smooth_relations);
-        
+
             // Collect relations that need updating
-            for relation in &mut smooth_relations {
+            for relation in &smooth_relations {
                 if !relation.is_persisted {
                     relations_to_update.push((relation.a.clone(), relation.b.clone()));
                 }
             }
-        
+
             // Apply updates to each relation after collecting all necessary changes
             for (a, b) in relations_to_update {
                 for relation in &mut smooth_relations {
@@ -97,38 +104,44 @@ pub mod relations {
                     }
                 }
             }
-        
+
             // Swap the updated smooth relations back into GNFS
             std::mem::swap(&mut gnfs.current_relations_progress.relations.smooth_relations, &mut smooth_relations);
         }
-        
-        fn append_relation(gnfs: &mut GNFS, relation: &mut Relation) {
+
+        fn append_relation(gnfs: &GNFS, relation: &mut Relation) {
             if relation.is_smooth() && !relation.is_persisted {
                 let serializable_relation = SerializableRelation::from(relation.clone());
-                let mut json = serde_json::to_string_pretty(&serializable_relation)
+                let json = serde_json::to_string_pretty(&serializable_relation)
                     .expect("Failed to serialize relation");
-        
+
                 let smooth_relations_filepath = &gnfs.save_locations.smooth_relations_filepath;
-        
-                if Path::new(smooth_relations_filepath).exists() {
-                    json.insert_str(0, ",");
-                    fs::OpenOptions::new()
-                        .write(true)
-                        .append(true)
-                        .open(smooth_relations_filepath)
-                        .expect("Failed to open smooth relations file for appending")
-                        .write_all(json.as_bytes())
-                        .expect("Failed to append smooth relation");
+
+                // Read existing content if file exists
+                let mut content = if Path::new(smooth_relations_filepath).exists() {
+                    let existing = fs::read_to_string(smooth_relations_filepath)
+                        .expect("Failed to read existing smooth relations file");
+                    // Remove closing bracket and add comma
+                    if existing.ends_with("]") {
+                        existing[..existing.len()-1].to_string() + ",\n"
+                    } else {
+                        String::from("[\n")
+                    }
                 } else {
-                    fs::write(smooth_relations_filepath, format!("[{}]", json))
-                        .expect("Failed to write smooth relation");
-                }
-        
-                gnfs.current_relations_progress.smooth_relations_counter += 1;
+                    String::from("[\n")
+                };
+
+                // Append new relation
+                content.push_str(&json);
+                content.push_str("\n]");
+
+                fs::write(smooth_relations_filepath, content)
+                    .expect("Failed to write smooth relations");
+
                 relation.is_persisted = true;
             }
         }
-        
+
     }
 
     pub mod rough {

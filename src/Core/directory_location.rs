@@ -12,6 +12,7 @@ pub struct DirectoryLocations {
     pub algebraic_factor_pair_filepath: String,
     pub quadratic_factor_pair_filepath: String,
     pub parameters_filepath: String,
+    pub progress_filepath: String,
     pub smooth_relations_filepath: String,
     pub rough_relations_filepath: String,
 }
@@ -19,11 +20,12 @@ pub struct DirectoryLocations {
 impl DirectoryLocations {
     pub fn new(save_location: &str) -> Self {
         let save_directory = save_location.to_string();
-        let gnfs_parameters_save_file = format!("{}/GNFS.json", save_directory);
+        let gnfs_parameters_save_file = format!("{}/parameters.json", save_directory);
+        let progress_save_file = format!("{}/progress.json", save_directory);
         let rational_factor_pair_save_file = format!("{}/RationalFactorPairCollection.json", save_directory);
         let algebraic_factor_pair_save_file = format!("{}/AlgebraicFactorPairCollection.json", save_directory);
         let quadratic_factor_pair_save_file = format!("{}/QuadraticFactorPairCollection.json", save_directory);
-        let smooth_relations_save_file = format!("{}/SmoothRelations.json", save_directory);
+        let smooth_relations_save_file = format!("{}/smooth_relations.json", save_directory);
         let rough_relations_save_file = format!("{}/RoughRelations.json", save_directory);
 
         DirectoryLocations {
@@ -33,6 +35,7 @@ impl DirectoryLocations {
             algebraic_factor_pair_filepath: algebraic_factor_pair_save_file,
             quadratic_factor_pair_filepath: quadratic_factor_pair_save_file,
             parameters_filepath: gnfs_parameters_save_file,
+            progress_filepath: progress_save_file,
             smooth_relations_filepath: smooth_relations_save_file,
             rough_relations_filepath: rough_relations_save_file,
         }
@@ -76,6 +79,7 @@ impl Default for DirectoryLocations {
             algebraic_factor_pair_filepath: "".to_string(),
             quadratic_factor_pair_filepath: "".to_string(),
             parameters_filepath: "".to_string(),
+            progress_filepath: "".to_string(),
             smooth_relations_filepath: "".to_string(),
             rough_relations_filepath: "".to_string(),
         }

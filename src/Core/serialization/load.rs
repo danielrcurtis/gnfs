@@ -2,7 +2,6 @@
 
 use std::fs;
 use std::path::Path;
-use std::sync::Arc;
 use crate::core::directory_location::DirectoryLocations;
 use crate::polynomial::polynomial::Polynomial;
 use serde_json;
@@ -21,6 +20,85 @@ pub fn generic<T: serde::de::DeserializeOwned>(filename: &str) -> T {
     serde_json::from_str(&load_json).expect("Failed to deserialize JSON")
 }
 
+pub fn parameters(filename: &str) -> SerializableGNFS {
+    generic(filename)
+}
+
+pub fn progress(filename: &str) -> crate::core::serialization::types::SerializablePolyRelationsSieveProgress {
+    generic(filename)
+}
+
+/// Load a complete GNFS checkpoint from the given directory
+pub fn load_checkpoint(save_directory: &str, n: &num::BigInt) -> GNFS {
+    use log::info;
+
+    // Load parameters.json
+    let params_path = format!("{}/parameters.json", save_directory);
+    let serializable_gnfs: SerializableGNFS = parameters(&params_path);
+
+    // Validate that n matches
+    let loaded_n = num::BigInt::parse_bytes(serializable_gnfs.n.as_bytes(), 10)
+        .expect("Failed to parse n from parameters");
+    if &loaded_n != n {
+        panic!("Checkpoint n ({}) does not match expected n ({})", loaded_n, n);
+    }
+
+    // Convert serializable GNFS to GNFS struct
+    let mut gnfs = GNFS::from(serializable_gnfs);
+
+    // Ensure the save_locations points to the correct directory
+    gnfs.save_locations = DirectoryLocations::new(save_directory);
+
+    // Load progress.json
+    let progress_path = format!("{}/progress.json", save_directory);
+    if Path::new(&progress_path).exists() {
+        let serializable_progress = progress(&progress_path);
+
+        // Convert and apply progress
+        let mut loaded_progress = crate::relation_sieve::poly_relations_sieve_progress::PolyRelationsSieveProgress::from(serializable_progress);
+
+        // Preserve the relations container from the current progress
+        // (we'll load relations separately)
+        let relations_container = loaded_progress.relations.clone();
+        gnfs.current_relations_progress = loaded_progress;
+        gnfs.current_relations_progress.relations = relations_container;
+
+        info!("Loaded progress: A={}, B={}", gnfs.current_relations_progress.a, gnfs.current_relations_progress.b);
+        info!("Progress counters: smooth={}/{}, free={}",
+              gnfs.current_relations_progress.smooth_relations_counter,
+              gnfs.current_relations_progress.smooth_relations_target_quantity,
+              gnfs.current_relations_progress.free_relations_counter);
+    }
+
+    // Load factor pair collections (they were saved in parameters.json, so already loaded)
+    // But we can optionally reload them from separate files if they exist
+    factor_pair::rational(&mut gnfs);
+    factor_pair::algebraic(&mut gnfs);
+    factor_pair::quadratic(&mut gnfs);
+
+    // Reconstruct factor bases from the loaded parameters
+    gnfs.set_prime_factor_bases();
+
+    // Load smooth relations
+    relations::smooth(&mut gnfs);
+
+    // Validate polynomial
+    let poly_result = gnfs.current_polynomial.evaluate(&gnfs.polynomial_base);
+    if poly_result != gnfs.n {
+        info!("Warning: Polynomial evaluation f(m) != n");
+        info!("  f(m) = {}", poly_result);
+        info!("  n    = {}", gnfs.n);
+    } else {
+        info!("Polynomial validation: f(m) = n ✓");
+    }
+
+    info!("Successfully loaded checkpoint from {}", save_directory);
+    info!("  Relations loaded: {}", gnfs.current_relations_progress.smooth_relations_counter);
+    info!("  Position: A={}, B={}", gnfs.current_relations_progress.a, gnfs.current_relations_progress.b);
+
+    gnfs
+}
+
 pub fn generic_fixed_array<T: serde::de::DeserializeOwned>(filename: &str) -> T {
     let load_json = fs::read_to_string(filename).expect("Failed to read file");
     let fixed_json = fix_appended_json_arrays(&load_json);
@@ -31,6 +109,8 @@ fn fix_appended_json_arrays(input: &str) -> String {
     format!("[{}]", input.trim_start_matches(','))
 }
 
+// TODO: Temporarily disabled - requires GNFS serialization to be re-implemented
+/*
 pub fn all(filename: &str) -> GNFS {
     let load_json = fs::read_to_string(filename).expect("Failed to read file");
     let serializable_gnfs: SerializableGNFS = serde_json::from_str(&load_json).expect("Failed to deserialize GNFS");
@@ -61,7 +141,8 @@ pub fn all(filename: &str) -> GNFS {
     load::factor_pair::algebraic(&mut gnfs);
     load::factor_pair::quadratic(&mut gnfs);
 
-    gnfs.current_relations_progress.gnfs = Arc::downgrade(&Arc::new(gnfs.clone()));
+    // TODO: Removed Weak<GNFS> field - no longer needed as we pass &GNFS by reference
+    // gnfs.current_relations_progress.gnfs = Arc::downgrade(&Arc::new(gnfs.clone()));
 
     load::relations::smooth(&mut gnfs);
     load::relations::rough(&mut gnfs);
@@ -69,6 +150,7 @@ pub fn all(filename: &str) -> GNFS {
 
     gnfs
 }
+*/
 
 pub fn polynomial(filename: &str) -> Polynomial {
     let poly_json = fs::read_to_string(filename).expect("Failed to read polynomial file");
@@ -110,7 +192,7 @@ pub mod relations {
 
     pub fn smooth(gnfs: &mut GNFS) {
         if Path::new(&gnfs.save_locations.smooth_relations_filepath).exists() {
-            let mut temp: Vec<SerializableRelation> = load::generic_fixed_array(&gnfs.save_locations.smooth_relations_filepath);
+            let mut temp: Vec<SerializableRelation> = load::generic(&gnfs.save_locations.smooth_relations_filepath);
             
             // Filter out relations where any field is empty
             temp.retain(|rel| 

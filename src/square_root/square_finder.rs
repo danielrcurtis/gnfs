@@ -15,6 +15,8 @@ use crate::core::static_random::StaticRandom;
 use crate::square_root::finite_field_arithmetic;
 use crate::core::cancellation_token::CancellationToken;
 use crate::polynomial::algorithms;
+use rayon::prelude::*;
+use std::time::Instant;
 
 pub struct SquareFinder {
     pub rational_product: BigInt,
@@ -62,6 +64,20 @@ pub struct SquareFinder {
     algebraic_norm_collection: Vec<BigInt>,
     relations_set: Vec<Relation>,
 
+}
+
+/// Generate a batch of consecutive prime numbers starting from a given value
+fn generate_prime_batch(start_from: i128, batch_size: usize) -> Vec<BigInt> {
+    let mut primes = Vec::with_capacity(batch_size);
+    let mut current = start_from;
+
+    for _ in 0..batch_size {
+        current = PrimeFactory::get_next_prime_from_i128(current).to_i128().unwrap();
+        primes.push(current.to_bigint().unwrap());
+        current += 1; // Move to next candidate for next iteration
+    }
+
+    primes
 }
 
 impl SquareFinder {
@@ -228,135 +244,197 @@ impl SquareFinder {
         info!("{}", format!("δᵨ = {}", self.s));
         info!("{}", " in ℤ".to_string());
 
-        let mut solution_found = false;
-
         let degree = self.monic_polynomial.degree();
         let f = &self.monic_polynomial;
 
-        // In this block, we need to evaluate using BigInt wrapper in a struct to derive the next prime number
-        // Copy, Serialize, Deserialize are not implemented for BigInt, so this is a workaround
+        // Get batch size from environment variable, default to 10
+        let batch_size: usize = std::env::var("GNFS_STAGE4_BATCH_SIZE")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(10);
+
+        // Initialize last_p ONCE from quadratic factor base (outside the loop)
+        let mut last_p_i128 = self.gnfs.quadratic_factor_pair_collection.clone().last().unwrap().p;
+        let sqrt_n_times_2: BigInt = self.n.sqrt() * 2;
+        if let Some(sqrt_n_i128) = sqrt_n_times_2.to_i128() {
+            last_p_i128 = i128::max(last_p_i128, sqrt_n_i128);
+        }
+
+        info!("{}", format!("Starting search for irreducible primes from p = {}", last_p_i128));
+        info!("{}", format!("Need {} irreducible primes with product > N", degree));
+        info!("{}", format!("Using batch size: {} primes per batch", batch_size));
+        info!("{}", format!("Rayon threads: {}", rayon::current_num_threads()));
+        info!("{}", "".to_string());
+
         let mut primes = Vec::new();
         let mut values = Vec::new();
-        let mut attempts = 7;
+        let mut total_primes_tested = 0;
+        let mut batch_number = 0;
 
-        while !solution_found && attempts > 0 {
-            if !primes.is_empty() && !values.is_empty() {
-                primes.clear();
-                values.clear();
-            }
-
-            loop {
-                if cancel_token.is_cancellation_requested() {
-                    return (BigInt::one(), BigInt::one());
-                }
-
-                let last_p = self.gnfs.quadratic_factor_pair_collection.clone().last().unwrap().p;
-                let mut last_p_i128 = last_p.clone() as i128;
-                last_p_i128 = PrimeFactory::get_next_prime_from_i128(last_p_i128 + 1).to_i128().unwrap();
-                let last_p = last_p_i128.to_bigint().unwrap();
-
-                let g = Polynomial::parse(&format!("X^{} - X", last_p));
-                let h = finite_field_arithmetic::mod_mod(&g, f, &last_p);
-                let gcd = Polynomial::field_gcd(&h, f, &last_p);
-                let is_irreducible = gcd.cmp(&Polynomial::one()) == Ordering::Equal;
-
-                if !is_irreducible {
-                    continue;
-                }
-
-                primes.push(last_p.clone());
-
-                if primes.len() >= degree as usize {
-                    break;
-                }
-            }
-
-            if primes.len() > degree as usize {
-                primes.remove(0);
-                values.remove(0);
-            }
-
-            let prime_product: BigInt = primes.iter().product();
-
-            if &prime_product < &self.n {
-                continue;
-            }
-
+        loop {
             if cancel_token.is_cancellation_requested() {
                 return (BigInt::one(), BigInt::one());
             }
 
-            let mut take_inverse = false;
-            for p in &primes {
-                let chosen_poly = finite_field_arithmetic::square_root(&self.s, f, p, degree.try_into().unwrap(), &self.gnfs.polynomial_base);
-                let eval = chosen_poly.evaluate(&self.gnfs.polynomial_base);
-                let x = eval.mod_floor(p);
+            batch_number += 1;
 
+            // Generate a batch of candidate primes
+            let prime_batch = generate_prime_batch(last_p_i128, batch_size);
+
+            // Update last_p_i128 for next batch
+            if let Some(last_prime) = prime_batch.last() {
+                last_p_i128 = last_prime.to_i128().unwrap();
+            }
+
+            info!("{}", format!("Batch #{}: Testing {} primes in parallel (starting from p = {})",
+                batch_number, prime_batch.len(), prime_batch.first().unwrap()));
+
+            let batch_start = Instant::now();
+
+            // Parallel test for irreducibility using Rayon
+            let irreducible_results: Vec<(BigInt, BigInt)> = prime_batch.par_iter()
+                .filter_map(|test_p| {
+                    let start_total = Instant::now();
+
+                    // Time polynomial parsing
+                    let start_parse = Instant::now();
+                    let g = Polynomial::parse(&format!("X^{} - X", test_p));
+                    let parse_time = start_parse.elapsed();
+
+                    // Time mod_mod operation
+                    let start_mod = Instant::now();
+                    let h = finite_field_arithmetic::mod_mod(&g, f, test_p);
+                    let mod_time = start_mod.elapsed();
+
+                    // Time GCD computation
+                    let start_gcd = Instant::now();
+                    let gcd = Polynomial::field_gcd(&h, f, test_p);
+                    let gcd_time = start_gcd.elapsed();
+
+                    let total_time = start_total.elapsed();
+                    let is_irreducible = gcd.cmp(&Polynomial::one()) == Ordering::Equal;
+
+                    // Log timing for first few primes in each batch
+                    if test_p < &BigInt::from(450) || (batch_number <= 3) {
+                        info!("Prime {}: parse={}µs, mod={}µs, gcd={}µs, total={}µs, irreducible={}",
+                            test_p, parse_time.as_micros(), mod_time.as_micros(),
+                            gcd_time.as_micros(), total_time.as_micros(), is_irreducible);
+                    }
+
+                    if is_irreducible {
+                        // Time square root computation
+                        let start_sqrt = Instant::now();
+                        let chosen_poly = finite_field_arithmetic::square_root(&self.s, f, test_p, degree.try_into().unwrap(), &self.gnfs.polynomial_base);
+                        let eval = chosen_poly.evaluate(&self.gnfs.polynomial_base);
+                        let x = eval.mod_floor(test_p);
+                        let sqrt_time = start_sqrt.elapsed();
+
+                        info!("Found irreducible p={}, square_root took {}ms", test_p, sqrt_time.as_millis());
+
+                        Some((test_p.clone(), x))
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            let batch_elapsed = batch_start.elapsed();
+            total_primes_tested += prime_batch.len();
+
+            info!("{}", format!("Batch #{} completed in {:.2}s ({} primes tested, {} irreducible found, {:.0} primes/sec)",
+                batch_number, batch_elapsed.as_secs_f64(), prime_batch.len(), irreducible_results.len(),
+                prime_batch.len() as f64 / batch_elapsed.as_secs_f64()));
+
+            // Add found primes to our collection
+            for (p, x) in irreducible_results {
+                // Remove oldest entry if at capacity
+                if primes.len() == degree as usize {
+                    primes.remove(0);
+                    values.remove(0);
+                }
+
+                primes.push(p.clone());
                 values.push(x.clone());
 
                 info!("{}", "".to_string());
-                info!("{}", format!(" β = {}", chosen_poly));
-                info!("{}", format!("xi = {}", x.clone()));
-                info!("{}", format!(" p = {}", p));
-                info!("{}", format!("{}", &prime_product / p));
+                info!("{}", format!("Found irreducible prime! p = {}", p));
+                info!("{}", format!("xi = {}", x));
+                info!("{}", "".to_string());
+            }
+
+            // Check if we have enough primes
+            if primes.len() == degree as usize {
+                let prime_product: BigInt = primes.iter().product();
+
+                if &prime_product < &self.n {
+                    info!("{}", "".to_string());
+                    info!("{}", format!("Prime product {} < N ({}). Continuing search...", prime_product, self.n));
+                    info!("{}", "".to_string());
+                    primes.clear();
+                    values.clear();
+                    continue;
+                }
+
+                if cancel_token.is_cancellation_requested() {
+                    return (BigInt::one(), BigInt::one());
+                }
+
+                // Compute CRT result
+                let common_modulus = algorithms::chinese_remainder_theorem(&primes, &values);
+                self.algebraic_square_root_residue = common_modulus.mod_floor(&self.n);
+
                 info!("{}", "".to_string());
 
-                take_inverse = !take_inverse;
-            }
+                for (i, p) in primes.iter().enumerate() {
+                    let tv = &values[i];
+                    info!("{}", format!("{} ≡ {} (mod {})", p, tv, self.algebraic_square_root_residue));
+                }
 
-            let common_modulus = algorithms::chinese_remainder_theorem(&primes, &values);
-            self.algebraic_square_root_residue = common_modulus.mod_floor(&self.n);
+                info!("{}", "".to_string());
+                info!("{}", format!("γ = {}", self.algebraic_square_root_residue));
 
-            info!("{}", "".to_string());
+                let min = BigInt::min(self.rational_square_root_residue.clone(), self.algebraic_square_root_residue.clone());
+                let max = BigInt::max(self.rational_square_root_residue.clone(), self.algebraic_square_root_residue.clone());
 
-            for (i, p) in primes.iter().enumerate() {
-                let tv = &values[i];
-                let p = p.clone(); // Clone the value of p
-                info!("{}", format!("{} ≡ {} (mod {})", p, tv, self.algebraic_square_root_residue));
-            }
+                let a = &max + &min;
+                let b = &max - &min;
 
-            info!("{}", "".to_string());
-            info!("{}", format!("γ = {}", self.algebraic_square_root_residue));
+                let u = GCD::find_gcd(&[self.n.clone(), a.clone()]);
+                let v = GCD::find_gcd(&[self.n.clone(), b.clone()]);
 
-            let min = BigInt::min(self.rational_square_root_residue.clone(), self.algebraic_square_root_residue.clone());
-            let max = BigInt::max(self.rational_square_root_residue.clone(), self.algebraic_square_root_residue.clone());
+                let mut solution_found = false;
+                let mut p = BigInt::zero();
+                if &u > &BigInt::one() && &u != &self.n {
+                    p = u;
+                    solution_found = true;
+                } else if &v > &BigInt::one() && &v != &self.n {
+                    p = v;
+                    solution_found = true;
+                }
 
+                if solution_found {
+                    let (q, rem) = self.n.div_rem(&p);
+                    if rem.is_zero() {
+                        self.algebraic_results = values;
+                        self.algebraic_primes = primes;
+                        return (p, q);
+                    } else {
+                        solution_found = false;
+                    }
+                }
 
-            let a = &max + &min;
-            let b = &max - &min;
-
-            let u = GCD::find_gcd(&[self.n.clone(), a.clone()]);
-            let v = GCD::find_gcd(&[self.n.clone(), b.clone()]);
-
-            let mut p = BigInt::zero();
-            if &u > &BigInt::one() && &u != &self.n {
-                p = u;
-                solution_found = true;
-            } else if &v > &BigInt::one() && &v != &self.n {
-                p = v;
-                solution_found = true;
-            }
-
-            if solution_found {
-                let (q, rem) = self.n.div_rem(&p);
-                if rem.is_zero() {
-                    self.algebraic_results = values;
-                    self.algebraic_primes = primes;
-                    return (p, q);
-                } else {
-                    solution_found = false;
+                if !solution_found {
+                    info!("{}", format!("No solution found amongst the algebraic square roots {{ {} }} mod primes {{ {} }}",
+                        values.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(", "),
+                        primes.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(", ")));
+                    info!("{}", "".to_string());
+                    info!("{}", "Clearing primes and values to retry with new primes...".to_string());
+                    primes.clear();
+                    values.clear();
+                    continue;
                 }
             }
-
-            if !solution_found {
-                info!("{}", format!("No solution found amongst the algebraic square roots {{ {} }} mod primes {{ {} }}",
-                    values.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(", "),
-                    primes.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(", ")));
-                attempts -= 1;
-            }
         }
-
-        (BigInt::one(), BigInt::one())
     }
 
     pub fn solve(cancel_token: &CancellationToken, gnfs: &mut GNFS) -> bool {
@@ -427,14 +505,18 @@ impl SquareFinder {
     
             let p = found_factors.0;
             let q = found_factors.1;
-    
-            let non_trivial_factors_found = &p != &BigInt::one() || &q != &BigInt::one();
+
+            gnfs.log_message("".to_string());
+            gnfs.log_message(format!("Factors returned: p = {}, q = {}", p, q));
+            gnfs.log_message("".to_string());
+
+            let non_trivial_factors_found = &p != &BigInt::one() && &q != &BigInt::one();
             if non_trivial_factors_found {
                 solution_found = gnfs.set_factorization_solution(&p, &q);
-    
+
                 gnfs.log_message(format!("Selected solution set index # {}", free_relation_index + 1));
                 gnfs.log_message("".to_string());
-    
+
                 if solution_found {
                     gnfs.log_message("NON-TRIVIAL FACTORS FOUND!".to_string());
                     gnfs.log_message("".to_string());
@@ -452,6 +534,8 @@ impl SquareFinder {
                 gnfs.log_message("Abort: Task canceled by user!".to_string());
                 break;
             } else {
+                gnfs.log_message("TRIVIAL FACTORS DETECTED: Both p and q are 1.".to_string());
+                gnfs.log_message("This means the algebraic square root computation failed for this relation set.".to_string());
                 gnfs.log_message("Trying a different solution set...".to_string());
                 gnfs.log_message("".to_string());
                 gnfs.log_message("Unable to locate a square root in solution set!".to_string());
@@ -589,30 +673,122 @@ pub fn modular_inverse(poly: &Polynomial, mod_: &BigInt) -> Polynomial {
 }
 
 pub fn is_square(n: &BigInt) -> bool {
-    let zero = BigInt::from(0);
-    let one = BigInt::from(1);
-    let two = BigInt::from(2);
+    use num::Signed;
 
-    if n < &zero {
+    let zero = BigInt::from(0);
+    let four = BigInt::from(4);
+    let fifteen = BigInt::from(15);
+
+    // Handle zero and negative numbers
+    if n == &zero {
         return false;
     }
 
-    let mut x = n.clone();
-    while &x % &two == zero {
-        x /= &two;
+    let input = n.abs();
+
+    // Numbers less than 4 (except 0, 1) can be handled quickly
+    if &input < &four {
+        return input == BigInt::from(1);
     }
 
-    if &x == &one {
-        return true;
+    // Quick base-16 check: squares in base 16 end in 0, 1, 4, or 9
+    let base16 = (&input & &fifteen).to_i32().unwrap_or(0);
+    if base16 > 9 {
+        return false; // Quickly reject 6 cases out of 16
     }
 
-    let mut i = BigInt::from(3);
-    while &i * &i <= x {
-        if &x % &i == zero {
-            return false;
+    // Squares in base 16 end in 0, 1, 4, or 9
+    // So reject if base16 is 2, 3, 5, 6, 7, or 8
+    if base16 == 2 || base16 == 3 || base16 == 5 || base16 == 6 || base16 == 7 || base16 == 8 {
+        return false;
+    }
+
+    // Actually compute the square root and check if it's exact
+    let sqrt = input.sqrt();
+    &sqrt * &sqrt == input
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use num::BigInt;
+    use crate::polynomial::polynomial::{Polynomial, Term};
+
+    #[test]
+    fn test_irreducibility_optimization() {
+        // Test that the optimized X^p mod f computation produces valid results
+        // We can't compare to the old method for p > ~20 because it's too slow
+
+        // Test polynomial: f(x) = x^3 - 2
+        let f = Polynomial::new(vec![
+            Term::new(BigInt::from(1), 3),
+            Term::new(BigInt::from(-2), 0),
+        ]);
+
+        // Test with various primes
+        let test_primes = vec![
+            BigInt::from(5),
+            BigInt::from(7),
+            BigInt::from(11),
+            BigInt::from(431), // Large prime that would be impossible with old method
+        ];
+
+        for p in test_primes {
+            // Optimized method: Use exponentiate_mod
+            let x_poly = Polynomial::from_term(BigInt::one(), 1); // X
+            let x_pow_p = Polynomial::exponentiate_mod(&x_poly, &p, &f, &p); // X^p mod f
+            let h = x_pow_p - x_poly.clone(); // X^p - X (mod f)
+            let h = h.field_modulus(&p); // Apply prime modulus to coefficients
+
+            // Verify the result is a valid polynomial with degree < f.degree()
+            assert!(h.degree() < f.degree(),
+                "Result polynomial degree {} should be less than f.degree() {}",
+                h.degree(), f.degree());
+
+            // Compute GCD to test irreducibility
+            let gcd = Polynomial::field_gcd(&h, &f, &p);
+
+            // For this test, we just verify the GCD computation completes successfully
+            // and returns a valid polynomial
+            assert!(gcd.degree() <= f.degree(),
+                "GCD degree {} should be <= f.degree() {}",
+                gcd.degree(), f.degree());
         }
-        i += &two;
     }
 
-    true
+    #[test]
+    fn test_performance_large_prime() {
+        use std::time::Instant;
+
+        // Test with a large prime to see if there's a performance issue
+        let f = Polynomial::new(vec![
+            Term::new(BigInt::from(1), 3),
+            Term::new(BigInt::from(-2), 0),
+        ]);
+
+        let p = BigInt::from(431);
+
+        println!("Testing irreducibility with p=431...");
+
+        let start = Instant::now();
+        let g = Polynomial::parse(&format!("X^{} - X", p));
+        let parse_time = start.elapsed();
+        println!("Parse time: {:?}", parse_time);
+
+        let start = Instant::now();
+        let h = finite_field_arithmetic::mod_mod(&g, &f, &p);
+        let modmod_time = start.elapsed();
+        println!("ModMod time: {:?}", modmod_time);
+
+        let start = Instant::now();
+        let gcd = Polynomial::field_gcd(&h, &f, &p);
+        let gcd_time = start.elapsed();
+        println!("GCD time: {:?}", gcd_time);
+
+        println!("Total time: {:?}", parse_time + modmod_time + gcd_time);
+        println!("GCD result: {:?}", gcd);
+
+        // Just verify it completes without error
+        assert!(gcd.degree() <= f.degree());
+    }
 }

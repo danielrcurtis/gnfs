@@ -25,7 +25,6 @@ pub struct SerializableGNFS {
     pub polynomial_base: String,
     pub polynomial_collection: Vec<SerializablePolynomial>,
     pub current_polynomial: SerializablePolynomial,
-    pub current_relations_progress: Box<SerializablePolyRelationsSieveProgress>,
     pub prime_factor_base: SerializableFactorBase,
     pub rational_factor_pair_collection: SerializableFactorPairCollection,
     pub algebraic_factor_pair_collection: SerializableFactorPairCollection,
@@ -42,7 +41,6 @@ impl From<GNFS> for SerializableGNFS {
             polynomial_base: gnfs.polynomial_base.to_string(),
             polynomial_collection: gnfs.polynomial_collection.into_iter().map(SerializablePolynomial::from).collect(),
             current_polynomial: SerializablePolynomial::from(gnfs.current_polynomial),
-            current_relations_progress: Box::new(SerializablePolyRelationsSieveProgress::from(gnfs.current_relations_progress)),
             prime_factor_base: SerializableFactorBase::from(gnfs.prime_factor_base),
             rational_factor_pair_collection: SerializableFactorPairCollection::from(gnfs.rational_factor_pair_collection),
             algebraic_factor_pair_collection: SerializableFactorPairCollection::from(gnfs.algebraic_factor_pair_collection),
@@ -61,7 +59,7 @@ impl From<SerializableGNFS> for GNFS {
             polynomial_base: BigInt::parse_bytes(gnfs.polynomial_base.as_bytes(), 10).unwrap(),
             polynomial_collection: gnfs.polynomial_collection.into_iter().map(Polynomial::from).collect(),
             current_polynomial: Polynomial::from(gnfs.current_polynomial),
-            current_relations_progress: PolyRelationsSieveProgress::from(*gnfs.current_relations_progress),
+            current_relations_progress: PolyRelationsSieveProgress::default(),
             prime_factor_base: FactorBase::from(gnfs.prime_factor_base),
             rational_factor_pair_collection: FactorPairCollection::from(gnfs.rational_factor_pair_collection),
             algebraic_factor_pair_collection: FactorPairCollection::from(gnfs.algebraic_factor_pair_collection),
@@ -128,48 +126,36 @@ pub struct SerializablePolyRelationsSieveProgress {
     pub b: String,
     pub smooth_relations_target_quantity: usize,
     pub value_range: String,
-    pub relations: SerializableRelationContainer,
     pub max_b: String,
     pub smooth_relations_counter: usize,
     pub free_relations_counter: usize,
-    // Assuming SerializableGNFS is defined
-    pub gnfs: Box<SerializableGNFS>,
 }
 
 impl From<PolyRelationsSieveProgress> for SerializablePolyRelationsSieveProgress {
     fn from(progress: PolyRelationsSieveProgress) -> Self {
-        let gnfs = progress.gnfs.upgrade().map(|arc_gnfs| {
-            Box::new(SerializableGNFS::from((*arc_gnfs).clone()))
-        }).unwrap_or_else(|| Box::new(SerializableGNFS::default()));
-
         SerializablePolyRelationsSieveProgress {
             a: progress.a.to_string(),
             b: progress.b.to_string(),
             smooth_relations_target_quantity: progress.smooth_relations_target_quantity,
             value_range: progress.value_range.to_string(),
-            relations: SerializableRelationContainer::from(progress.relations),
             max_b: progress.max_b.to_string(),
             smooth_relations_counter: progress.smooth_relations_counter,
             free_relations_counter: progress.free_relations_counter,
-            gnfs: gnfs,
         }
     }
 }
 
 impl From<SerializablePolyRelationsSieveProgress> for PolyRelationsSieveProgress {
     fn from(progress: SerializablePolyRelationsSieveProgress) -> Self {
-        let gnfs = Arc::new(GNFS::from(*progress.gnfs));
-
         PolyRelationsSieveProgress {
             a: BigInt::parse_bytes(progress.a.as_bytes(), 10).unwrap(),
             b: BigInt::parse_bytes(progress.b.as_bytes(), 10).unwrap(),
             smooth_relations_target_quantity: progress.smooth_relations_target_quantity,
             value_range: BigInt::parse_bytes(progress.value_range.as_bytes(), 10).unwrap(),
-            relations: RelationContainer::from(progress.relations),
+            relations: RelationContainer::new(),
             max_b: BigInt::parse_bytes(progress.max_b.as_bytes(), 10).unwrap(),
             smooth_relations_counter: progress.smooth_relations_counter,
             free_relations_counter: progress.free_relations_counter,
-            gnfs: Arc::downgrade(&gnfs),
         }
     }
 }
@@ -400,7 +386,6 @@ impl Default for SerializableGNFS {
             polynomial_base: String::default(),
             polynomial_collection: Vec::default(),
             current_polynomial: SerializablePolynomial::default(),
-            current_relations_progress: Box::new(SerializablePolyRelationsSieveProgress::default()),
             prime_factor_base: SerializableFactorBase::default(),
             rational_factor_pair_collection: SerializableFactorPairCollection::default(),
             algebraic_factor_pair_collection: SerializableFactorPairCollection::default(),
@@ -417,11 +402,9 @@ impl Default for SerializablePolyRelationsSieveProgress {
             b: String::default(),
             smooth_relations_target_quantity: 0,
             value_range: String::default(),
-            relations: SerializableRelationContainer::default(),
             max_b: String::default(),
             smooth_relations_counter: 0,
             free_relations_counter: 0,
-            gnfs: Box::new(SerializableGNFS::default()),
         }
     }
 }
