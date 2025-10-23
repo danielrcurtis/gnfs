@@ -28,4 +28,10 @@ impl GCD {
     pub fn are_coprime(numbers: &[BigInt]) -> bool {
         Self::find_gcd(numbers) == BigInt::from(1)
     }
+
+    /// Optimized version for checking if exactly two numbers are coprime
+    /// Avoids slice overhead for the common 2-element case
+    pub fn are_coprime_pair(a: &BigInt, b: &BigInt) -> bool {
+        a.gcd(b) == BigInt::from(1)
+    }
 }

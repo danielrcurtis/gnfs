@@ -103,75 +103,96 @@ impl PolyRelationsSieveProgress {
 
             debug!("About to call get_sieve_range_continuation with self.a = {}, self.value_range = {}", self.a, self.value_range);
 
-            // Batch multiple B values together for better parallelization
-            // This gives Rayon enough work to effectively use multiple cores
-            let batch_size = 50; // Increased from 10 to 50 for more parallel work
+            // AGGRESSIVE MEMORY LIMITS FOR LARGE NUMBERS:
+            // The issue: Even with disk streaming, temporary BigInt allocations during
+            // sieving use massive memory. For 11-digit numbers, we must drastically limit
+            // the number of (a,b) pairs processed per iteration.
+            //
+            // Strategy:
+            // - Cap value_range much lower (150 instead of 400)
+            // - Always process 1 B at a time to minimize temp allocations
+            // - Let disk streaming handle smooth relations
 
-            // Collect (A, B) pairs for a batch of B values
-            let mut ab_pairs = Vec::new();
+            // VERY AGGRESSIVE value_range cap for memory safety
+            const MAX_VALUE_RANGE: i64 = 150;
+            let effective_value_range = if self.value_range > BigInt::from(MAX_VALUE_RANGE) {
+                BigInt::from(MAX_VALUE_RANGE)
+            } else {
+                self.value_range.clone()
+            };
+
+            // Always process 1 B value at a time for memory safety
+            // This keeps temporary allocations minimal
+            let batch_size = 1;
+
             let batch_start_b = self.b.clone();
 
+            use std::time::Instant;
+            let parallel_start = Instant::now();
+
+            let mut total_pairs = 0;
+            let mut all_found = Vec::new();
+
+            // Process B values one at a time, with aggressive memory cleanup
             for b_offset in 0..batch_size {
                 let current_b = &batch_start_b + BigInt::from(b_offset);
                 if &current_b > &self.max_b {
                     break;
                 }
 
-                let a_values: Vec<BigInt> = SieveRange::get_sieve_range_continuation(&start_a, &self.value_range)
+                // Generate A values for this B - use capped value_range
+                let a_iter = SieveRange::get_sieve_range_continuation(&start_a, &effective_value_range);
+
+                // Collect only coprime A values (filters early)
+                let a_values: Vec<BigInt> = a_iter
+                    .filter(|a| !cancel_token.is_cancellation_requested())
+                    .filter(|a| GCD::are_coprime_pair(a, &current_b))
                     .collect();
 
-                for a in a_values {
-                    ab_pairs.push((a, current_b.clone()));
-                }
+                let pairs_for_this_b = a_values.len();
+                total_pairs += pairs_for_this_b;
+
+                // Process in parallel, but immediately drop non-smooth Relations
+                let found_for_this_b: Vec<Relation> = a_values
+                    .par_iter()
+                    .filter_map(|a| {
+                        let mut rel = Relation::new(gnfs, a, &current_b);
+                        rel.sieve(gnfs);
+
+                        if rel.is_smooth() {
+                            Some(rel)
+                        } else {
+                            None  // Non-smooth Relations dropped here
+                        }
+                    })
+                    .collect();
+
+                all_found.extend(found_for_this_b);
+                // Explicit drop to free memory immediately
+                drop(a_values);
             }
 
-            let total_pairs = ab_pairs.len();
-            let rayon_threads = rayon::current_num_threads();
-
-            info!("=== PARALLEL BATCH START ===");
-            info!("  Batch size (B values): {}", batch_size);
-            info!("  Total (A,B) pairs: {}", total_pairs);
-            info!("  Rayon threads: {}", rayon_threads);
-            info!("  Work per thread (avg): {:.1}", total_pairs as f64 / rayon_threads as f64);
-            info!("  B range: {} to {}", batch_start_b, &batch_start_b + batch_size - 1);
-
-            use std::time::Instant;
-            let parallel_start = Instant::now();
-
-            // Use Rayon's filter_map + collect to avoid mutex contention
-            let found: Vec<Relation> = ab_pairs.par_iter()
-                .filter(|_| !cancel_token.is_cancellation_requested())
-                .filter(|(a, b)| GCD::are_coprime(&[a.clone(), b.clone()]))
-                .filter_map(|(a, b)| {
-                    // Each thread creates and tests its own relation
-                    let mut rel = Relation::new(gnfs, a, b);
-                    rel.sieve(gnfs);
-
-                    if rel.is_smooth() {
-                        Some(rel)
-                    } else {
-                        None
-                    }
-                })
-                .collect();  // Rayon's parallel collect - no mutex needed!
-
             let parallel_elapsed = parallel_start.elapsed();
-            let num_found = found.len();
+            let num_found = all_found.len();
 
-            // Update progress tracking
-            self.relations.smooth_relations.extend(found);
+            info!("=== PARALLEL BATCH COMPLETE ===");
+            info!("  B values processed: {}", batch_size);
+            info!("  Total (A,B) pairs: {}", total_pairs);
+            info!("  Time elapsed: {:.2}s", parallel_elapsed.as_secs_f64());
+            info!("  Throughput: {:.0} pairs/sec", total_pairs as f64 / parallel_elapsed.as_secs_f64());
+            info!("  Smooth relations found: {}", num_found);
+
+            // Update progress tracking - use streaming to avoid memory accumulation
+            if let Err(e) = self.relations.add_smooth_relations(all_found) {
+                log::error!("Failed to add smooth relations: {}", e);
+            }
             self.smooth_relations_counter += num_found;
 
             // Update B to the next batch
             self.b = &self.b + batch_size;
             self.a = start_a.clone();
 
-            info!("=== PARALLEL BATCH COMPLETE ===");
-            info!("  Time elapsed: {:.2}s", parallel_elapsed.as_secs_f64());
-            info!("  Pairs processed: {}", total_pairs);
-            info!("  Throughput: {:.0} pairs/sec", total_pairs as f64 / parallel_elapsed.as_secs_f64());
-            info!("  Smooth relations found: {}", num_found);
-            info!("  Total smooth relations: {}", self.relations.smooth_relations.len());
+            info!("  Total smooth relations: {}", self.relations.smooth_relations_count());
             info!("  Progress: {} / {} ({:.1}%)",
                   self.smooth_relations_counter,
                   self.smooth_relations_target_quantity,
@@ -227,10 +248,10 @@ impl PolyRelationsSieveProgress {
 
     pub fn format_relations(&self, relations: &[Relation]) -> String {
         let mut result = String::new();
-    
+
         result.push_str("Smooth relations:\n");
         result.push_str("\t_______________________________________________\n");
-        result.push_str(&format!("\t|   A   |  B | ALGEBRAIC_NORM | RATIONAL_NORM | \t\tRelations count: {} Target quantity: {}\n", self.relations.smooth_relations.len(), self.smooth_relations_target_quantity));
+        result.push_str(&format!("\t|   A   |  B | ALGEBRAIC_NORM | RATIONAL_NORM | \t\tRelations count: {} Target quantity: {}\n", self.relations.smooth_relations_count(), self.smooth_relations_target_quantity));
         result.push_str("\t```````````````````````````````````````````````\n");
     
         let mut sorted_relations: Vec<_> = relations.iter().collect();

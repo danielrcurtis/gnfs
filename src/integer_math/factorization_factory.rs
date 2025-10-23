@@ -95,14 +95,32 @@ impl FactorizationFactory {
 
         // Try to divide by each prime in the factor base
         for prime in factor_base {
-            // OPTIMIZATION 2: Skip if quotient < prime² (can't be divisible by this or larger primes)
+            // OPTIMIZATION 2: Skip if quotient < prime (can't be divisible by this or larger primes)
             // For small quotients, this check is cheap and saves many expensive modulo operations
             if &quotient < prime {
                 // quotient < prime means no larger primes can divide it
                 break;
             }
 
-            // OPTIMIZATION 3: For small quotients, use u64 fast path
+            // OPTIMIZATION 3a: For very small quotients, use u32 fast path (even faster than u64)
+            // This is common for smooth relations with small factor bases
+            if let Some(quot_u32) = quotient.to_u32() {
+                if let Some(prime_u32) = prime.to_u32() {
+                    // Super fast path: use native u32 arithmetic
+                    let mut q = quot_u32;
+                    while q % prime_u32 == 0 {
+                        factorization.add(prime);
+                        q /= prime_u32;
+                        if q == 1 {
+                            return (factorization, BigInt::one());
+                        }
+                    }
+                    quotient = BigInt::from(q);
+                    continue;
+                }
+            }
+
+            // OPTIMIZATION 3b: For small quotients, use u64 fast path
             // BigInt operations are much slower than native u64 arithmetic
             if let Some(quot_u64) = quotient.to_u64() {
                 if let Some(prime_u64) = prime.to_u64() {

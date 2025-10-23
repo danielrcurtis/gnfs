@@ -54,9 +54,38 @@ impl Relation {
     pub fn sieve(&mut self, gnfs: &GNFS) {
         use log::debug;
 
+        // OPTIMIZATION: Check rational first before computing expensive algebraic norm
         // Rational norm: a + b*m where m is the polynomial base
         self.rational_norm = self.apply(&gnfs.polynomial_base);
 
+        // Handle negative rational norms: add -1 to factorization
+        if self.rational_norm < BigInt::zero() {
+            self.rational_factorization.add(&BigInt::from(-1));
+        }
+
+        // Use absolute value for factorization
+        let abs_rational_norm = self.rational_norm.abs();
+
+        // OPTIMIZATION: Sieve rational first (C# does this)
+        // Only compute algebraic norm if rational is smooth
+        let (rational_factors, rational_quotient) = FactorizationFactory::factor_with_base(
+            &abs_rational_norm,
+            &gnfs.prime_factor_base.rational_factor_base
+        );
+
+        self.rational_factorization.combine(&rational_factors);
+        self.rational_quotient = rational_quotient.clone();
+
+        // Only continue if rational is smooth - EARLY EXIT saves algebraic norm computation
+        if !self.is_rational_quotient_smooth() {
+            // Not smooth on rational side, skip expensive algebraic norm calculation
+            // Set algebraic quotient to a large value to indicate non-smooth
+            self.algebraic_quotient = BigInt::from(i64::MAX);
+            self.algebraic_norm = BigInt::zero();
+            return;
+        }
+
+        // Rational is smooth, now compute algebraic norm
         // Algebraic norm: f(-a/b) × (-b)^degree
         // This is the correct formula from the C# reference implementation
         let neg_a = -(&self.a);
@@ -78,31 +107,6 @@ impl Relation {
             debug!("Warning: Algebraic norm for (a={}, b={}) is not an integer: {}", self.a, self.b, product);
         }
         self.algebraic_norm = product.numer().clone() / product.denom();
-
-        // Handle negative norms: add -1 to factorization
-        if self.rational_norm < BigInt::zero() {
-            self.rational_factorization.add(&BigInt::from(-1));
-        }
-
-        // Use absolute value for factorization
-        let abs_rational_norm = self.rational_norm.abs();
-
-        // OPTIMIZATION: Sieve rational first (C# does this)
-        // Only sieve algebraic if rational is smooth
-        let (rational_factors, rational_quotient) = FactorizationFactory::factor_with_base(
-            &abs_rational_norm,
-            &gnfs.prime_factor_base.rational_factor_base
-        );
-
-        self.rational_factorization.combine(&rational_factors);
-        self.rational_quotient = rational_quotient.clone();
-
-        // Only continue if rational is smooth
-        if !self.is_rational_quotient_smooth() {
-            // Not smooth on rational side, no point checking algebraic
-            self.algebraic_quotient = self.algebraic_norm.abs();
-            return;
-        }
 
         // Rational is smooth, now check algebraic
         if self.algebraic_norm < BigInt::zero() {

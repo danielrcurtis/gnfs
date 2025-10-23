@@ -48,24 +48,40 @@ impl BenchmarkRunner {
         let polynomial_base = BigInt::from(31);
         let poly_degree = 3;
 
-        // Determine prime bound based on digit count
+        // Determine prime bound based on digit count (matching main.rs logic)
         let digits = n.to_string().len();
         let prime_bound = if digits <= 8 {
-            BigInt::from(100)
+            BigInt::from(100)         // 8 digits: ~0.3s, 254 relations
         } else if digits == 9 {
-            BigInt::from(300)
+            BigInt::from(100)         // 9 digits: 2-28s (varies), sufficient smooth relations
         } else if digits == 10 {
-            BigInt::from(800)
+            BigInt::from(200)         // 10 digits: targeting <60s (was >5min with 100)
         } else if digits == 11 {
-            BigInt::from(2000)
+            BigInt::from(400)         // 11 digits: targeting <90s
         } else if digits == 12 {
-            BigInt::from(5000)
+            BigInt::from(800)         // 12 digits: targeting <2min
+        } else if digits <= 14 {
+            BigInt::from(2000)        // 13-14 digits: may take 3-5 minutes
+        } else if digits <= 16 {
+            BigInt::from(5000)        // 15-16 digits: may take 5-10 minutes
+        } else if digits <= 18 {
+            BigInt::from(10000)       // 17-18 digits: ~1 minute (tested: 57s for 17-digit)
         } else {
-            BigInt::from(10000)
+            // For larger numbers (19+ digits), use exponential scaling
+            BigInt::from(digits) * BigInt::from(1000)
         };
 
-        let relation_quantity = 1000;
-        let relation_value_range = 2000;
+        // For benchmarks, we want to test actual sieving performance, not just initialization
+        // Use parameters that provide meaningful work while avoiding memory issues
+        // NOTE: Even with disk streaming, large numbers use significant memory due to
+        // temporary BigInt allocations during sieving. Keep targets very conservative.
+        let (relation_quantity, relation_value_range) = if digits <= 9 {
+            (1000, 200)  // Small numbers: high target, moderate range
+        } else if digits <= 11 {
+            (50, 50)     // Medium numbers: VERY low target to avoid memory issues
+        } else {
+            (25, 50)     // Large numbers: minimal targets for benchmarking only
+        };
         let created_new_data = true;
 
         let mut gnfs = GNFS::new(
