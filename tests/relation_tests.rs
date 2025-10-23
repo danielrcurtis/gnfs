@@ -57,7 +57,13 @@ fn test_option1_larger_prime_bounds() {
             break; // Found enough for test
         }
 
-        gnfs.current_relations_progress.generate_relations(&cancel_token);
+        // Need to temporarily move progress out to avoid borrowing issues
+        let mut progress = std::mem::replace(
+            &mut gnfs.current_relations_progress,
+            gnfs::relation_sieve::poly_relations_sieve_progress::PolyRelationsSieveProgress::default()
+        );
+        progress.generate_relations(&gnfs, &cancel_token);
+        gnfs.current_relations_progress = progress;
 
         if i % 10 == 0 {
             println!("  B = {}, Smooth = {}/{}",
@@ -140,7 +146,13 @@ fn test_option2_simpler_number() {
             break;
         }
 
-        gnfs.current_relations_progress.generate_relations(&cancel_token);
+        // Need to temporarily move progress out to avoid borrowing issues
+        let mut progress = std::mem::replace(
+            &mut gnfs.current_relations_progress,
+            gnfs::relation_sieve::poly_relations_sieve_progress::PolyRelationsSieveProgress::default()
+        );
+        progress.generate_relations(&gnfs, &cancel_token);
+        gnfs.current_relations_progress = progress;
 
         if i % 5 == 0 {
             println!("  B = {}, Smooth = {}/{}",
@@ -266,7 +278,13 @@ fn test_main_program_flow() {
 
     // Call generate_relations once (one round)
     println!("\nCalling generate_relations...");
-    gnfs.current_relations_progress.generate_relations(&gnfs, &cancel_token);
+    // Need to temporarily move progress out to avoid borrowing issues
+    let mut progress = std::mem::replace(
+        &mut gnfs.current_relations_progress,
+        gnfs::relation_sieve::poly_relations_sieve_progress::PolyRelationsSieveProgress::default()
+    );
+    progress.generate_relations(&gnfs, &cancel_token);
+    gnfs.current_relations_progress = progress;
 
     println!("\nAfter generate_relations:");
     println!("  A = {}", gnfs.current_relations_progress.a);

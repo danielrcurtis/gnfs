@@ -15,6 +15,7 @@ pub struct DirectoryLocations {
     pub progress_filepath: String,
     pub smooth_relations_filepath: String,
     pub rough_relations_filepath: String,
+    pub streamed_relations_filepath: String,
 }
 
 impl DirectoryLocations {
@@ -27,6 +28,7 @@ impl DirectoryLocations {
         let quadratic_factor_pair_save_file = format!("{}/QuadraticFactorPairCollection.json", save_directory);
         let smooth_relations_save_file = format!("{}/smooth_relations.json", save_directory);
         let rough_relations_save_file = format!("{}/RoughRelations.json", save_directory);
+        let streamed_relations_save_file = format!("{}/streamed_relations.jsonl", save_directory);
 
         DirectoryLocations {
             base_directory: "GNFS".to_string(),
@@ -38,6 +40,7 @@ impl DirectoryLocations {
             progress_filepath: progress_save_file,
             smooth_relations_filepath: smooth_relations_save_file,
             rough_relations_filepath: rough_relations_save_file,
+            streamed_relations_filepath: streamed_relations_save_file,
         }
     }
 
@@ -82,6 +85,7 @@ impl Default for DirectoryLocations {
             progress_filepath: "".to_string(),
             smooth_relations_filepath: "".to_string(),
             rough_relations_filepath: "".to_string(),
+            streamed_relations_filepath: "".to_string(),
         }
     }
 }

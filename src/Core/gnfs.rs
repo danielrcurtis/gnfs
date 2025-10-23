@@ -140,6 +140,10 @@ impl GNFS {
             );
             info!("Relations container initialized. Target quantity: {}", relation_quantity);
 
+            // Initialize relation streaming to disk
+            let streaming_path = PathBuf::from(&gnfs.save_locations.streamed_relations_filepath);
+            gnfs.current_relations_progress.relations.init_streaming(streaming_path);
+
             // TODO: Implement saving the state
             // Serialization::save_all(&gnfs);
         }

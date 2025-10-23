@@ -312,6 +312,9 @@ impl From<SerializableRelationContainer> for RelationContainer {
             free_relations: container.free_relations.into_iter().map(|relations| {
                 relations.into_iter().map(Relation::from).collect()
             }).collect(),
+            streaming_file_path: None,
+            total_streamed_count: 0,
+            buffer_size: 50,
         }
     }
 }
