@@ -5,6 +5,7 @@ use num::bigint::ToBigInt;
 use num::{BigInt, Zero, One, Integer, ToPrimitive};
 use crate::polynomial::polynomial::Polynomial;
 use crate::core::gnfs::GNFS;
+use crate::core::gnfs_integer::GnfsInteger;
 use crate::relation_sieve::relation::Relation;
 use std::cmp::Ordering;
 use crate::core::count_dictionary::CountDictionary;
@@ -17,8 +18,9 @@ use crate::core::cancellation_token::CancellationToken;
 use crate::polynomial::algorithms;
 use rayon::prelude::*;
 use std::time::Instant;
+use std::marker::PhantomData;
 
-pub struct SquareFinder {
+pub struct SquareFinder<T: GnfsInteger> {
     pub rational_product: BigInt,
     pub rational_square: BigInt,
     pub rational_square_root_residue: BigInt,
@@ -59,10 +61,11 @@ pub struct SquareFinder {
     pub monic_polynomial_derivative_value: BigInt,
     pub monic_polynomial_derivative_value_squared: BigInt,
 
-    gnfs: GNFS,
+    gnfs: GNFS<T>,
     rational_norms: Vec<BigInt>,
     algebraic_norm_collection: Vec<BigInt>,
-    relations_set: Vec<Relation>,
+    relations_set: Vec<Relation<T>>,
+    _phantom: PhantomData<T>,
 
 }
 
@@ -80,8 +83,8 @@ fn generate_prime_batch(start_from: i128, batch_size: usize) -> Vec<BigInt> {
     primes
 }
 
-impl SquareFinder {
-    pub fn new(sieve: &GNFS) -> Self {
+impl<T: GnfsInteger> SquareFinder<T> {
+    pub fn new(sieve: &GNFS<T>) -> Self {
         let sieve_ref = sieve;
 
         let mut square_finder = SquareFinder {
@@ -121,6 +124,7 @@ impl SquareFinder {
             rational_norms: Vec::new(),
             algebraic_norm_collection: Vec::new(),
             relations_set: Vec::new(),
+            _phantom: PhantomData,
         };
 
         square_finder.polynomial_derivative = Polynomial::get_derivative_polynomial(&sieve.current_polynomial);
@@ -159,9 +163,9 @@ impl SquareFinder {
         square_finder
     }
 
-    pub fn calculate_rational_side(&mut self, cancel_token: &CancellationToken, relations: Vec<Relation>) {
+    pub fn calculate_rational_side(&mut self, cancel_token: &CancellationToken, relations: Vec<Relation<T>>) {
         self.relations_set = relations;
-        self.rational_norms = self.relations_set.iter().map(|rel| rel.rational_norm.clone()).collect();
+        self.rational_norms = self.relations_set.iter().map(|rel| rel.rational_norm.to_bigint()).collect();
 
         let mut rational_square_factorization = CountDictionary::new();
         for rel in &self.relations_set {
@@ -202,7 +206,7 @@ impl SquareFinder {
 
     pub fn calculate_algebraic_side(&mut self, cancel_token: &CancellationToken) -> (BigInt, BigInt) {
         for rel in &self.relations_set {
-            self.roots_of_s.push((rel.a.clone(), rel.b.clone()));
+            self.roots_of_s.push((rel.a.to_bigint(), rel.b.to_bigint()));
         }
 
         if cancel_token.is_cancellation_requested() {
@@ -212,8 +216,8 @@ impl SquareFinder {
         self.polynomial_ring_elements.clear();
         for rel in &self.relations_set {
             let new_poly = Polynomial::new(vec![
-                Term::new(rel.b.clone(), 1),
-                Term::new(rel.a.clone(), 0),
+                Term::new(rel.b.to_bigint(), 1),
+                Term::new(rel.a.to_bigint(), 0),
             ]);
             self.polynomial_ring_elements.push(new_poly);
         }
@@ -432,7 +436,7 @@ impl SquareFinder {
         }
     }
 
-    pub fn solve(cancel_token: &CancellationToken, gnfs: &mut GNFS) -> bool {
+    pub fn solve(cancel_token: &CancellationToken, gnfs: &mut GNFS<T>) -> bool {
         let mut tried_free_relation_indices = Vec::new();
     
         let poly_base = gnfs.polynomial_base.clone();
@@ -472,7 +476,7 @@ impl SquareFinder {
             gnfs.log_message("".to_string());
             gnfs.log_message("Calculating Rational Square Root β ∈ ℤ[θ] ...".to_string());
             gnfs.log_message("".to_string());
-            square_root_finder.calculate_rational_side(cancel_token, selected_relation_set.clone() as Vec<Relation>);
+            square_root_finder.calculate_rational_side(cancel_token, selected_relation_set.clone());
     
             if cancel_token.is_cancellation_requested() {
                 gnfs.log_message("Abort: Task canceled by user!".to_string());

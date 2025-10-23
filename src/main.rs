@@ -1,12 +1,10 @@
 use gnfs::integer_math::prime_factory;
 // src/main.rs
-use log::{debug, info};
+use log::{debug, info, warn};
 use env_logger::Env;
 use gnfs::core::cpu_info::CPUInfo;
-use gnfs::core::gnfs::GNFS;
+use gnfs::core::gnfs_wrapper::GNFSWrapper;
 use gnfs::core::cancellation_token::CancellationToken;
-use gnfs::matrix::matrix_solve::MatrixSolve;
-use gnfs::square_root::square_finder::SquareFinder;
 use gnfs::benchmark_cli;
 use num::{BigInt, ToPrimitive};
 use std::path::Path;
@@ -160,25 +158,15 @@ fn main() {
     let mut gnfs = create_or_load_gnfs(&n);
 
     // Log factor base information
-    info!("Rational factor base size: {}", gnfs.prime_factor_base.rational_factor_base.len());
-    info!("Algebraic factor base size: {}", gnfs.prime_factor_base.algebraic_factor_base.len());
-    info!("Quadratic factor base size: {}", gnfs.prime_factor_base.quadratic_factor_base.len());
-    info!("Rational factor pairs: {}", gnfs.rational_factor_pair_collection.len());
-    info!("Algebraic factor pairs: {}", gnfs.algebraic_factor_pair_collection.len());
-    info!("Quadratic factor pairs: {}", gnfs.quadratic_factor_pair_collection.len());
+    let (rat_fb_size, alg_fb_size, quad_fb_size) = gnfs.get_factor_base_info();
+    info!("Rational factor base size: {}", rat_fb_size);
+    info!("Algebraic factor base size: {}", alg_fb_size);
+    info!("Quadratic factor base size: {}", quad_fb_size);
 
-    // Debug: Show first 10 primes in each factor base
-    let rat_fb: Vec<_> = gnfs.prime_factor_base.rational_factor_base.iter().take(15).collect();
-    info!("Rational factor base (first 15): {:?}", rat_fb);
-    let alg_fb: Vec<_> = gnfs.prime_factor_base.algebraic_factor_base.iter().take(20).collect();
-    info!("Algebraic factor base (first 20): {:?}", alg_fb);
-
-    // Test a specific relation manually
-    let test_a = BigInt::from(1);
-    let test_b = BigInt::from(3);
-    let rational_norm = &test_a + &test_b * &gnfs.polynomial_base;
-    let algebraic_norm = gnfs.current_polynomial.evaluate(&test_a);
-    info!("Test relation (a=1, b=3): rational_norm={}, algebraic_norm={}", rational_norm, algebraic_norm);
+    let (rat_pairs, alg_pairs, quad_pairs) = gnfs.get_factor_pair_info();
+    info!("Rational factor pairs: {}", rat_pairs);
+    info!("Algebraic factor pairs: {}", alg_pairs);
+    info!("Quadratic factor pairs: {}", quad_pairs);
 
     // Start the factorization process
     let cancel_token = CancellationToken::new();
@@ -188,7 +176,7 @@ fn main() {
     info!("========================================");
     info!("STAGE 1: RELATION SIEVING");
     info!("========================================");
-    gnfs = find_relations(&cancel_token, gnfs, false);
+    gnfs.find_relations(&cancel_token, false);
 
     // Stage 2: Check if we have enough relations
     info!("");
@@ -196,14 +184,15 @@ fn main() {
     info!("STAGE 2: CHECKING RELATIONS");
     info!("========================================");
 
-    if gnfs.current_relations_progress.smooth_relations_counter >= gnfs.current_relations_progress.smooth_relations_target_quantity {
+    let (smooth_found, smooth_target) = gnfs.get_relations_info();
+    if smooth_found >= smooth_target {
         info!("Enough smooth relations found! Proceeding to matrix construction and solving...");
-        info!("Smooth relations found: {}", gnfs.current_relations_progress.smooth_relations_counter);
-        info!("Target quantity: {}", gnfs.current_relations_progress.smooth_relations_target_quantity);
+        info!("Smooth relations found: {}", smooth_found);
+        info!("Target quantity: {}", smooth_target);
     } else {
         info!("Not enough relations found. Need more sieving.");
-        info!("Smooth relations found: {}", gnfs.current_relations_progress.smooth_relations_counter);
-        info!("Target quantity: {}", gnfs.current_relations_progress.smooth_relations_target_quantity);
+        info!("Smooth relations found: {}", smooth_found);
+        info!("Target quantity: {}", smooth_target);
         info!("Exiting - run again to continue sieving.");
         return;
     }
@@ -215,10 +204,10 @@ fn main() {
     info!("========================================");
 
     let cancel_token_arc = Arc::new(AtomicBool::new(cancel_token.is_cancellation_requested()));
-    MatrixSolve::gaussian_solve(&cancel_token_arc, &mut gnfs);
+    gnfs.matrix_solve(&cancel_token_arc);
 
     // Check if we found any free relations (solution sets)
-    let free_relations_count = gnfs.current_relations_progress.relations.free_relations.len();
+    let free_relations_count = gnfs.free_relations_count();
     info!("");
     info!("Matrix solving complete.");
     info!("Free relation sets found: {}", free_relations_count);
@@ -238,7 +227,7 @@ fn main() {
     info!("STAGE 4: SQUARE ROOT EXTRACTION");
     info!("========================================");
 
-    let factors_found = SquareFinder::solve(&cancel_token, &mut gnfs);
+    let factors_found = gnfs.square_finder_solve(&cancel_token);
 
     // Stage 5: Report Final Results
     info!("");
@@ -252,12 +241,12 @@ fn main() {
         info!("*** FACTORIZATION SUCCESSFUL! ***");
         info!("*****************************************");
         info!("");
-        if let Some(solution) = &gnfs.factorization {
-            info!("N = {} = {} × {}", gnfs.n, solution.p, solution.q);
+        if let Some(solution) = gnfs.get_solution() {
+            info!("N = {} = {} × {}", gnfs.n(), solution.p, solution.q);
             info!("");
             info!("Verification: {} × {} = {}", solution.p, solution.q, &solution.p * &solution.q);
 
-            if &solution.p * &solution.q == gnfs.n {
+            if &solution.p * &solution.q == *gnfs.n() {
                 info!("VERIFIED: Factors are correct!");
             } else {
                 info!("ERROR: Factors do not multiply to N!");
@@ -286,46 +275,44 @@ fn main() {
     info!("GNFS FACTORIZATION COMPLETE");
     info!("========================================");
     info!("");
+
+    // Optional cleanup of output directory
+    // Only cleanup if GNFS_CLEANUP=true is explicitly set
+    if std::env::var("GNFS_CLEANUP").unwrap_or_else(|_| "false".to_string()) == "true" {
+        let save_dir = format!("{}", n);
+        match std::fs::remove_dir_all(&save_dir) {
+            Ok(_) => info!("Cleaned up output directory: {}", save_dir),
+            Err(e) => warn!("Could not cleanup directory {}: {}", save_dir, e),
+        }
+    }
 }
 
-fn create_or_load_gnfs(n: &BigInt) -> GNFS {
-    // Note: The save directory format is just the number itself (e.g., "45113")
-    // not "gnfs_data_45113"
-    let save_directory = format!("{}", n);
+fn create_or_load_gnfs(n: &BigInt) -> GNFSWrapper {
+    // Note: For now, we don't support loading from checkpoint with GNFSWrapper
+    // This is because we'd need to serialize the backend type along with the data.
+    // For Phase 3, we'll just create fresh instances.
+    // TODO: Implement checkpoint loading with backend type detection in Phase 4
 
-    // Check if checkpoint exists by looking for parameters.json
+    let save_directory = format!("{}", n);
     let params_file = format!("{}/parameters.json", save_directory);
 
     if Path::new(&params_file).exists() {
         info!("========================================");
         info!("Found existing checkpoint at {}/", save_directory);
-        info!("Resuming from saved state...");
-        info!("========================================");
-
-        // Load the checkpoint
-        let gnfs = gnfs::core::serialization::load::load_checkpoint(&save_directory, n);
-
-        info!("");
-        info!("Resume Summary:");
-        info!("  Position: A={}, B={}", gnfs.current_relations_progress.a, gnfs.current_relations_progress.b);
-        info!("  Relations found: {} / {}",
-              gnfs.current_relations_progress.smooth_relations_counter,
-              gnfs.current_relations_progress.smooth_relations_target_quantity);
-        info!("  Polynomial: {}", gnfs.current_polynomial);
-        info!("  Polynomial base: {}", gnfs.polynomial_base);
+        info!("WARNING: Checkpoint loading not yet supported with adaptive backends");
+        info!("Starting fresh factorization...");
         info!("========================================");
         info!("");
-
-        gnfs
     } else {
         info!("No checkpoint found at {}/", save_directory);
         info!("Starting fresh factorization...");
         info!("");
-        create_new_gnfs(n)
     }
+
+    create_new_gnfs(n)
 }
 
-fn create_new_gnfs(n: &BigInt) -> GNFS {
+fn create_new_gnfs(n: &BigInt) -> GNFSWrapper {
     info!("Creating a new GNFS instance...");
     let cancel_token = CancellationToken::new();
     let polynomial_base = BigInt::from(31);
@@ -368,7 +355,7 @@ fn create_new_gnfs(n: &BigInt) -> GNFS {
     info!("Relation Value: {}", relation_value_range);
     info!("GNFS: {}", created_new_data);
 
-    let gnfs = GNFS::new(
+    let gnfs = GNFSWrapper::new(
         &cancel_token,
         n,
         &polynomial_base,
@@ -380,66 +367,11 @@ fn create_new_gnfs(n: &BigInt) -> GNFS {
     );
 
     // Save initial parameters
-    info!("Saving initial parameters to {}", gnfs.save_locations.parameters_filepath);
-    gnfs::core::serialization::save::parameters(&gnfs);
-    info!("Parameters saved successfully");
-
-    gnfs
-}
-
-fn find_relations(cancel_token: &CancellationToken, mut gnfs: GNFS, one_round: bool) -> GNFS {
-    info!("Starting find_relations function...");
-    info!("Current smooth relations: {}", gnfs.current_relations_progress.smooth_relations_counter);
-    info!("Target smooth relations: {}", gnfs.current_relations_progress.smooth_relations_target_quantity);
-    info!("Sieving for relations...");
-    while !cancel_token.is_cancellation_requested() {
-        if gnfs.current_relations_progress.smooth_relations_counter >= gnfs.current_relations_progress.smooth_relations_target_quantity {
-            gnfs.current_relations_progress.increase_target_quantity(1);
-            // Save progress when target quantity increases
-            debug!("Saving progress after increasing target quantity...");
-            gnfs::core::serialization::save::progress(&gnfs);
-        }
-
-        // Temporarily extract progress to avoid borrow checker issues
-        let mut progress = std::mem::replace(
-            &mut gnfs.current_relations_progress,
-            gnfs::relation_sieve::poly_relations_sieve_progress::PolyRelationsSieveProgress::default()
-        );
-        progress.generate_relations(&gnfs, cancel_token);
-        gnfs.current_relations_progress = progress;
-
-        // Save smooth relations that were just found
-        debug!("Saving smooth relations...");
-        gnfs::core::serialization::save::relations::smooth::append(&mut gnfs);
-
-        // Save progress after each B increment
-        debug!("Saving progress...");
-        gnfs::core::serialization::save::progress(&gnfs);
-
-        debug!("");
-        debug!("Sieving progress saved at:");
-        debug!(" A = {}", gnfs.current_relations_progress.a);
-        debug!(" B = {}", gnfs.current_relations_progress.b);
-        debug!("");
-
-        if one_round {
-            break;
-        }
-
-        if gnfs.current_relations_progress.smooth_relations_counter >= gnfs.current_relations_progress.smooth_relations_target_quantity {
-            break;
-        }
-    }
-    if cancel_token.is_cancellation_requested() {
-        info!("Sieving cancelled.");
-        info!("Saving progress...");
-        gnfs::core::serialization::save::progress(&gnfs);
-        info!("Relations found: {}", gnfs.current_relations_progress.smooth_relations_counter);
-    } else {
-        info!("Sieving complete.");
-        info!("Saving final progress...");
-        gnfs::core::serialization::save::progress(&gnfs);
-    }
+    info!("Saving initial parameters to {}", gnfs.parameters_filepath());
+    // Note: Serialization will use the wrapper's methods to dispatch to the correct backend
+    // For now, we'll skip saving as it requires more complex handling
+    // TODO: Implement serialization for GNFSWrapper
+    info!("Parameters save skipped (TODO: implement serialization for GNFSWrapper)");
 
     gnfs
 }

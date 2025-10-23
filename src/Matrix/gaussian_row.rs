@@ -2,23 +2,25 @@
 
 use num::{BigInt, Signed};
 use crate::core::gnfs::GNFS;
+use crate::core::gnfs_integer::GnfsInteger;
 use crate::relation_sieve::relation::Relation;
 use crate::core::count_dictionary::CountDictionary;
 use crate::integer_math::prime_factory::PrimeFactory;
 use crate::integer_math::quadratic_residue::QuadraticResidue;
 
 #[derive(Clone)]
-pub struct GaussianRow {
+pub struct GaussianRow<T: GnfsInteger> {
     pub sign: bool,
     pub rational_part: Vec<bool>,
     pub algebraic_part: Vec<bool>,
     pub quadratic_part: Vec<bool>,
-    pub source_relation: Relation,
+    pub source_relation: Relation<T>,
 }
 
-impl GaussianRow {
-    pub fn new(gnfs: &GNFS, relation: Relation) -> Self {
-        let sign = relation.rational_norm.is_negative();
+impl<T: GnfsInteger> GaussianRow<T> {
+    pub fn new(gnfs: &GNFS<T>, relation: Relation<T>) -> Self {
+        // Convert to BigInt for sign check (cheap conversion)
+        let sign = relation.rational_norm.to_bigint().is_negative();
 
         let qfb = gnfs.quadratic_factor_pair_collection.clone();
         let rational_max_value = &gnfs.prime_factor_base.rational_factor_base_max;

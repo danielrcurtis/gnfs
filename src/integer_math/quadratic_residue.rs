@@ -15,8 +15,10 @@ impl QuadraticResidue {
         mod_pow == BigInt::one()
     }
 
-    pub fn get_quadratic_character(rel: &Relation, quadratic_factor: &FactorPair) -> bool {
-        let ab = &rel.a + &rel.b;
+    pub fn get_quadratic_character<T: crate::core::gnfs_integer::GnfsInteger>(rel: &crate::relation_sieve::relation::Relation<T>, quadratic_factor: &FactorPair) -> bool {
+        let a_big = rel.a.to_bigint();
+        let b_big = rel.b.to_bigint();
+        let ab = &a_big + &b_big;
         let abp = (ab * &BigInt::from(quadratic_factor.p)).abs();
         let legendre_symbol = Legendre::symbol(&abp, &BigInt::from(quadratic_factor.r));
         legendre_symbol != 1

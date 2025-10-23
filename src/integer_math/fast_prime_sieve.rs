@@ -106,7 +106,7 @@ pub struct FastPrimeSieveIterator {
     base_primes: Option<Box<dyn BasePrimesTrait>>,
     buffer_bits: usize,
     buffer_bits_next: usize,
-    low: u32,
+    low: usize,  // CRITICAL FIX: Changed from u32 to usize to match buffer_bits
     bottom_item: usize,
     cull_buffer: Vec<u32>,
 }
@@ -117,14 +117,16 @@ impl Iterator for FastPrimeSieveIterator {
     type Item = BigUint;
 
     fn next(&mut self) -> Option<Self::Item> {
-      //  debug!("In FastPrimeSieveIterator next.");
+        debug!("In FastPrimeSieveIterator next - low: {}, bottom_item: {}, buffer_bits: {}", self.low, self.bottom_item, self.buffer_bits);
         while self.bottom_item < self.buffer_bits {
            // debug!("In FastPrimeSieveIterator next while loop.");
             if self.bottom_item < 1 {
                 //debug!("In FastPrimeSieveIterator next while loop if statement.");
                 if self.bottom_item <= 0 {
                    // debug!("In FastPrimeSieveIterator next while loop if statement bottom_item <= 0.");
-                    self.bottom_item = 0;
+                    // CRITICAL FIX: Must increment bottom_item to 1 BEFORE returning
+                    // Otherwise next() will loop infinitely returning 2
+                    self.bottom_item = 1;
                     return Some(BigUint::from(2u32));
                 }
 
@@ -167,15 +169,14 @@ impl Iterator for FastPrimeSieveIterator {
 
                     debug!("In FastPrimeSieveIterator next while loop if statement bottom_item > 0 else statement (base_primes_array).");
                     if self.base_primes_array.borrow().is_empty() {
-                        // Init second base primes stream
-                        self.base_primes = Some(Box::new(BasePrimes {
-                            primes: std::iter::once(FastPrimeSieve::new()).flatten(),
-                        }));
-                        self.base_primes.as_mut().unwrap().next();
-                        self.base_primes.as_mut().unwrap().next();
-                        let prime = self.base_primes.as_mut().unwrap().next().unwrap().to_u32().expect("base prime is too large");
-                        self.base_primes_array.borrow_mut().push(prime); // Add 3 to base primes array
-                        self.base_primes.as_mut().unwrap().next();
+                        // CRITICAL FIX: Use static small primes instead of recursive sieve
+                        // The original code created infinite recursion by calling FastPrimeSieve::new()
+                        // which would create more iterators trying to create more base_primes
+
+                        // Start with small primes: 3, 5, 7, 11, 13, ... up to ~100
+                        // We only need primes up to sqrt(buffer_bits_next) for the first page
+                        let small_primes = vec![3u32, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97];
+                        *self.base_primes_array.borrow_mut() = small_primes;
                     }
 
                     // Make sure base_primes_array contains enough base primes...
@@ -183,10 +184,31 @@ impl Iterator for FastPrimeSieveIterator {
                     let mut p = BigUint::from(self.base_primes_array.borrow()[self.base_primes_array.borrow().len() - 1]);
                     let mut square = &p * &p;
                     debug!("In FastPrimeSieveIterator next while loop if statement bottom_item > 0 else statement (base_primes_array).");
+
+                    // CRITICAL FIX: Generate more primes using simple trial division instead of recursive sieve
                     while square < next {
-                        p = self.base_primes.as_mut().unwrap().next().unwrap();
-                        square = &p * &p;
-                        self.base_primes_array.borrow_mut().push(p.to_u32().expect("base prime is too large"));
+                        let mut candidate = p.to_u32().expect("p too large") + 2;
+                        'find_next_prime: loop {
+                            let candidate_biguint = BigUint::from(candidate);
+                            // Check if candidate is prime by trial division
+                            let mut is_prime = true;
+                            for &test_prime in self.base_primes_array.borrow().iter() {
+                                if test_prime * test_prime > candidate {
+                                    break;
+                                }
+                                if candidate % test_prime == 0 {
+                                    is_prime = false;
+                                    break;
+                                }
+                            }
+                            if is_prime {
+                                p = candidate_biguint;
+                                square = &p * &p;
+                                self.base_primes_array.borrow_mut().push(candidate);
+                                break 'find_next_prime;
+                            }
+                            candidate += 2;
+                        }
                     }
 
                     let limit = self.base_primes_array.borrow().len() - 1;
@@ -196,10 +218,10 @@ impl Iterator for FastPrimeSieveIterator {
                         let start = (&p * &p - BigUint::from(3u32)).to_usize().expect("start is too large") >> 1;
 
                         // adjust start index based on page lower limit...
-                        let mut start = if start >= self.low as usize {
-                            start - self.low as usize
+                        let mut start = if start >= self.low {
+                            start - self.low
                         } else {
-                            let r = (self.low as usize - start) % p.to_usize().expect("p is too large");
+                            let r = (self.low - start) % p.to_usize().expect("p is too large");
                             if r != 0 {
                                 p.to_usize().expect("p is too large") - r
                             } else {
@@ -228,7 +250,9 @@ impl Iterator for FastPrimeSieveIterator {
                 return Some(result);
             } else {
                 debug!("Entering else statement with self.low at {}.", self.low);
-                self.low += 1;
+                // CRITICAL FIX: Increment by buffer_bits (page size), not by 1
+                // This was causing millions of extra iterations and memory exhaustion
+                self.low += self.buffer_bits;
                 self.bottom_item = 0;
             }
         }

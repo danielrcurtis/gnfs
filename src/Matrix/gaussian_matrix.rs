@@ -2,37 +2,38 @@
 
 use std::collections::HashMap;
 use crate::core::gnfs::GNFS;
+use crate::core::gnfs_integer::GnfsInteger;
 use crate::relation_sieve::relation::Relation;
 use crate::relation_sieve::poly_relations_sieve_progress::PolyRelationsSieveProgress;
 use crate::matrix::gaussian_row::GaussianRow;
 use crate::matrix::sparse_matrix::SparseMatrix;
 use num::ToPrimitive;
 
-pub struct GaussianMatrix<'a> {
+pub struct GaussianMatrix<'a, T: GnfsInteger> {
     pub m: SparseMatrix,
     pub free_cols: Vec<bool>,
     pub elimination_step: bool,
-    pub _gnfs: &'a mut GNFS,  // Apply the lifetime to this reference
-    pub relations: Vec<Relation>,
-    pub column_index_relation_dictionary: HashMap<usize, Relation>,
-    pub relation_matrix_tuple: Vec<(Relation, Vec<bool>)>,
+    pub _gnfs: &'a mut GNFS<T>,  // Apply the lifetime to this reference
+    pub relations: Vec<Relation<T>>,
+    pub column_index_relation_dictionary: HashMap<usize, Relation<T>>,
+    pub relation_matrix_tuple: Vec<(Relation<T>, Vec<bool>)>,
 }
 
-impl GaussianMatrix<'_> {
-    
-    pub fn new<'a>(gnfs: &'a mut GNFS, rels: &[Relation]) -> GaussianMatrix<'a> {
+impl<'a, T: GnfsInteger> GaussianMatrix<'a, T> {
+
+    pub fn new(gnfs: &'a mut GNFS<T>, rels: &[Relation<T>]) -> GaussianMatrix<'a, T> {
         let mut relation_matrix_tuple = Vec::new();
         let elimination_step = false;
         let free_cols = Vec::new();
 
         let relations = rels.to_vec();
 
-        let mut relations_as_rows: Vec<GaussianRow> = relations
+        let mut relations_as_rows: Vec<GaussianRow<T>> = relations
             .iter()
             .map(|rel| GaussianRow::new(&gnfs, rel.clone()))
             .collect();
 
-        let mut selected_rows: Vec<GaussianRow> = relations_as_rows
+        let mut selected_rows: Vec<GaussianRow<T>> = relations_as_rows
             .iter_mut()
             .take(PolyRelationsSieveProgress::smooth_relations_required_for_matrix_step(&gnfs).to_usize().unwrap())
             .map(|row| row.to_owned())
@@ -53,7 +54,7 @@ impl GaussianMatrix<'_> {
 
         new_length += 1;
 
-        let selected_rows: Vec<GaussianRow> = selected_rows.into_iter().take(new_length).collect();
+        let selected_rows: Vec<GaussianRow<T>> = selected_rows.into_iter().take(new_length).collect();
 
         for row in selected_rows {
             relation_matrix_tuple.push((row.source_relation.clone(), row.get_bool_array()));
@@ -156,7 +157,7 @@ impl GaussianMatrix<'_> {
         self.elimination_step = true;
     }
 
-    pub fn get_solution_set(&self, number_of_solutions: usize) -> Vec<Relation> {
+    pub fn get_solution_set(&self, number_of_solutions: usize) -> Vec<Relation<T>> {
         let solution_set = self.get_solution_flags(number_of_solutions);
 
         let mut index = 0;
