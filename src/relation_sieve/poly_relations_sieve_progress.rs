@@ -150,6 +150,7 @@ impl<T: GnfsInteger> PolyRelationsSieveProgress<T> {
             let parallel_start = Instant::now();
 
             let mut total_pairs = 0;
+            let mut b_values_processed = 0;  // Track actual B values processed (not skipped)
             // MEMORY FIX: Preallocate with realistic capacity to prevent rayon over-allocation
             // Expected: ~0.1% of pairs are smooth, batch_size=16, value_range=150
             // Conservative estimate: 16-80 smooth relations per batch
@@ -161,11 +162,15 @@ impl<T: GnfsInteger> PolyRelationsSieveProgress<T> {
                 let current_b = &batch_start_b + BigInt::from(b_offset);
                 // Skip this B value if it exceeds max_b (max_b increases in outer loop)
                 if &current_b > &self.max_b {
-                    continue;  // Changed from break to continue
+                    break;  // Stop processing when we exceed max_b
                 }
 
+                b_values_processed += 1;  // Count this B value
+
                 // Generate A values for this B - use capped value_range
-                let a_iter = SieveRange::get_sieve_range_continuation(&start_a, &effective_value_range);
+                // CRITICAL: get_sieve_range_continuation expects an ABSOLUTE maximum, not a range size
+                let max_a = &start_a + &effective_value_range;
+                let a_iter = SieveRange::get_sieve_range_continuation(&start_a, &max_a);
 
                 // Collect only coprime A values (filters early)
                 let a_values: Vec<BigInt> = a_iter
@@ -207,7 +212,7 @@ impl<T: GnfsInteger> PolyRelationsSieveProgress<T> {
             let num_found = all_found.len();
 
             info!("=== PARALLEL BATCH COMPLETE ===");
-            info!("  B values processed: {}", batch_size);
+            info!("  B values requested: {}, actually processed: {}", batch_size, b_values_processed);
             info!("  Total (A,B) pairs: {}", total_pairs);
             info!("  Time elapsed: {:.2}s", parallel_elapsed.as_secs_f64());
             info!("  Throughput: {:.0} pairs/sec", total_pairs as f64 / parallel_elapsed.as_secs_f64());
@@ -232,8 +237,9 @@ impl<T: GnfsInteger> PolyRelationsSieveProgress<T> {
             }
             self.smooth_relations_counter += num_found;
 
-            // Update B to the next batch
-            self.b = &self.b + batch_size;
+            // CRITICAL FIX: Increment B by ACTUAL values processed, not requested batch_size
+            // This prevents B from jumping too far when max_b limits processing
+            self.b = &self.b + b_values_processed;
             // Advance A to the end of the range (like C# reference implementation)
             self.a = &start_a + &effective_value_range;
 
