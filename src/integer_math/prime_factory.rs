@@ -34,7 +34,14 @@ impl PrimeFactory {
     }
 
     fn set_primes(&mut self) {
-        self.primes = FastPrimeSieve::get_range(&BigUint::from(1u32), &BigUint::from(8192u32))
+        // Use max_value instead of hardcoded 8192 to allow dynamic prime generation
+        let ceiling = if self.max_value > BigInt::from(100) {
+            self.max_value.to_biguint().unwrap()
+        } else {
+            BigUint::from(8192u32)  // Fallback for initial setup
+        };
+
+        self.primes = FastPrimeSieve::get_range(&BigUint::from(1u32), &ceiling)
             .map(|bi| bi.to_bigint().unwrap())
             .collect();
         self.primes_count = self.primes.len();
@@ -60,11 +67,11 @@ impl PrimeFactory {
         if &self.primes_last < value {
             self.increase_max_value(value);
 
-            // Verify increase worked
+            // Verify increase worked - we need primes_last >= value to find first prime >= value
             if &self.primes_last < value {
                 panic!(
-                    "Failed to increase prime list to include {}. primes_last={}, value={}",
-                    value, self.primes_last, value
+                    "Failed to extend prime list beyond {}. Needed to find first prime >= {}, but primes_last={}",
+                    value, value, self.primes_last
                 );
             }
         }
@@ -72,7 +79,7 @@ impl PrimeFactory {
         let prime_index = self.primes.iter().position(|p| p >= value)
             .unwrap_or_else(|| {
                 panic!(
-                    "Internal error: prime >= {} should exist after increase_max_value. primes_last={}, primes.len()={}",
+                    "Internal error: could not find first prime >= {}. This should not happen after increase_max_value. primes_last={}, primes.len()={}",
                     value, self.primes_last, self.primes.len()
                 )
             });
