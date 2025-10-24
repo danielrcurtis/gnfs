@@ -34,7 +34,14 @@ impl PrimeFactory {
     }
 
     fn set_primes(&mut self) {
-        self.primes = FastPrimeSieve::get_range(&BigUint::from(1u32), &BigUint::from(8192u32))
+        // Use max_value instead of hardcoded 8192 to allow dynamic prime generation
+        let ceiling = if self.max_value > BigInt::from(100) {
+            self.max_value.to_biguint().unwrap()
+        } else {
+            BigUint::from(8192u32)  // Fallback for initial setup
+        };
+
+        self.primes = FastPrimeSieve::get_range(&BigUint::from(1u32), &ceiling)
             .map(|bi| bi.to_bigint().unwrap())
             .collect();
         self.primes_count = self.primes.len();

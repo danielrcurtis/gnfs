@@ -38,11 +38,14 @@ impl<T: GnfsInteger> RelationContainer<T> {
 
     /// Create a new RelationContainer with custom buffer configuration
     pub fn with_config(buffer_config: BufferConfig, digit_count: usize) -> Self {
-        info!("Initializing RelationContainer:");
-        info!("  Buffer max memory: {:.2} MB", buffer_config.max_memory_bytes as f64 / (1024.0 * 1024.0));
-        info!("  Min relations before flush: {}", buffer_config.min_relations);
-        info!("  Max relations (safety limit): {}", buffer_config.max_relations);
-        info!("  Digit count for size estimation: {}", digit_count);
+        // Only log if digit_count > 0 to avoid spam from temporary/default instances
+        if digit_count > 0 {
+            info!("Initializing RelationContainer:");
+            info!("  Buffer max memory: {:.2} MB", buffer_config.max_memory_bytes as f64 / (1024.0 * 1024.0));
+            info!("  Min relations before flush: {}", buffer_config.min_relations);
+            info!("  Max relations (safety limit): {}", buffer_config.max_relations);
+            info!("  Digit count for size estimation: {}", digit_count);
+        }
 
         RelationContainer {
             smooth_relations: Vec::new(),
