@@ -8,6 +8,7 @@ use serde_json;
 use crate::relation_sieve::relation::Relation;
 use crate::factor::factor_pair_collection::FactorPairCollection;
 use crate::core::gnfs::GNFS;
+use crate::core::gnfs_integer::GnfsInteger;
 use crate::core::serialization::save;
 use crate::core::serialization::load;
 use crate::core::serialization::types::{
@@ -29,7 +30,8 @@ pub fn progress(filename: &str) -> crate::core::serialization::types::Serializab
 }
 
 /// Load a complete GNFS checkpoint from the given directory
-pub fn load_checkpoint(save_directory: &str, n: &num::BigInt) -> GNFS {
+/// TODO: Re-implement with proper generics in Phase 3
+pub fn load_checkpoint<T: GnfsInteger>(save_directory: &str, n: &num::BigInt) -> GNFS<T> {
     use log::info;
 
     // Load parameters.json
@@ -43,6 +45,11 @@ pub fn load_checkpoint(save_directory: &str, n: &num::BigInt) -> GNFS {
         panic!("Checkpoint n ({}) does not match expected n ({})", loaded_n, n);
     }
 
+    // TODO: Phase 3 - Implement proper deserialization with generics
+    // For now, this is a placeholder that panics
+    panic!("load_checkpoint needs to be re-implemented with generics support");
+
+    /*
     // Convert serializable GNFS to GNFS struct
     let mut gnfs = GNFS::from(serializable_gnfs);
 
@@ -97,6 +104,7 @@ pub fn load_checkpoint(save_directory: &str, n: &num::BigInt) -> GNFS {
     info!("  Position: A={}, B={}", gnfs.current_relations_progress.a, gnfs.current_relations_progress.b);
 
     gnfs
+    */
 }
 
 pub fn generic_fixed_array<T: serde::de::DeserializeOwned>(filename: &str) -> T {
@@ -158,28 +166,28 @@ pub fn polynomial(filename: &str) -> Polynomial {
     Polynomial::from(serializable_poly)
 }
 
-pub fn factor_base(gnfs: &mut GNFS) {
+pub fn factor_base<T: GnfsInteger>(gnfs: &mut GNFS<T>) {
     gnfs.set_prime_factor_bases();
 }
 
 pub mod factor_pair {
     use super::*;
 
-    pub fn rational(gnfs: &mut GNFS) {
+    pub fn rational<T: GnfsInteger>(gnfs: &mut GNFS<T>) {
         if Path::new(&gnfs.save_locations.rational_factor_pair_filepath).exists() {
             let serializable_collection: SerializableFactorPairCollection = load::generic(&gnfs.save_locations.rational_factor_pair_filepath);
             gnfs.rational_factor_pair_collection = FactorPairCollection::from(serializable_collection);
         }
     }
 
-    pub fn algebraic(gnfs: &mut GNFS) {
+    pub fn algebraic<T: GnfsInteger>(gnfs: &mut GNFS<T>) {
         if Path::new(&gnfs.save_locations.algebraic_factor_pair_filepath).exists() {
             let serializable_collection: SerializableFactorPairCollection = load::generic(&gnfs.save_locations.algebraic_factor_pair_filepath);
             gnfs.algebraic_factor_pair_collection = FactorPairCollection::from(serializable_collection);
         }
     }
 
-    pub fn quadratic(gnfs: &mut GNFS) {
+    pub fn quadratic<T: GnfsInteger>(gnfs: &mut GNFS<T>) {
         if Path::new(&gnfs.save_locations.quadratic_factor_pair_filepath).exists() {
             let serializable_collection: SerializableFactorPairCollection = load::generic(&gnfs.save_locations.quadratic_factor_pair_filepath);
             gnfs.quadratic_factor_pair_collection = FactorPairCollection::from(serializable_collection);
@@ -190,34 +198,34 @@ pub mod factor_pair {
 pub mod relations {
     use super::*;
 
-    pub fn smooth(gnfs: &mut GNFS) {
+    pub fn smooth<T: GnfsInteger>(gnfs: &mut GNFS<T>) {
         if Path::new(&gnfs.save_locations.smooth_relations_filepath).exists() {
             let mut temp: Vec<SerializableRelation> = load::generic(&gnfs.save_locations.smooth_relations_filepath);
-            
+
             // Filter out relations where any field is empty
-            temp.retain(|rel| 
+            temp.retain(|rel|
                 !(rel.a.is_empty() || rel.b.is_empty() || rel.algebraic_norm.is_empty() || rel.rational_norm.is_empty())
             );
-            
-            let mut relations: Vec<Relation> = temp.into_iter().map(|rel| Relation::from(rel)).collect();
+
+            let mut relations: Vec<Relation<T>> = temp.into_iter().map(|rel| rel.to_relation::<T>()).collect();
             relations.iter_mut().for_each(|rel| rel.is_persisted = true);
             gnfs.current_relations_progress.smooth_relations_counter = relations.len();
             gnfs.current_relations_progress.relations.smooth_relations = relations;
         }
     }
-    
 
-    pub fn rough(gnfs: &mut GNFS) {
+
+    pub fn rough<T: GnfsInteger>(gnfs: &mut GNFS<T>) {
         if Path::new(&gnfs.save_locations.rough_relations_filepath).exists() {
             let temp: Vec<SerializableRelation> = load::generic_fixed_array(&gnfs.save_locations.rough_relations_filepath);
-            let mut relations: Vec<Relation> = temp.into_iter().map(|rel| Relation::from(rel)).collect();
+            let mut relations: Vec<Relation<T>> = temp.into_iter().map(|rel| rel.to_relation::<T>()).collect();
             relations.iter_mut().for_each(|rel| rel.is_persisted = true);
             gnfs.current_relations_progress.relations.rough_relations = relations;
         }
     }
 
-    pub fn free(gnfs: &mut GNFS) {
-        let unsaved: Vec<&Vec<Relation>> = gnfs.current_relations_progress.relations.free_relations
+    pub fn free<T: GnfsInteger>(gnfs: &mut GNFS<T>) {
+        let unsaved: Vec<&Vec<Relation<T>>> = gnfs.current_relations_progress.relations.free_relations
             .iter()
             .filter(|lst| lst.iter().any(|rel| !rel.is_persisted))
             .collect();
@@ -234,7 +242,7 @@ pub mod relations {
         let free_relations = gnfs.save_locations.enumerate_free_relation_files();
         for solution in free_relations {
             let temp: Vec<SerializableRelation> = load::generic(&solution);
-            let mut relations: Vec<Relation> = temp.into_iter().map(|rel| Relation::from(rel)).collect();
+            let mut relations: Vec<Relation<T>> = temp.into_iter().map(|rel| rel.to_relation::<T>()).collect();
             relations.iter_mut().for_each(|rel| rel.is_persisted = true);
             gnfs.current_relations_progress.relations.free_relations.push(relations);
             gnfs.current_relations_progress.free_relations_counter += 1;

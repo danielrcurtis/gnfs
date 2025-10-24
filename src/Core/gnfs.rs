@@ -5,7 +5,9 @@ use num::{BigInt, ToPrimitive, Zero, Signed};
 use std::path::{Path,PathBuf};
 use std::sync::{atomic::AtomicBool, Arc};
 use std::iter::Iterator;
+use std::marker::PhantomData;
 use crate::core::factor_base::FactorBase;
+use crate::core::gnfs_integer::GnfsInteger;
 use crate::factor::factor_pair_collection::{FactorPairCollection, Factory};
 use crate::polynomial::polynomial::Polynomial;
 use crate::polynomial::polynomial::Term;
@@ -18,14 +20,15 @@ use crate::core::cancellation_token::CancellationToken;
 use crate::integer_math::prime_factory::PrimeFactory;
 
 #[derive(Debug, Clone)]
-pub struct GNFS {
+pub struct GNFS<T: GnfsInteger> {
     pub n: BigInt,
+    _phantom: PhantomData<T>,
     pub factorization: Option<Solution>,
     pub polynomial_degree: usize,
     pub polynomial_base: BigInt,
     pub polynomial_collection: Vec<Polynomial>,
     pub current_polynomial: Polynomial,
-    pub current_relations_progress: PolyRelationsSieveProgress,
+    pub current_relations_progress: PolyRelationsSieveProgress<T>,
     pub prime_factor_base: FactorBase,
     pub rational_factor_pair_collection: FactorPairCollection,
     pub algebraic_factor_pair_collection: FactorPairCollection,
@@ -33,7 +36,7 @@ pub struct GNFS {
     pub save_locations: DirectoryLocations,
 }
 
-impl GNFS {
+impl<T: GnfsInteger> GNFS<T> {
     pub fn new(
         cancel_token: &CancellationToken,
         n: &BigInt,
@@ -46,6 +49,7 @@ impl GNFS {
     ) -> Self {
         let mut gnfs = GNFS {
             n: n.clone(),
+            _phantom: PhantomData,
             factorization: None,
             polynomial_degree: 0,
             polynomial_base: polynomial_base.clone(),
@@ -337,10 +341,10 @@ impl GNFS {
         }
     }
 
-    pub fn group_rough_numbers(rough_numbers: &[Relation]) -> Vec<Vec<Relation>> {
+    pub fn group_rough_numbers(rough_numbers: &[Relation<T>]) -> Vec<Vec<Relation<T>>> {
         let mut results = Vec::new();
         let mut last_index: Option<usize> = None;
-    
+
         for (index, pair) in rough_numbers.iter().enumerate() {
             if let Some(last_idx) = last_index {
                 let last = &rough_numbers[last_idx];
@@ -354,25 +358,25 @@ impl GNFS {
                 last_index = Some(index);  // Initialize last_index with the first index
             }
         }
-    
+
         results
     }    
 
-    pub fn multiply_like_rough_numbers(gnfs: &GNFS, like_rough_numbers_groups: &[Vec<Relation>]) -> Vec<Relation> {
+    pub fn multiply_like_rough_numbers(gnfs: &GNFS<T>, like_rough_numbers_groups: &[Vec<Relation<T>>]) -> Vec<Relation<T>> {
         let mut result = Vec::new();
-    
+
         for like_pair in like_rough_numbers_groups {
-            let as_vec: Vec<BigInt> = like_pair.iter().map(|lp| lp.a.clone()).collect();
-            let bs_vec: Vec<BigInt> = like_pair.iter().map(|lp| lp.b.clone()).collect();
-    
+            let as_vec: Vec<BigInt> = like_pair.iter().map(|lp| lp.a.to_bigint()).collect();
+            let bs_vec: Vec<BigInt> = like_pair.iter().map(|lp| lp.b.to_bigint()).collect();
+
             let a = (as_vec[0].clone() + bs_vec[0].clone()) * (as_vec[0].clone() - bs_vec[0].clone());
             let b = (as_vec[1].clone() + bs_vec[1].clone()) * (as_vec[1].clone() - bs_vec[1].clone());
-    
+
             if a > BigInt::zero() && b > BigInt::zero() {
                 result.push(Relation::new(gnfs, &a, &b));
             }
         }
-    
+
         result
     }
 
@@ -404,7 +408,7 @@ impl GNFS {
 
 }
 
-impl ToString for GNFS {
+impl<T: GnfsInteger> ToString for GNFS<T> {
     fn to_string(&self) -> String {
         let mut result = String::new();
 
@@ -427,10 +431,11 @@ impl ToString for GNFS {
     }
 }
 
-impl Default for GNFS {
+impl<T: GnfsInteger> Default for GNFS<T> {
     fn default() -> Self {
         GNFS {
             n: BigInt::from(0),
+            _phantom: PhantomData,
             factorization: None,
             polynomial_degree: 0,
             polynomial_base: BigInt::from(0),
@@ -446,8 +451,8 @@ impl Default for GNFS {
     }
 }
 
-impl AsRef<GNFS> for GNFS {
-    fn as_ref(&self) -> &GNFS {
+impl<T: GnfsInteger> AsRef<GNFS<T>> for GNFS<T> {
+    fn as_ref(&self) -> &GNFS<T> {
         self
     }
 }
@@ -455,6 +460,7 @@ impl AsRef<GNFS> for GNFS {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::backends::bigint_backend::BigIntBackend;
 
     #[test]
     fn test_construct_polynomial_base_m_method() {
@@ -465,7 +471,7 @@ mod tests {
         let poly_degree = 3;
         let prime_bound = BigInt::from(100);
 
-        let gnfs = GNFS::new(
+        let gnfs = GNFS::<BigIntBackend>::new(
             &cancel_token,
             &n,
             &polynomial_base,
@@ -499,8 +505,9 @@ mod tests {
         let polynomial_base = BigInt::from(10);
         let poly_degree = 3;
 
-        let mut gnfs = GNFS {
+        let mut gnfs = GNFS::<BigIntBackend> {
             n: n.clone(),
+            _phantom: PhantomData,
             polynomial_degree: poly_degree,
             polynomial_base: polynomial_base.clone(),
             ..Default::default()
@@ -526,8 +533,9 @@ mod tests {
         let polynomial_base = BigInt::from(17);
         let poly_degree = 4;
 
-        let mut gnfs = GNFS {
+        let mut gnfs = GNFS::<BigIntBackend> {
             n: n.clone(),
+            _phantom: PhantomData,
             polynomial_degree: poly_degree,
             polynomial_base: polynomial_base.clone(),
             ..Default::default()
@@ -555,8 +563,9 @@ mod tests {
         let polynomial_base = BigInt::from(100);
         let poly_degree = 5;
 
-        let mut gnfs = GNFS {
+        let mut gnfs = GNFS::<BigIntBackend> {
             n: n.clone(),
+            _phantom: PhantomData,
             polynomial_degree: poly_degree,
             polynomial_base: polynomial_base.clone(),
             ..Default::default()
@@ -592,7 +601,7 @@ mod tests {
         let poly_degree = 3;
         let prime_bound = BigInt::from(100);
 
-        let gnfs = GNFS::new(
+        let gnfs = GNFS::<BigIntBackend>::new(
             &cancel_token,
             &n,
             &polynomial_base,

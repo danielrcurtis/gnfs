@@ -6,6 +6,7 @@ use log::warn;
 use num::BigInt;
 use serde::{Deserialize, Serialize};
 use crate::core::gnfs::GNFS;
+use crate::core::gnfs_integer::GnfsInteger;
 use crate::polynomial::polynomial::Polynomial;
 use crate::factor::factor_pair::FactorPair;
 use num::ToPrimitive;
@@ -59,7 +60,7 @@ pub struct Factory;
 impl Factory {
     // array of (p, m % p) up to bound
     // quantity = phi(bound)
-    pub fn build_rational_factor_pair_collection(gnfs: &GNFS) -> FactorPairCollection {
+    pub fn build_rational_factor_pair_collection<T: GnfsInteger>(gnfs: &GNFS<T>) -> FactorPairCollection {
         let result: Vec<FactorPair> = gnfs.prime_factor_base.rational_factor_base.iter()
             .map(|p| FactorPair::new(p.to_i128().unwrap(), (&gnfs.polynomial_base % p).to_i128().unwrap())) // Convert BigInt to i128
             .collect();
@@ -68,7 +69,7 @@ impl Factory {
 
     // array of (p, r) where ƒ(r) % p == 0
     // quantity = 2-3 times RFB.quantity
-    pub fn build_algebraic_factor_pair_collection(cancel_token: &Arc<AtomicBool>, gnfs: &GNFS) -> FactorPairCollection {
+    pub fn build_algebraic_factor_pair_collection<T: GnfsInteger>(cancel_token: &Arc<AtomicBool>, gnfs: &GNFS<T>) -> FactorPairCollection {
         let roots = Self::find_polynomial_roots_in_range(
             cancel_token,
             &gnfs.current_polynomial,
@@ -83,7 +84,7 @@ impl Factory {
     // array of (p, r) where ƒ(r) % p == 0
     // quantity =< 100
     // magnitude p > AFB.Last().p
-    pub fn build_quadratic_factor_pair_collection(cancel_token: &Arc<AtomicBool>, gnfs: &GNFS) -> FactorPairCollection {
+    pub fn build_quadratic_factor_pair_collection<T: GnfsInteger>(cancel_token: &Arc<AtomicBool>, gnfs: &GNFS<T>) -> FactorPairCollection {
         let roots = Self::find_polynomial_roots_in_range(
             cancel_token,
             &gnfs.current_polynomial,

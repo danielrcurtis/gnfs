@@ -1,6 +1,9 @@
 // src/core/mod.rs
 
 pub mod gnfs;
+pub mod gnfs_integer;
+pub mod gnfs_wrapper;
+pub mod backend_conversion;
 pub mod sieve_range;
 pub mod factor_base;
 pub mod count_dictionary;

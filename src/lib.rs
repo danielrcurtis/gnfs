@@ -3,6 +3,7 @@
 #![recursion_limit = "512"]
 
 pub mod core;
+pub mod backends;
 pub mod factor;
 pub mod polynomial;
 pub mod integer_math;

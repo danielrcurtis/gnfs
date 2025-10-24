@@ -20,7 +20,16 @@ pub struct DirectoryLocations {
 
 impl DirectoryLocations {
     pub fn new(save_location: &str) -> Self {
-        let save_directory = save_location.to_string();
+        // Allow output directory to be configured via environment variable
+        // Default to current directory (not /tmp) for safety
+        let base_dir = std::env::var("GNFS_OUTPUT_DIR")
+            .unwrap_or_else(|_| ".".to_string());
+
+        let save_directory = if base_dir == "." {
+            save_location.to_string()
+        } else {
+            format!("{}/{}", base_dir.trim_end_matches('/'), save_location)
+        };
         let gnfs_parameters_save_file = format!("{}/parameters.json", save_directory);
         let progress_save_file = format!("{}/progress.json", save_directory);
         let rational_factor_pair_save_file = format!("{}/RationalFactorPairCollection.json", save_directory);

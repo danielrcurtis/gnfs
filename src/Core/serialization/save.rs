@@ -5,7 +5,9 @@ use std::path::Path;
 use std::io::Write;
 use serde::Serialize;
 use serde_json;
+use num::BigInt;
 use crate::core::gnfs::GNFS;
+use crate::core::gnfs_integer::GnfsInteger;
 use crate::core::serialization::save;
 use crate::relation_sieve::relation::Relation;
 use crate::core::serialization::types::{
@@ -18,7 +20,7 @@ pub fn object<T: Serialize>(obj: &T, filename: &str) {
     fs::write(filename, save_json).expect("Failed to write file");
 }
 
-pub fn all(gnfs: &GNFS) {
+pub fn all<T: GnfsInteger>(gnfs: &GNFS<T>) {
     // TODO: Re-enable once GNFS serialization is re-implemented
     // save::gnfs(gnfs);
 
@@ -40,12 +42,14 @@ pub fn all(gnfs: &GNFS) {
     save::relations::free::all_solutions(gnfs);
 }
 
-pub fn parameters(gnfs: &GNFS) {
-    let serializable_gnfs = SerializableGNFS::from(gnfs.clone());
-    save::object(&serializable_gnfs, &gnfs.save_locations.parameters_filepath);
+pub fn parameters<T: GnfsInteger>(gnfs: &GNFS<T>) {
+    // TODO: Phase 3 - Re-implement with proper GNFS<T> serialization
+    // let serializable_gnfs = SerializableGNFS::from(gnfs.clone());
+    // save::object(&serializable_gnfs, &gnfs.save_locations.parameters_filepath);
+    eprintln!("Warning: parameters serialization is temporarily disabled");
 }
 
-pub fn progress(gnfs: &GNFS) {
+pub fn progress<T: GnfsInteger>(gnfs: &GNFS<T>) {
     use crate::core::serialization::types::SerializablePolyRelationsSieveProgress;
     let serializable_progress = SerializablePolyRelationsSieveProgress::from(gnfs.current_relations_progress.clone());
     save::object(&serializable_progress, &gnfs.save_locations.progress_filepath);
@@ -54,21 +58,21 @@ pub fn progress(gnfs: &GNFS) {
 pub mod factor_pair {
     use super::*;
 
-    pub fn rational(gnfs: &GNFS) {
+    pub fn rational<T: GnfsInteger>(gnfs: &GNFS<T>) {
         if !gnfs.rational_factor_pair_collection.len() == 0 {
             let serializable_collection = SerializableFactorPairCollection::from(gnfs.rational_factor_pair_collection.clone());
             save::object(&serializable_collection, &gnfs.save_locations.rational_factor_pair_filepath);
         }
     }
 
-    pub fn algebraic(gnfs: &GNFS) {
+    pub fn algebraic<T: GnfsInteger>(gnfs: &GNFS<T>) {
         if !gnfs.algebraic_factor_pair_collection.len() == 0 {
             let serializable_collection = SerializableFactorPairCollection::from(gnfs.algebraic_factor_pair_collection.clone());
             save::object(&serializable_collection, &gnfs.save_locations.algebraic_factor_pair_filepath);
         }
     }
 
-    pub fn quadratic(gnfs: &GNFS) {
+    pub fn quadratic<T: GnfsInteger>(gnfs: &GNFS<T>) {
         if !gnfs.quadratic_factor_pair_collection.len() == 0 {
             let serializable_collection = SerializableFactorPairCollection::from(gnfs.quadratic_factor_pair_collection.clone());
             save::object(&serializable_collection, &gnfs.save_locations.quadratic_factor_pair_filepath);
@@ -82,7 +86,7 @@ pub mod relations {
     pub mod smooth {
         use super::*;
 
-        pub fn append(gnfs: &mut GNFS) {
+        pub fn append<T: GnfsInteger>(gnfs: &mut GNFS<T>) {
             let mut relations_to_update = Vec::new();
             let mut smooth_relations = Vec::new();
 
@@ -109,8 +113,9 @@ pub mod relations {
             std::mem::swap(&mut gnfs.current_relations_progress.relations.smooth_relations, &mut smooth_relations);
         }
 
-        fn append_relation(gnfs: &GNFS, relation: &mut Relation) {
+        fn append_relation<T: GnfsInteger>(gnfs: &GNFS<T>, relation: &mut Relation<T>) {
             if relation.is_smooth() && !relation.is_persisted {
+                // Directly convert Relation<T> to SerializableRelation using the generic From impl
                 let serializable_relation = SerializableRelation::from(relation.clone());
                 let json = serde_json::to_string_pretty(&serializable_relation)
                     .expect("Failed to serialize relation");
@@ -147,7 +152,7 @@ pub mod relations {
     pub mod rough {
         use super::*;
     
-        pub fn append(gnfs: &mut GNFS) {
+        pub fn append<T: GnfsInteger>(gnfs: &mut GNFS<T>) {
             let mut relations_to_update = Vec::new();
             let mut smooth_relations = Vec::new();
             
@@ -173,8 +178,10 @@ pub mod relations {
             // Swap the updated smooth relations back into GNFS
             std::mem::swap(&mut gnfs.current_relations_progress.relations.smooth_relations, &mut smooth_relations);
         }
-    
-        fn append_relation(gnfs: &mut GNFS, relation: &mut Relation) {
+
+
+        fn append_relation<T: GnfsInteger>(gnfs: &mut GNFS<T>, relation: &mut Relation<T>) {
+            // Directly convert Relation<T> to SerializableRelation using the generic From impl
             let serializable_relation = SerializableRelation::from(relation.clone());
             let mut json = serde_json::to_string_pretty(&serializable_relation).expect("Failed to serialize relation");
     
@@ -193,7 +200,7 @@ pub mod relations {
     pub mod free {
         use super::*;
     
-        pub fn all_solutions(gnfs: &mut GNFS) {
+        pub fn all_solutions<T: GnfsInteger>(gnfs: &mut GNFS<T>) {
             let solutions_to_save = Vec::new();
             let mut free_relations = Vec::new();
             
@@ -209,7 +216,7 @@ pub mod relations {
             std::mem::swap(&mut gnfs.current_relations_progress.relations.free_relations, &mut free_relations);
         }
     
-        pub fn single_solution(gnfs: &mut GNFS, solution: &mut Vec<Relation>) {
+        pub fn single_solution<T: GnfsInteger>(gnfs: &mut GNFS<T>, solution: &mut Vec<Relation<T>>) {
             if !solution.is_empty() {
                 for rel in solution.iter_mut() {
                     rel.is_persisted = true;

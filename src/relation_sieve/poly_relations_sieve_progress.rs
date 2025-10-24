@@ -6,6 +6,7 @@ use rayon::prelude::*;
 use crate::integer_math::gcd::GCD;
 use crate::core::sieve_range::SieveRange;
 use crate::core::gnfs::GNFS;
+use crate::core::gnfs_integer::GnfsInteger;
 use crate::relation_sieve::relation::Relation;
 use crate::relation_sieve::relation_container::RelationContainer;
 use crate::integer_math::prime_factory::PrimeFactory;
@@ -15,19 +16,19 @@ use crate::core::cancellation_token::CancellationToken;
 use crate::square_root::square_finder::is_square;
 
 #[derive(Debug, Clone)]
-pub struct PolyRelationsSieveProgress {
+pub struct PolyRelationsSieveProgress<T: GnfsInteger> {
     pub a: BigInt,
     pub b: BigInt,
     pub smooth_relations_target_quantity: usize,
     pub value_range: BigInt,
-    pub relations: RelationContainer,
+    pub relations: RelationContainer<T>,
     pub max_b: BigInt,
     pub smooth_relations_counter: usize,
     pub free_relations_counter: usize,
 }
 
-impl PolyRelationsSieveProgress {
-    pub fn new(gnfs: &GNFS, smooth_relations_target_quantity: isize, value_range: BigInt) -> Self {
+impl<T: GnfsInteger> PolyRelationsSieveProgress<T> {
+    pub fn new(gnfs: &GNFS<T>, smooth_relations_target_quantity: isize, value_range: BigInt) -> Self {
         let required_for_matrix = Self::smooth_relations_required_for_matrix_step(gnfs);
 
         let target_quantity = if smooth_relations_target_quantity == -1 {
@@ -48,7 +49,7 @@ impl PolyRelationsSieveProgress {
         }
     }
     
-    pub fn smooth_relations_required_for_matrix_step(gnfs: &GNFS) -> usize {
+    pub fn smooth_relations_required_for_matrix_step(gnfs: &GNFS<T>) -> usize {
         let mut prime_factory = PrimeFactory::new();
         PrimeFactory::get_index_from_value(&mut prime_factory, &gnfs.prime_factor_base.rational_factor_base_max) as usize
             + PrimeFactory::get_index_from_value(&mut prime_factory, &gnfs.prime_factor_base.algebraic_factor_base_max) as usize
@@ -56,14 +57,21 @@ impl PolyRelationsSieveProgress {
             + 3
     }
 
-    pub fn generate_relations(&mut self, gnfs: &GNFS, cancel_token: &CancellationToken) {
+    pub fn generate_relations(&mut self, gnfs: &GNFS<T>, cancel_token: &CancellationToken) {
         self.smooth_relations_target_quantity = std::cmp::max(
             self.smooth_relations_target_quantity,
             Self::smooth_relations_required_for_matrix_step(gnfs),
         );
     
+        // CRITICAL FIX: Cap value_range to prevent unbounded memory growth
+        // Previously this would grow: 50 → 250 → 450 → 650 → ... causing 80GB spikes
+        const MAX_VALUE_RANGE_GLOBAL: i64 = 150;
         if self.a >= self.value_range {
             self.value_range += BigInt::from(200);
+            // Enforce maximum to prevent exponential memory growth
+            if self.value_range > BigInt::from(MAX_VALUE_RANGE_GLOBAL) {
+                self.value_range = BigInt::from(MAX_VALUE_RANGE_GLOBAL);
+            }
         }
     
         self.value_range = if self.value_range.is_even() {
@@ -131,7 +139,11 @@ impl PolyRelationsSieveProgress {
             let parallel_start = Instant::now();
 
             let mut total_pairs = 0;
-            let mut all_found = Vec::new();
+            // MEMORY FIX: Preallocate with realistic capacity to prevent rayon over-allocation
+            // Expected: ~0.1% of pairs are smooth, batch_size=1, value_range=150
+            // Conservative estimate: 1-5 smooth relations per batch
+            let expected_smooth_relations = 5;
+            let mut all_found = Vec::with_capacity(expected_smooth_relations);
 
             // Process B values one at a time, with aggressive memory cleanup
             for b_offset in 0..batch_size {
@@ -152,8 +164,15 @@ impl PolyRelationsSieveProgress {
                 let pairs_for_this_b = a_values.len();
                 total_pairs += pairs_for_this_b;
 
+                // MEMORY LEAK INVESTIGATION: Track a_values size
+                debug!("MEMORY: a_values: len={}, capacity={}, estimated_mem={}KB",
+                       a_values.len(),
+                       a_values.capacity(),
+                       (a_values.capacity() * std::mem::size_of::<BigInt>()) / 1024);
+
                 // Process in parallel, but immediately drop non-smooth Relations
-                let found_for_this_b: Vec<Relation> = a_values
+                // KEY OPTIMIZATION: Relation<T> now uses native types internally
+                let found_for_this_b: Vec<Relation<T>> = a_values
                     .par_iter()
                     .filter_map(|a| {
                         let mut rel = Relation::new(gnfs, a, &current_b);
@@ -181,6 +200,19 @@ impl PolyRelationsSieveProgress {
             info!("  Time elapsed: {:.2}s", parallel_elapsed.as_secs_f64());
             info!("  Throughput: {:.0} pairs/sec", total_pairs as f64 / parallel_elapsed.as_secs_f64());
             info!("  Smooth relations found: {}", num_found);
+            info!("  MEMORY: all_found len={}, capacity={}, est_size={}MB",
+                  all_found.len(),
+                  all_found.capacity(),
+                  (all_found.capacity() * std::mem::size_of::<Relation<T>>()) / (1024 * 1024));
+
+            // MEMORY LEAK INVESTIGATION: Track vector capacity
+            debug!("MEMORY: all_found before transfer: len={}, capacity={}, waste={}",
+                   all_found.len(),
+                   all_found.capacity(),
+                   all_found.capacity().saturating_sub(all_found.len()));
+
+            // CRITICAL FIX: Shrink all_found before transferring to reclaim excess capacity
+            all_found.shrink_to_fit();
 
             // Update progress tracking - use streaming to avoid memory accumulation
             if let Err(e) = self.relations.add_smooth_relations(all_found) {
@@ -212,7 +244,7 @@ impl PolyRelationsSieveProgress {
 
         let to_remove_alg: Vec<_> = rough_relations
             .iter()
-            .filter(|r| &r.algebraic_quotient != &BigInt::from(1) && FactorizationFactory::is_probable_prime(&r.algebraic_quotient))
+            .filter(|r| r.algebraic_quotient != T::one() && FactorizationFactory::is_probable_prime(&r.algebraic_quotient.to_bigint()))
             .cloned()
             .collect();
 
@@ -225,7 +257,7 @@ impl PolyRelationsSieveProgress {
 
         let to_remove_rational: Vec<_> = rough_relations
             .iter()
-            .filter(|r| &r.rational_quotient != &BigInt::from(1) && FactorizationFactory::is_probable_prime(&r.rational_quotient))
+            .filter(|r| r.rational_quotient != T::one() && FactorizationFactory::is_probable_prime(&r.rational_quotient.to_bigint()))
             .cloned()
             .collect();
 
@@ -237,7 +269,7 @@ impl PolyRelationsSieveProgress {
         self.relations.rough_relations = rough_relations;
     }
 
-    pub fn add_free_relation_solution(&mut self, free_relation_solution: Vec<Relation>) {
+    pub fn add_free_relation_solution(&mut self, free_relation_solution: Vec<Relation<T>>) {
         self.relations.free_relations.push(free_relation_solution.clone());
         // TODO: Re-enable serialization once ownership is properly handled
         // free::single_solution(gnfs, &mut free_relation_solution);
@@ -246,7 +278,7 @@ impl PolyRelationsSieveProgress {
     }
     
 
-    pub fn format_relations(&self, relations: &[Relation]) -> String {
+    pub fn format_relations(&self, relations: &[Relation<T>]) -> String {
         let mut result = String::new();
 
         result.push_str("Smooth relations:\n");
@@ -270,7 +302,7 @@ impl PolyRelationsSieveProgress {
 
 }
 
-impl ToString for PolyRelationsSieveProgress {
+impl<T: GnfsInteger> ToString for PolyRelationsSieveProgress<T> {
     fn to_string(&self) -> String {
         if !self.relations.free_relations.is_empty() {
             let mut result = String::new();
@@ -279,8 +311,8 @@ impl ToString for PolyRelationsSieveProgress {
 
             result.push_str(&self.format_relations(relations));
 
-            let algebraic: BigInt = relations.iter().map(|rel| rel.algebraic_norm.clone()).product();
-            let rational: BigInt = relations.iter().map(|rel| rel.rational_norm.clone()).product();
+            let algebraic: BigInt = relations.iter().map(|rel| rel.algebraic_norm.to_bigint()).product();
+            let rational: BigInt = relations.iter().map(|rel| rel.rational_norm.to_bigint()).product();
 
             let is_algebraic_square = is_square(&algebraic); // look at abstract algebraic factorization  <----
             let is_rational_square = is_square(&rational);
@@ -321,7 +353,7 @@ impl ToString for PolyRelationsSieveProgress {
     }
 }
 
-impl Default for PolyRelationsSieveProgress {
+impl<T: GnfsInteger> Default for PolyRelationsSieveProgress<T> {
     fn default() -> Self {
         PolyRelationsSieveProgress {
             a: BigInt::from(0),
@@ -336,7 +368,7 @@ impl Default for PolyRelationsSieveProgress {
     }
 }
 
-impl std::fmt::Display for Relation {
+impl<T: GnfsInteger> std::fmt::Display for Relation<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Customize the formatting of Relation struct
         write!(f, "Relation {{ a: {}, b: {}, algebraic_norm: {}, rational_norm: {} }}", self.a, self.b, self.algebraic_norm, self.rational_norm)

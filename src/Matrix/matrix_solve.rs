@@ -4,6 +4,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use num::{BigInt, ToPrimitive};
 use crate::core::gnfs::GNFS;
+use crate::core::gnfs_integer::GnfsInteger;
 use crate::core::count_dictionary::CountDictionary;
 use crate::relation_sieve::poly_relations_sieve_progress::PolyRelationsSieveProgress;
 use crate::matrix::gaussian_matrix::GaussianMatrix;
@@ -13,7 +14,7 @@ use crate::square_root::square_finder::is_square;
 pub struct MatrixSolve;
 
 impl MatrixSolve {
-    pub fn gaussian_solve(cancel_token: &Arc<AtomicBool>, gnfs: &mut GNFS) {
+    pub fn gaussian_solve<T: GnfsInteger>(cancel_token: &Arc<AtomicBool>, gnfs: &mut GNFS<T>) {
         // TODO: Re-enable serialization once it's properly fixed
         // Relations are already in memory from the sieving stage, no need to save/load
         // save::relations::smooth::append(gnfs);
@@ -59,8 +60,8 @@ impl MatrixSolve {
 
                     gaussian_reduction._gnfs.log_message_slice(&format!("Testing solution set {} with {} relations", number, relations.len()));
 
-                    let algebraic: BigInt = relations.iter().map(|rel| &rel.algebraic_norm).product();
-                    let rational: BigInt = relations.iter().map(|rel| &rel.rational_norm).product();
+                    let algebraic: BigInt = relations.iter().map(|rel| rel.algebraic_norm.to_bigint()).product();
+                    let rational: BigInt = relations.iter().map(|rel| rel.rational_norm.to_bigint()).product();
 
                     let mut alg_count_dict = CountDictionary::new();
 

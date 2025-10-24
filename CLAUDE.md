@@ -150,6 +150,103 @@ MY_LOG_LEVEL=debug cargo run
 
 Default level is `info`. Key stages log their progress.
 
+### Environment Variables
+
+The GNFS implementation supports several environment variables for customization:
+
+#### GNFS_OUTPUT_DIR
+Controls where GNFS saves its working data (relations, factor bases, progress).
+
+**Default:** `.` (current directory)
+
+**Examples:**
+```bash
+# Save to /tmp (useful for benchmarking or temporary runs)
+GNFS_OUTPUT_DIR=/tmp ./target/release/gnfs 738883
+
+# Save to specific project directory
+GNFS_OUTPUT_DIR=/data/gnfs-workdir ./target/release/gnfs 100085411
+```
+
+The output directory will contain a subdirectory named after the number being factored (e.g., `738883/` containing `streamed_relations.jsonl`, `parameters.json`, etc.).
+
+#### GNFS_CLEANUP
+Controls whether to delete the output directory after successful factorization.
+
+**Default:** `false` (keep output for inspection)
+
+**Examples:**
+```bash
+# Clean up after successful factorization (useful for benchmarks)
+GNFS_CLEANUP=true ./target/release/gnfs 143
+
+# Keep output directory (default behavior)
+./target/release/gnfs 143
+```
+
+**Warning:** Only set `GNFS_CLEANUP=true` if you don't need the intermediate data. The cleanup happens regardless of whether factorization succeeded.
+
+#### GNFS_RELATION_BUFFER_SIZE
+Controls how many smooth relations are buffered in memory before flushing to disk.
+
+**Default:** `50`
+
+**Trade-offs:**
+- **Too small** (e.g., 5): Excessive disk I/O, high system CPU usage (50%+), context switches
+- **Too large** (e.g., 500): Higher memory usage, risk of OOM on large numbers
+- **Optimal** (50-100): Good balance for most workloads
+
+**Examples:**
+```bash
+# Reduce disk I/O for fast SSDs (use larger buffer)
+GNFS_RELATION_BUFFER_SIZE=100 ./target/release/gnfs 738883
+
+# Reduce memory usage for memory-constrained systems
+GNFS_RELATION_BUFFER_SIZE=25 ./target/release/gnfs 100085411
+
+# Use default (recommended)
+./target/release/gnfs 738883
+```
+
+#### MY_LOG_LEVEL
+Controls logging verbosity (from `env_logger`).
+
+**Default:** `info`
+
+**Options:** `error`, `warn`, `info`, `debug`, `trace`
+
+**Example:**
+```bash
+MY_LOG_LEVEL=debug cargo run --release
+```
+
+#### GNFS_THREADS
+Controls the number of parallel threads used for sieving (from rayon).
+
+**Default:** Number of logical CPU cores
+
+**Example:**
+```bash
+# Use 8 threads for sieving
+GNFS_THREADS=8 ./target/release/gnfs 100085411
+```
+
+### Combined Usage Examples
+
+```bash
+# Benchmark run: use /tmp, cleanup after, with timing
+time env GNFS_OUTPUT_DIR=/tmp GNFS_CLEANUP=true MY_LOG_LEVEL=info \
+  ./target/release/gnfs 738883
+
+# Production run: custom directory, keep output, debug logging
+GNFS_OUTPUT_DIR=/data/gnfs GNFS_RELATION_BUFFER_SIZE=100 MY_LOG_LEVEL=debug \
+  ./target/release/gnfs 10003430467
+
+# Memory-constrained run: small buffer, fewer threads
+GNFS_RELATION_BUFFER_SIZE=25 GNFS_THREADS=4 \
+  ./target/release/gnfs 100085411
+```
+
 ## Performance Benchmarking
 
 The project includes a comprehensive benchmarking suite for tracking performance across changes and identifying optimization opportunities.

@@ -2,7 +2,8 @@
 
 use num::BigInt;
 use std::time::Instant;
-use crate::core::gnfs::GNFS;
+use log::info;
+use crate::core::gnfs_wrapper::GNFSWrapper;
 use crate::core::cancellation_token::CancellationToken;
 use crate::benchmark::results::{BenchmarkSuite, FactorizationBenchmark, StageTimings};
 
@@ -84,7 +85,7 @@ impl BenchmarkRunner {
         };
         let created_new_data = true;
 
-        let mut gnfs = GNFS::new(
+        let mut gnfs = GNFSWrapper::new(
             &cancel_token,
             n,
             &polynomial_base,
@@ -96,27 +97,26 @@ impl BenchmarkRunner {
         );
         let init_time = start_init.elapsed();
 
+        // Log which backend was selected
+        info!("Backend selected for benchmark: {}", gnfs.backend_name());
+
+        let (rat_fb_size, alg_fb_size, _quad_fb_size) = gnfs.get_factor_base_info();
         println!("  Initialization: {:?}", init_time);
-        println!("  Polynomial degree: {}", gnfs.polynomial_degree);
-        println!("  Rational factor base: {} primes", gnfs.prime_factor_base.rational_factor_base.len());
-        println!("  Algebraic factor base: {} primes", gnfs.prime_factor_base.algebraic_factor_base.len());
+        println!("  Backend: {}", gnfs.backend_name());
+        println!("  Polynomial degree: {}", gnfs.polynomial_degree());
+        println!("  Rational factor base: {} primes", rat_fb_size);
+        println!("  Algebraic factor base: {} primes", alg_fb_size);
 
         // Stage 2: Sieving
         let start_sieve = Instant::now();
         let sieve_cancel_token = CancellationToken::new();
 
-        // Extract progress to avoid borrow checker issues
-        let mut progress = std::mem::replace(
-            &mut gnfs.current_relations_progress,
-            crate::relation_sieve::poly_relations_sieve_progress::PolyRelationsSieveProgress::default()
-        );
-        progress.generate_relations(&gnfs, &sieve_cancel_token);
-        gnfs.current_relations_progress = progress;
+        // Use the wrapper's find_relations method
+        gnfs.find_relations(&sieve_cancel_token, true);
 
         let sieve_time = start_sieve.elapsed();
 
-        let relations_found = gnfs.current_relations_progress.smooth_relations_counter;
-        let relations_required = gnfs.current_relations_progress.smooth_relations_target_quantity;
+        let (relations_found, relations_required) = gnfs.get_relations_info();
 
         println!("  Sieving: {:?}", sieve_time);
         println!("  Relations found: {} / {} required", relations_found, relations_required);
