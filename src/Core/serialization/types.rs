@@ -141,6 +141,10 @@ pub struct SerializablePolyRelationsSieveProgress {
     pub max_b: String,
     pub smooth_relations_counter: usize,
     pub free_relations_counter: usize,
+    // Search space exhaustion detection fields
+    pub consecutive_zero_batches: usize,
+    pub initial_max_b: String,
+    pub total_batches_processed: usize,
 }
 
 // Serialization - PolyRelationsSieveProgress already stores BigInt values
@@ -154,6 +158,9 @@ impl<T: GnfsInteger> From<PolyRelationsSieveProgress<T>> for SerializablePolyRel
             max_b: progress.max_b.to_string(),
             smooth_relations_counter: progress.smooth_relations_counter,
             free_relations_counter: progress.free_relations_counter,
+            consecutive_zero_batches: progress.consecutive_zero_batches,
+            initial_max_b: progress.initial_max_b.to_string(),
+            total_batches_processed: progress.total_batches_processed,
         }
     }
 }
@@ -170,6 +177,9 @@ impl SerializablePolyRelationsSieveProgress {
             max_b: BigInt::parse_bytes(self.max_b.as_bytes(), 10).unwrap(),
             smooth_relations_counter: self.smooth_relations_counter,
             free_relations_counter: self.free_relations_counter,
+            consecutive_zero_batches: self.consecutive_zero_batches,
+            initial_max_b: BigInt::parse_bytes(self.initial_max_b.as_bytes(), 10).unwrap(),
+            total_batches_processed: self.total_batches_processed,
         }
     }
 }
@@ -460,6 +470,9 @@ impl Default for SerializablePolyRelationsSieveProgress {
             max_b: String::default(),
             smooth_relations_counter: 0,
             free_relations_counter: 0,
+            consecutive_zero_batches: 0,
+            initial_max_b: String::default(),
+            total_batches_processed: 0,
         }
     }
 }

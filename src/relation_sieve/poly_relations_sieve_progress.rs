@@ -26,6 +26,10 @@ pub struct PolyRelationsSieveProgress<T: GnfsInteger> {
     pub max_b: BigInt,
     pub smooth_relations_counter: usize,
     pub free_relations_counter: usize,
+    // Search space exhaustion detection fields
+    pub consecutive_zero_batches: usize,
+    pub initial_max_b: BigInt,
+    pub total_batches_processed: usize,
 }
 
 impl<T: GnfsInteger> PolyRelationsSieveProgress<T> {
@@ -45,15 +49,20 @@ impl<T: GnfsInteger> PolyRelationsSieveProgress<T> {
         // Get digit count for size estimation
         let digit_count = gnfs.n.to_string().len();
 
+        let initial_max_b = gnfs.prime_factor_base.algebraic_factor_base_max.clone();
         PolyRelationsSieveProgress {
             a: BigInt::from(0),
             b: BigInt::from(3),
             smooth_relations_target_quantity: target_quantity,
             value_range,
             relations: RelationContainer::with_config(buffer_config, digit_count),
-            max_b: gnfs.prime_factor_base.algebraic_factor_base_max.clone(),
+            max_b: initial_max_b.clone(),
             smooth_relations_counter: 0,
             free_relations_counter: 0,
+            // Initialize exhaustion detection fields
+            consecutive_zero_batches: 0,
+            initial_max_b,
+            total_batches_processed: 0,
         }
     }
     
@@ -250,6 +259,80 @@ impl<T: GnfsInteger> PolyRelationsSieveProgress<T> {
                   100.0 * self.smooth_relations_counter as f64 / self.smooth_relations_target_quantity as f64);
             debug!("Now at B = {}", self.b);
 
+            // ========== SEARCH SPACE EXHAUSTION DETECTION ==========
+            // Track batch statistics for exhaustion detection
+            self.total_batches_processed += 1;
+
+            if num_found == 0 {
+                self.consecutive_zero_batches += 1;
+                debug!("Consecutive zero batches: {}", self.consecutive_zero_batches);
+            } else {
+                // Reset counter when we find smooth relations
+                self.consecutive_zero_batches = 0;
+            }
+
+            // Calculate progress percentage
+            let progress_pct = 100.0 * self.smooth_relations_counter as f64 / self.smooth_relations_target_quantity as f64;
+
+            // CONDITION 1: 100 consecutive batches with zero smooth relations
+            if self.consecutive_zero_batches >= 100 {
+                log::error!("========== SEARCH SPACE EXHAUSTED ==========");
+                log::error!("Found {} / {} relations ({:.1}%)",
+                           self.smooth_relations_counter,
+                           self.smooth_relations_target_quantity,
+                           progress_pct);
+                log::error!("100 consecutive batches found 0 smooth relations.");
+                log::error!("Prime bounds are too small for this number size.");
+                log::error!("");
+                log::error!("Suggestions:");
+                log::error!("  - Increase prime bounds (currently algebraic_max_b = {})", self.max_b);
+                log::error!("  - Use larger relation_value_range");
+                log::error!("  - This number may require different polynomial parameters");
+                log::error!("==========================================");
+                break;
+            }
+
+            // CONDITION 2: B has grown to 10x initial max_b
+            let b_multiplier = if self.initial_max_b > BigInt::from(0) {
+                &self.b / &self.initial_max_b
+            } else {
+                BigInt::from(0)
+            };
+
+            if b_multiplier >= BigInt::from(10) {
+                log::error!("========== SEARCH SPACE EXHAUSTED ==========");
+                log::error!("Found {} / {} relations ({:.1}%)",
+                           self.smooth_relations_counter,
+                           self.smooth_relations_target_quantity,
+                           progress_pct);
+                log::error!("B value has grown to {}x initial max_b (B = {}, initial max_b = {})",
+                           b_multiplier, self.b, self.initial_max_b);
+                log::error!("Prime bounds are too small for this number size.");
+                log::error!("");
+                log::error!("Suggestions:");
+                log::error!("  - Increase prime bounds significantly");
+                log::error!("  - Use different polynomial selection strategy");
+                log::error!("==========================================");
+                break;
+            }
+
+            // CONDITION 3: 1000+ batches and < 50% of target found
+            if self.total_batches_processed >= 1000 && progress_pct < 50.0 {
+                log::warn!("========== SLOW PROGRESS WARNING ==========");
+                log::warn!("Processed {} batches but only found {:.1}% of target relations",
+                          self.total_batches_processed, progress_pct);
+                log::warn!("Current B = {}, initial max_b = {}", self.b, self.initial_max_b);
+                log::warn!("Consecutive zero batches: {}", self.consecutive_zero_batches);
+                log::warn!("Consider aborting and using larger prime bounds.");
+                log::warn!("==========================================");
+
+                // If we've also seen many zero batches, abort
+                if self.consecutive_zero_batches >= 50 {
+                    log::error!("Aborting due to slow progress and frequent zero-relation batches.");
+                    break;
+                }
+            }
+
         }
     }
     
@@ -383,6 +466,9 @@ impl<T: GnfsInteger> Default for PolyRelationsSieveProgress<T> {
             max_b: BigInt::from(0),
             smooth_relations_counter: 0,
             free_relations_counter: 0,
+            consecutive_zero_batches: 0,
+            initial_max_b: BigInt::from(0),
+            total_batches_processed: 0,
         }
     }
 }
