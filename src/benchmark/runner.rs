@@ -50,26 +50,31 @@ impl BenchmarkRunner {
         let poly_degree = 3;
 
         // Determine prime bound based on digit count (matching main.rs logic)
+        // Updated with Fix 2: exponential scaling for 10+ digits
         let digits = n.to_string().len();
         let prime_bound = if digits <= 8 {
             BigInt::from(100)         // 8 digits: ~0.3s, 254 relations
         } else if digits == 9 {
             BigInt::from(100)         // 9 digits: 2-28s (varies), sufficient smooth relations
         } else if digits == 10 {
-            BigInt::from(200)         // 10 digits: targeting <60s (was >5min with 100)
+            BigInt::from(1000)        // 10 digits: increased from 200, then 500 (Fix 2 - prevent exhaustion)
         } else if digits == 11 {
-            BigInt::from(400)         // 11 digits: targeting <90s
+            BigInt::from(1000)        // 11 digits: increased from 400 (exponential scaling)
         } else if digits == 12 {
-            BigInt::from(800)         // 12 digits: targeting <2min
+            BigInt::from(2000)        // 12 digits: increased from 800 (exponential scaling)
         } else if digits <= 14 {
-            BigInt::from(2000)        // 13-14 digits: may take 3-5 minutes
+            BigInt::from(5000)        // 13-14 digits: increased from 2000
         } else if digits <= 16 {
-            BigInt::from(5000)        // 15-16 digits: may take 5-10 minutes
+            BigInt::from(10000)       // 15-16 digits: increased from 5000
         } else if digits <= 18 {
-            BigInt::from(10000)       // 17-18 digits: ~1 minute (tested: 57s for 17-digit)
+            BigInt::from(20000)       // 17-18 digits: increased from 10000
         } else {
             // For larger numbers (19+ digits), use exponential scaling
-            BigInt::from(digits) * BigInt::from(1000)
+            // Formula: base * (1.5 ^ (digits - 18))
+            let base = 20000_i64;
+            let exponent = digits - 18;
+            let multiplier = (1.5_f64.powi(exponent as i32) * 1000.0) as i64;
+            BigInt::from(base) * BigInt::from(multiplier) / BigInt::from(1000)
         };
 
         // For benchmarks, we want to test actual sieving performance, not just initialization

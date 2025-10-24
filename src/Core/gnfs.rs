@@ -239,14 +239,18 @@ impl<T: GnfsInteger> GNFS<T> {
         // This assumes average prime gap of ~15 in this range, which works for smaller primes
         self.prime_factor_base.quadratic_factor_base_max = &self.prime_factor_base.quadratic_factor_base_min + (self.prime_factor_base.quadratic_base_count * 15);
 
-        // TODO: Implement logging
-        // info!(format!("Rational  Factor Base Bounds: Min: - Max: {}", self.prime_factor_base.rational_factor_base_max));
-        // info!(format!("Algebraic Factor Base Bounds: Min: - Max: {}", self.prime_factor_base.algebraic_factor_base_max));
-        // info!(format!("Quadratic Factor Base Bounds: Min: {} Max: {}", self.prime_factor_base.quadratic_factor_base_min, self.prime_factor_base.quadratic_factor_base_max));
+        // Log prime bounds for debugging and validation
+        let digits = self.n.to_string().len();
+        info!("Number size: {} digits", digits);
+        info!("Rational  Factor Base Bounds: Max = {}", self.prime_factor_base.rational_factor_base_max);
+        info!("Algebraic Factor Base Bounds: Max = {}", self.prime_factor_base.algebraic_factor_base_max);
+        info!("Quadratic Factor Base Bounds: Min = {}, Max = {}, Count = {}",
+            self.prime_factor_base.quadratic_factor_base_min,
+            self.prime_factor_base.quadratic_factor_base_max,
+            self.prime_factor_base.quadratic_base_count);
 
         // TODO: Implement saving the state
         // Serialization::save_all(self);
-        // info!("Saved prime factor base bounds.".to_string());
     }
 
     pub fn is_factored(&self) -> bool {
