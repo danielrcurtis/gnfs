@@ -112,9 +112,10 @@ impl<T: GnfsInteger> PolyRelationsSieveProgress<T> {
                 break;
             }
 
+            // Increase max_b if needed instead of breaking
             if &self.b > &self.max_b {
-                debug!("Breaking because B ({}) > MaxB ({})", self.b, self.max_b);
-                break;
+                self.max_b = &self.b + 100;
+                debug!("Increased MaxB to {} (current B = {})", self.max_b, self.b);
             }
 
             debug!("About to call get_sieve_range_continuation with self.a = {}, self.value_range = {}", self.a, self.value_range);
@@ -156,8 +157,9 @@ impl<T: GnfsInteger> PolyRelationsSieveProgress<T> {
             // Process B values one at a time, with aggressive memory cleanup
             for b_offset in 0..batch_size {
                 let current_b = &batch_start_b + BigInt::from(b_offset);
+                // Skip this B value if it exceeds max_b (max_b increases in outer loop)
                 if &current_b > &self.max_b {
-                    break;
+                    continue;  // Changed from break to continue
                 }
 
                 // Generate A values for this B - use capped value_range
@@ -230,7 +232,8 @@ impl<T: GnfsInteger> PolyRelationsSieveProgress<T> {
 
             // Update B to the next batch
             self.b = &self.b + batch_size;
-            self.a = start_a.clone();
+            // Advance A to the end of the range (like C# reference implementation)
+            self.a = &start_a + &effective_value_range;
 
             info!("  Total smooth relations: {}", self.relations.smooth_relations_count());
             info!("  Progress: {} / {} ({:.1}%)",
