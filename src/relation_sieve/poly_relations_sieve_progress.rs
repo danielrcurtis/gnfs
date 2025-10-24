@@ -138,9 +138,10 @@ impl<T: GnfsInteger> PolyRelationsSieveProgress<T> {
                 self.value_range.clone()
             };
 
-            // Always process 1 B value at a time for memory safety
-            // This keeps temporary allocations minimal
-            let batch_size = 1;
+            // Process multiple B values per batch to amortize parallelism overhead
+            // With value_range ~150 and batch_size=16: ~2400 (A,B) pairs per parallel batch
+            // This gives each of 8 threads ~300 pairs, reducing synchronization overhead
+            let batch_size = gnfs.buffer_config.batch_size;
 
             let batch_start_b = self.b.clone();
 
@@ -149,9 +150,9 @@ impl<T: GnfsInteger> PolyRelationsSieveProgress<T> {
 
             let mut total_pairs = 0;
             // MEMORY FIX: Preallocate with realistic capacity to prevent rayon over-allocation
-            // Expected: ~0.1% of pairs are smooth, batch_size=1, value_range=150
-            // Conservative estimate: 1-5 smooth relations per batch
-            let expected_smooth_relations = 5;
+            // Expected: ~0.1% of pairs are smooth, batch_size=16, value_range=150
+            // Conservative estimate: 16-80 smooth relations per batch
+            let expected_smooth_relations = 80;
             let mut all_found = Vec::with_capacity(expected_smooth_relations);
 
             // Process B values one at a time, with aggressive memory cleanup

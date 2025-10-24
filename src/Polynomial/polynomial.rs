@@ -316,6 +316,62 @@ impl Polynomial {
         result
     }
 
+    /// Compute algebraic norm using homogeneous evaluation (integer-only arithmetic)
+    ///
+    /// Formula: b^d * f(a/b) = sum(c_i * a^i * b^(d-i)) for i=0 to d
+    ///
+    /// This avoids expensive BigRational division by using only integer arithmetic.
+    /// Result is the algebraic norm: f(-a/b) * (-b)^d computed as integers.
+    ///
+    /// # Arguments
+    /// * `a` - First parameter (typically from relation)
+    /// * `b` - Second parameter (typically from relation)
+    /// * `negate_a` - If true, computes f(-a/b) instead of f(a/b)
+    ///
+    /// # Returns
+    /// The algebraic norm as a BigInt (no division required)
+    pub fn evaluate_homogeneous(&self, a: &BigInt, b: &BigInt, negate_a: bool) -> BigInt {
+        if self.terms.is_empty() {
+            return BigInt::zero();
+        }
+
+        let degree = self.degree();
+        let mut result = BigInt::zero();
+
+        // Compute: sum(c_i * a^i * b^(d-i)) for i=0 to d
+        for i in 0..=degree {
+            if let Some(coeff) = self.terms.get(&i) {
+                if coeff.is_zero() {
+                    continue;
+                }
+
+                // Compute a^i (with negation if needed)
+                let a_power = if i == 0 {
+                    BigInt::one()
+                } else {
+                    let mut a_term = a.pow(i as u32);
+                    // Apply negation: (-a)^i = (-1)^i * a^i
+                    if negate_a && i % 2 == 1 {
+                        a_term = -a_term;
+                    }
+                    a_term
+                };
+
+                // Compute b^(d-i)
+                let b_power = if degree == i {
+                    BigInt::one()
+                } else {
+                    b.pow((degree - i) as u32)
+                };
+
+                // Add: c_i * a^i * b^(d-i)
+                result += coeff * &a_power * &b_power;
+            }
+        }
+
+        result
+    }
+
     pub fn derivative(&self) -> Self {
         let mut terms = HashMap::new();
         for (&exponent, coefficient) in &self.terms {

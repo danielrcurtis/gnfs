@@ -37,6 +37,19 @@ pub struct BufferConfig {
 
     /// Maximum relations regardless of size (default: 1000)
     pub max_relations: usize,
+
+    /// Number of B values processed per parallel batch during relation sieving (default: 16)
+    ///
+    /// This controls how many B values are grouped together in each parallel batch.
+    /// With value_range ~150 and batch_size=16, each parallel batch processes ~2400 (A,B) pairs.
+    ///
+    /// Performance implications:
+    /// - Larger values (e.g., 32): Less thread overhead, better CPU utilization, but higher memory usage
+    /// - Smaller values (e.g., 4): More responsive, lower memory, but more synchronization overhead
+    ///
+    /// Recommended range: 1-32
+    /// Default of 16 balances thread efficiency with memory usage and has been empirically optimized.
+    pub batch_size: usize,
 }
 
 /// Performance tuning configuration
@@ -68,6 +81,7 @@ impl Default for BufferConfig {
             max_memory_bytes: 100 * 1024 * 1024, // 100MB
             min_relations: 25,
             max_relations: 1000,
+            batch_size: 16,
         }
     }
 }
@@ -92,6 +106,7 @@ impl GnfsConfig {
             .set_default("buffer.max_memory_bytes", 100 * 1024 * 1024)?
             .set_default("buffer.min_relations", 25)?
             .set_default("buffer.max_relations", 1000)?
+            .set_default("buffer.batch_size", 16)?
             .set_default("performance.prime_bound_multiplier", 1.0)?
             .set_default("performance.relation_quantity_multiplier", 1.0)?;
 
@@ -123,6 +138,7 @@ impl GnfsConfig {
             .set_default("buffer.max_memory_bytes", 100 * 1024 * 1024)?
             .set_default("buffer.min_relations", 25)?
             .set_default("buffer.max_relations", 1000)?
+            .set_default("buffer.batch_size", 16)?
             .set_default("performance.prime_bound_multiplier", 1.0)?
             .set_default("performance.relation_quantity_multiplier", 1.0)?;
 
@@ -156,6 +172,7 @@ mod tests {
         assert_eq!(config.buffer.max_memory_bytes, 100 * 1024 * 1024);
         assert_eq!(config.buffer.min_relations, 25);
         assert_eq!(config.buffer.max_relations, 1000);
+        assert_eq!(config.buffer.batch_size, 16);
         assert_eq!(config.performance.prime_bound_multiplier, 1.0);
         assert_eq!(config.performance.relation_quantity_multiplier, 1.0);
     }

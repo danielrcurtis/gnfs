@@ -76,6 +76,7 @@ fn main() {
     info!("Buffer max memory: {:.2} MB", config.buffer.max_memory_bytes as f64 / (1024.0 * 1024.0));
     info!("Buffer min relations: {}", config.buffer.min_relations);
     info!("Buffer max relations: {}", config.buffer.max_relations);
+    info!("Buffer batch size: {} (B values per parallel batch)", config.buffer.batch_size);
     info!("Threads: {} (total cores: {})", num_threads, num_cpus::get());
     info!("Log level: {}", config.log_level);
     info!("Prime bound multiplier: {}", config.performance.prime_bound_multiplier);
@@ -179,12 +180,45 @@ fn main() {
     // Start the factorization process
     let cancel_token = CancellationToken::new();
 
+    // Set up CTRL-C handler for graceful shutdown
+    let cancel_token_clone = cancel_token.clone();
+    ctrlc::set_handler(move || {
+        warn!("");
+        warn!("========================================");
+        warn!("CTRL-C RECEIVED - INITIATING GRACEFUL SHUTDOWN");
+        warn!("========================================");
+        warn!("Saving progress to disk...");
+        warn!("Current relations will be preserved.");
+        warn!("Please wait for shutdown to complete...");
+        cancel_token_clone.cancel();
+    }).expect("Error setting CTRL-C handler");
+
+    info!("Graceful shutdown enabled: Press CTRL-C to save progress and exit");
+
     // Stage 1: Relation Sieving
     info!("");
     info!("========================================");
     info!("STAGE 1: RELATION SIEVING");
     info!("========================================");
     gnfs.find_relations(&cancel_token, false);
+
+    // Check if execution was cancelled
+    if cancel_token.is_cancellation_requested() {
+        warn!("");
+        warn!("========================================");
+        warn!("GRACEFUL SHUTDOWN COMPLETE");
+        warn!("========================================");
+        let (smooth_found, smooth_target) = gnfs.get_relations_info();
+        warn!("Progress saved:");
+        warn!("  Smooth relations: {} / {} ({:.1}%)",
+              smooth_found, smooth_target,
+              100.0 * smooth_found as f64 / smooth_target as f64);
+        warn!("  Relations saved to: {}/streamed_relations.jsonl", n);
+        warn!("");
+        warn!("To resume: Run the same command again");
+        warn!("The program will automatically load saved progress.");
+        return;
+    }
 
     // Stage 2: Check if we have enough relations
     info!("");
