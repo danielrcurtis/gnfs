@@ -141,7 +141,7 @@ impl<T: GnfsInteger> PolyRelationsSieveProgress<T> {
             // Process multiple B values per batch to amortize parallelism overhead
             // With value_range ~150 and batch_size=16: ~2400 (A,B) pairs per parallel batch
             // This gives each of 8 threads ~300 pairs, reducing synchronization overhead
-            let batch_size = 16;
+            let batch_size = gnfs.buffer_config.batch_size;
 
             let batch_start_b = self.b.clone();
 
