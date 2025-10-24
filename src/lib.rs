@@ -2,6 +2,7 @@
 
 #![recursion_limit = "512"]
 
+pub mod algorithms;
 pub mod core;
 pub mod backends;
 pub mod config;
