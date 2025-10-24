@@ -1,6 +1,6 @@
 // src/realation_sieve/relation.rs
 
-use num::{BigInt, BigRational, Zero, Signed};
+use num::{BigInt, Zero, Signed};
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
@@ -113,29 +113,17 @@ impl<T: GnfsInteger> Relation<T> {
         }
 
         // Rational is smooth, now compute algebraic norm
-        // Algebraic norm: f(-a/b) × (-b)^degree
-        // This is the correct formula from the C# reference implementation
+        // OPTIMIZATION: Use homogeneous evaluation (integer-only, no BigRational)
+        // Formula: b^d * f(-a/b) = sum(c_i * (-a)^i * b^(d-i))
         let a_bigint = self.a.to_bigint();
         let b_bigint = self.b.to_bigint();
-        let neg_a = -(&a_bigint);
-        let ab_ratio = BigRational::new(neg_a, b_bigint.clone());
 
-        // Evaluate f(-a/b) using rational arithmetic
-        let poly_value = gnfs.current_polynomial.evaluate_rational(&ab_ratio);
-
-        // Calculate (-b)^degree
-        let neg_b = -(&b_bigint);
-        let degree = gnfs.current_polynomial.degree();
-        let right = neg_b.pow(degree as u32);
-
-        // Multiply: f(-a/b) × (-b)^degree
-        let product = poly_value * BigRational::from_integer(right);
-
-        // Extract integer part (should have no fractional part for valid relations)
-        if !product.is_integer() {
-            debug!("Warning: Algebraic norm for (a={}, b={}) is not an integer: {}", self.a, self.b, product);
-        }
-        let algebraic_norm_bigint = product.numer().clone() / product.denom();
+        // Use optimized homogeneous evaluation with negate_a=true for f(-a/b)
+        let algebraic_norm_bigint = gnfs.current_polynomial.evaluate_homogeneous(
+            &a_bigint,
+            &b_bigint,
+            true  // negate_a: computes f(-a/b) * b^d
+        );
 
         // Convert algebraic norm to native type
         if let Some(algebraic_norm) = T::from_bigint(&algebraic_norm_bigint) {
