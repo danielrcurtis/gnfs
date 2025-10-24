@@ -93,21 +93,22 @@ impl<T: GnfsInteger> PolyRelationsSieveProgress<T> {
         } else {
             self.a.clone()
         };
-    
-        let start_a = self.a.clone();
-    
+
         while &self.b >= &self.max_b {
             self.max_b += 100;  // Fixed: C# uses 100, not 1000
         }
-    
-        
+
+
         debug!("{}", format!(
             "GenerateRelations: TargetQuantity = {}, ValueRange = {}, A = {}, B = {}, Max B = {}",
             self.smooth_relations_target_quantity, self.value_range, self.a, self.b, self.max_b
         ));
-        
-    
+
+
         while self.smooth_relations_counter < self.smooth_relations_target_quantity {
+            // CRITICAL FIX: Capture start_a INSIDE the loop so A advances properly
+            // Previous bug: start_a was captured once, causing infinite loop searching same A region
+            let start_a = self.a.clone();
             if cancel_token.is_cancellation_requested() {
                 break;
             }
