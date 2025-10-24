@@ -124,16 +124,41 @@ pub enum BackendType {
     Arbitrary,
 }
 
+impl BackendType {
+    pub fn name(&self) -> &'static str {
+        match self {
+            BackendType::Native64Signed => "Native64Signed",
+            BackendType::Native128Signed => "Native128Signed",
+            BackendType::Fixed256 => "Fixed256",
+            BackendType::Fixed512 => "Fixed512",
+            BackendType::Arbitrary => "Arbitrary (BigInt)",
+        }
+    }
+}
+
 /// Select the appropriate backend based on input number size and polynomial degree
 pub fn select_backend(n: &BigInt, degree: usize) -> BackendType {
+    let digit_count = n.to_string().len();
     let norm_bits = estimate_algebraic_norm_bits(n, degree);
 
-    match norm_bits {
-        0..=60 => BackendType::Native64Signed,      // 11-13 digits (i64 supports negatives)
-        61..=120 => BackendType::Native128Signed,   // 14-19 digits (i128 supports negatives)
-        121..=250 => BackendType::Fixed256,         // 31-77 digits
-        251..=500 => BackendType::Fixed512,         // 78-154 digits
-        _ => BackendType::Arbitrary,                // 155+ digits
+    // Be conservative: use the more restrictive of digit count or norm bits
+    // i64 max is ~9.2e18 (19 digits), but we need headroom for intermediate calculations
+    // Safe ranges (with 2x safety margin for intermediate calculations):
+    // - Native64Signed: 11-13 digits
+    // - Native128Signed: 14-19 digits
+    // - Fixed256: 20-38 digits
+    // - Fixed512: 39-77 digits
+
+    if digit_count <= 13 && norm_bits <= 60 {
+        BackendType::Native64Signed
+    } else if digit_count <= 19 && norm_bits <= 120 {
+        BackendType::Native128Signed
+    } else if digit_count <= 38 && norm_bits <= 250 {
+        BackendType::Fixed256
+    } else if digit_count <= 77 && norm_bits <= 500 {
+        BackendType::Fixed512
+    } else {
+        BackendType::Arbitrary
     }
 }
 

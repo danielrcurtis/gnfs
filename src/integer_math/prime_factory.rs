@@ -59,8 +59,24 @@ impl PrimeFactory {
         }
         if &self.primes_last < value {
             self.increase_max_value(value);
+
+            // Verify increase worked
+            if &self.primes_last < value {
+                panic!(
+                    "Failed to increase prime list to include {}. primes_last={}, value={}",
+                    value, self.primes_last, value
+                );
+            }
         }
-        let prime_index = self.primes.iter().position(|p| p >= value).unwrap();
+
+        let prime_index = self.primes.iter().position(|p| p >= value)
+            .unwrap_or_else(|| {
+                panic!(
+                    "Internal error: prime >= {} should exist after increase_max_value. primes_last={}, primes.len()={}",
+                    value, self.primes_last, self.primes.len()
+                )
+            });
+
         prime_index as i32 + 1
     }
 

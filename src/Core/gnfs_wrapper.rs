@@ -65,14 +65,14 @@ impl GNFSWrapper {
         // Select backend based on number size and polynomial degree
         let backend_type = select_backend(n, poly_degree.abs() as usize);
 
-        info!("Selected backend: {:?} for {}-digit number (n = {})",
-              backend_type, n.to_string().len(), n);
+        info!("Selected backend: {} for {}-digit number (n = {})",
+              backend_type.name(), n.to_string().len(), n);
 
         match backend_type {
             BackendType::Native64Signed => {
-                info!("Using Native64Signed backend (i64): {} bytes per value", std::mem::size_of::<i64>());
-                info!("Expected memory savings: ~186x vs BigInt for small numbers");
-                info!("Expected speedup: 50-100x for 11-13 digit numbers");
+                info!("Using {} backend: {} bytes per value",
+                      backend_type.name(),
+                      std::mem::size_of::<i64>());
 
                 let gnfs = GNFS::<Native64Signed>::with_config(
                     cancel_token,
@@ -89,9 +89,9 @@ impl GNFSWrapper {
             },
 
             BackendType::Native128Signed => {
-                info!("Using Native128Signed backend (i128): {} bytes per value", std::mem::size_of::<i128>());
-                info!("Expected memory savings: ~50x vs BigInt for medium numbers");
-                info!("Expected speedup: 30-50x for 14-19 digit numbers");
+                info!("Using {} backend: {} bytes per value",
+                      backend_type.name(),
+                      std::mem::size_of::<i128>());
 
                 let gnfs = GNFS::<Native128Signed>::with_config(
                     cancel_token,
@@ -108,8 +108,9 @@ impl GNFSWrapper {
             },
 
             BackendType::Fixed256 => {
-                info!("Using Fixed256 backend (crypto_bigint::U256): {} bytes per value", std::mem::size_of::<crypto_bigint::U256>());
-                info!("Expected memory savings: ~25x vs BigInt for 31-77 digit numbers");
+                info!("Using {} backend: {} bytes per value",
+                      backend_type.name(),
+                      std::mem::size_of::<crypto_bigint::U256>());
 
                 let gnfs = GNFS::<Fixed256>::with_config(
                     cancel_token,
@@ -126,8 +127,9 @@ impl GNFSWrapper {
             },
 
             BackendType::Fixed512 => {
-                info!("Using Fixed512 backend (crypto_bigint::U512): {} bytes per value", std::mem::size_of::<crypto_bigint::U512>());
-                info!("Expected memory savings: ~15x vs BigInt for 78-154 digit numbers");
+                info!("Using {} backend: {} bytes per value",
+                      backend_type.name(),
+                      std::mem::size_of::<crypto_bigint::U512>());
 
                 let gnfs = GNFS::<Fixed512>::with_config(
                     cancel_token,
@@ -144,8 +146,8 @@ impl GNFSWrapper {
             },
 
             BackendType::Arbitrary => {
-                info!("Using Arbitrary backend (num::BigInt): dynamic allocation");
-                info!("No memory optimization - using full BigInt for 155+ digit numbers");
+                info!("Using {} backend: dynamic allocation",
+                      backend_type.name());
 
                 let gnfs = GNFS::<BigIntBackend>::with_config(
                     cancel_token,
