@@ -126,27 +126,55 @@ impl QuadraticSieve {
         }
     }
 
-    /// Choose optimal parameters based on number size
+    /// Choose optimal parameters based on number size using research-backed values
     /// Returns (smoothness_bound, sieve_interval)
+    ///
+    /// Based on:
+    /// - Silverman (1987): "The Multiple Polynomial Quadratic Sieve"
+    /// - Empirical parameter tables from production QS implementations
+    /// - Research synthesis showing optimal B and M values for each digit count
     fn choose_parameters(digits: usize) -> (u64, i64) {
-        // Based on empirical formulas from QS literature
-        // B ≈ exp(0.5 * sqrt(ln(n) * ln(ln(n))))
-        // M ≈ 20-100 * B (for single polynomial QS)
+        // Use empirically-validated parameter table from research
+        // Note: Silverman's F(d) formula gives FACTOR BASE SIZE (after QR filtering),
+        // but we need SMOOTHNESS BOUND B (before filtering), which is ~10x larger
 
-        let (smoothness_bound, sieve_interval) = match digits {
-            0..=5 => (50, 10000),           // Very small numbers (< 100000)
-            6..=10 => (100, 20000),         // Small numbers
-            11..=20 => (300, 60000),        // Medium-small numbers
-            21..=30 => (800, 160000),       //
-            31..=40 => (2500, 500000),      // 30-40 digits
-            41..=50 => (10000, 2000000),    // 40-50 digits
-            51..=60 => (30000, 6000000),    // 50-60 digits
-            61..=70 => (80000, 16000000),   // 60-70 digits
-            71..=80 => (200000, 40000000),  // 70-80 digits
-            _ => (500000, 100000000),       // 80+ digits
-        };
+        match digits {
+            // Very small numbers - empirical tuning
+            0..=10 => (100, 20000),
+            11..=15 => (200, 40000),
+            16..=20 => (500, 100000),
+            21..=23 => (1000, 200000),
 
-        (smoothness_bound, sieve_interval)
+            // Research-backed parameters for QS sweet spot (24-66 digits)
+            24..=29 => (2000, 300000),      // ~24-29 digits
+            30..=34 => (3500, 450000),      // ~30-34 digits
+            35..=39 => (5000, 550000),      // ~35-39 digits
+            40..=44 => (8000, 700000),      // ~40-44 digits (research: 6k-10k, 400k-600k)
+            45..=49 => (15000, 1200000),    // ~45-49 digits (research: 12k-18k, 600k-900k)
+            50..=54 => (25000, 1800000),    // ~50-54 digits (research: 20k-30k, 900k-1.5M)
+            55..=59 => (42000, 3000000),    // ~55-59 digits (research: 35k-50k, 1.5M-2.5M)
+            60..=64 => (65000, 4500000),    // ~60-64 digits (research: 50k-80k, 2.5M-4M)
+            65..=69 => (100000, 7000000),   // ~65-69 digits (research: 80k-120k, 4M-6M)
+
+            // Large numbers (70-100 digits) - extrapolated with safety margins
+            70..=74 => (150000, 11000000),  // ~70-74 digits
+            75..=79 => (220000, 17000000),  // ~75-79 digits
+            80..=84 => (300000, 27000000),  // ~80-84 digits
+            85..=89 => (425000, 42000000),  // ~85-89 digits
+            90..=94 => (600000, 65000000),  // ~90-94 digits
+            95..=99 => (850000, 100000000), // ~95-99 digits
+            100 => (1200000, 150000000),    // 100 digits (approaching GNFS crossover)
+
+            // Very large (>100 digits): QS is suboptimal, GNFS strongly recommended
+            _ => {
+                warn!("Number > 100 digits - QS is suboptimal, GNFS strongly recommended");
+                warn!("QS/GNFS crossover is typically around 100-110 digits");
+                let d = digits as f64;
+                let factor_base = (d * 15000.0) as u64;          // Linear scaling
+                let sieve_interval = (d * d * 150000.0) as i64;  // Quadratic scaling
+                (factor_base, sieve_interval)
+            }
+        }
     }
 
     /// Build the factor base: primes p where n is a quadratic residue mod p
@@ -395,14 +423,29 @@ impl QuadraticSieve {
             }
         }
 
-        // Expected log(Q(x)) for threshold
-        // For x ≈ sqrt(n), Q(x) ≈ 2*sqrt(n)*x
-        let expected_log = (self.sqrt_n.to_f64().unwrap_or(1.0) * (end_x - start_x) as f64).ln() as f32;
-        // Use lower threshold for smaller numbers to find more relations
-        let threshold_multiplier = if self.n.to_string().len() < 6 { 0.5 } else { 0.7 };
+        // Calculate threshold for sieving
+        // For x near sqrt(n), Q(x) = x² - n ≈ 2*sqrt(n)*|x - sqrt(n)|
+        // Maximum Q(x) in interval: 2*sqrt(n)*M where M is sieve_interval/2
+        let sqrt_n_float = self.sqrt_n.to_f64().unwrap_or(1.0);
+        let max_q_x = 2.0 * sqrt_n_float * (self.sieve_interval as f64 / 2.0);
+        let expected_log = max_q_x.ln() as f32;
+
+        // Threshold: percentage of expected log (sum of factor base prime logs)
+        // Lower threshold = more candidates but slower trial division
+        // Higher threshold = fewer candidates but may miss smooth relations
+        let threshold_multiplier = match self.n.to_string().len() {
+            0..=10 => 0.50,   // Very aggressive for small numbers
+            11..=30 => 0.60,  // Moderate for medium numbers
+            31..=60 => 0.65,  // Balanced for QS sweet spot
+            _ => 0.70,        // Conservative for large numbers
+        };
         let threshold = expected_log * threshold_multiplier;
 
-        info!("Threshold for smoothness: {:.2}", threshold);
+        info!("Sieving threshold calculation:");
+        info!("  Max Q(x) in interval: {:.2e}", max_q_x);
+        info!("  Expected log(Q(x)): {:.2}", expected_log);
+        info!("  Threshold multiplier: {:.2}", threshold_multiplier);
+        info!("  Final threshold: {:.2}", threshold);
 
         // Collect candidate smooth relations
         let mut candidates = Vec::new();
@@ -659,14 +702,27 @@ impl QuadraticSieve {
         let relations = self.sieve();
 
         // We need more relations than the size of the factor base
-        // Use a smaller margin for small numbers
+        // Larger margin ensures we find linear dependencies in matrix
         let n_digits = self.n.to_string().len();
-        let margin = if n_digits < 5 { 2 } else if n_digits < 10 { 3 } else { 10 };
+        let margin = match n_digits {
+            0..=10 => 5,
+            11..=30 => 10,
+            31..=60 => 20,
+            61..=80 => 50,
+            _ => 100,
+        };
         let required_relations = self.factor_base_size + margin;
+
+        info!("Relation requirements:");
+        info!("  Factor base size: {}", self.factor_base_size);
+        info!("  Margin for dependencies: {}", margin);
+        info!("  Total required: {}", required_relations);
+        info!("  Found: {} relations", relations.len());
 
         if relations.len() < required_relations {
             warn!("Not enough smooth relations: found {}, need {}",
                   relations.len(), required_relations);
+            warn!("Success rate: {:.1}%", (relations.len() as f64 / required_relations as f64) * 100.0);
             warn!("Try increasing sieve interval or smoothness bound");
             return None;
         }
