@@ -1,0 +1,16 @@
+# GNFS Configuration File (YAML format)
+# Copy to gnfs.yaml and customize as needed
+
+output_dir: "."
+cleanup: false
+# threads: 8
+log_level: "info"
+
+buffer:
+  max_memory_bytes: 104857600  # 100MB
+  min_relations: 25
+  max_relations: 1000
+
+performance:
+  prime_bound_multiplier: 1.0
+  relation_quantity_multiplier: 1.0

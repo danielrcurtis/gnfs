@@ -1,0 +1,36 @@
+# GNFS Configuration File
+# Copy to gnfs.toml and customize as needed
+
+# Output directory for GNFS data
+output_dir = "."
+
+# Auto-cleanup after successful factorization
+cleanup = false
+
+# Number of threads (omit to use all cores)
+# threads = 8
+
+# Logging level: error, warn, info, debug, trace
+log_level = "info"
+
+[buffer]
+# Maximum memory before flushing relations to disk (bytes)
+# Default: 100MB (100 * 1024 * 1024)
+max_memory_bytes = 104857600
+
+# Minimum relations before considering flush
+min_relations = 25
+
+# Maximum relations regardless of size (safety limit)
+max_relations = 1000
+
+[performance]
+# Multiplier for prime bounds (default: 1.0)
+# Increase for faster sieving with more memory
+# Decrease for memory-constrained systems
+prime_bound_multiplier = 1.0
+
+# Multiplier for relation quantity target (default: 1.0)
+# Increase to collect more relations (higher success rate)
+# Decrease for faster runs (may fail matrix solving)
+relation_quantity_multiplier = 1.0
