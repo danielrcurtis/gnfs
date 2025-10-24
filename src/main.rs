@@ -5,6 +5,7 @@ use env_logger::Env;
 use gnfs::core::cpu_info::CPUInfo;
 use gnfs::core::gnfs_wrapper::GNFSWrapper;
 use gnfs::core::cancellation_token::CancellationToken;
+use gnfs::config::GnfsConfig;
 use gnfs::benchmark_cli;
 use num::{BigInt, ToPrimitive};
 use std::path::Path;
@@ -13,6 +14,11 @@ use std::sync::atomic::AtomicBool;
 use std::str::FromStr;
 
 fn main() {
+    // Load configuration first (before logging is initialized)
+    let config = GnfsConfig::load().unwrap_or_else(|e| {
+        eprintln!("Warning: Failed to load config: {}. Using defaults.", e);
+        GnfsConfig::default()
+    });
     // Parse command-line arguments
     let args: Vec<String> = std::env::args().collect();
 
@@ -42,38 +48,40 @@ fn main() {
         // Default number if no argument provided
         BigInt::from(45113)
     };
-    // Configure Rayon thread pool based on environment variable or default to 25% of cores
-    let env_var_value = std::env::var("GNFS_THREADS").ok();
-    println!("DEBUG: GNFS_THREADS environment variable = {:?}", env_var_value);
+    // Initialize logging based on config (can be overridden by MY_LOG_LEVEL env var)
+    let log_level = std::env::var("MY_LOG_LEVEL")
+        .unwrap_or_else(|_| config.log_level.clone());
+    let env = Env::default()
+        .filter_or("MY_LOG_LEVEL", log_level)
+        .write_style_or("MY_LOG_STYLE", "always");
+    env_logger::Builder::from_env(env).init();
 
-    let num_threads = env_var_value
-        .and_then(|s| {
-            println!("DEBUG: Attempting to parse '{}' as usize", s);
-            s.parse::<usize>().ok()
-        })
-        .unwrap_or_else(|| {
-            let total_cores = num_cpus::get();
-            let default_threads = (total_cores / 4).max(1); // 25% of cores, minimum 1
-            println!("DEBUG: No valid GNFS_THREADS found, using default: {} threads ({}% of {} cores)",
-                     default_threads, (default_threads * 100) / total_cores, total_cores);
-            default_threads
-        });
-
-    println!("DEBUG: Configuring Rayon with {} threads", num_threads);
+    // Configure Rayon thread pool
+    let num_threads = config.threads.unwrap_or_else(|| {
+        let total_cores = num_cpus::get();
+        (total_cores / 4).max(1) // Default: 25% of cores, minimum 1
+    });
 
     rayon::ThreadPoolBuilder::new()
         .num_threads(num_threads)
         .build_global()
         .expect("Failed to configure thread pool");
 
-    let actual_threads = rayon::current_num_threads();
-    println!("GNFS using {} threads (Rayon reports: {}, total cores: {})", num_threads, actual_threads, num_cpus::get());
-
-    // Initialize the logger
-    let env = Env::default()
-        .filter_or("MY_LOG_LEVEL", "debug")
-        .write_style_or("MY_LOG_STYLE", "always");
-    env_logger::Builder::from_env(env).init();
+    // Log configuration settings
+    info!("================================================================================");
+    info!("GNFS CONFIGURATION");
+    info!("================================================================================");
+    info!("Output directory: {}", config.output_dir);
+    info!("Cleanup on success: {}", config.cleanup);
+    info!("Buffer max memory: {:.2} MB", config.buffer.max_memory_bytes as f64 / (1024.0 * 1024.0));
+    info!("Buffer min relations: {}", config.buffer.min_relations);
+    info!("Buffer max relations: {}", config.buffer.max_relations);
+    info!("Threads: {} (total cores: {})", num_threads, num_cpus::get());
+    info!("Log level: {}", config.log_level);
+    info!("Prime bound multiplier: {}", config.performance.prime_bound_multiplier);
+    info!("Relation quantity multiplier: {}", config.performance.relation_quantity_multiplier);
+    info!("================================================================================");
+    info!("");
 
     // Fetching cache information
     let l1_cache_line_size = CPUInfo::l1_cache_line_size().unwrap_or(0);
@@ -155,7 +163,7 @@ fn main() {
     }
 
     // Create or load GNFS instance
-    let mut gnfs = create_or_load_gnfs(&n);
+    let mut gnfs = create_or_load_gnfs(&n, &config);
 
     // Log factor base information
     let (rat_fb_size, alg_fb_size, quad_fb_size) = gnfs.get_factor_base_info();
@@ -277,17 +285,16 @@ fn main() {
     info!("");
 
     // Optional cleanup of output directory
-    // Only cleanup if GNFS_CLEANUP=true is explicitly set
-    if std::env::var("GNFS_CLEANUP").unwrap_or_else(|_| "false".to_string()) == "true" {
-        let save_dir = format!("{}", n);
+    if config.cleanup && gnfs.is_factored() {
+        let save_dir = Path::new(&config.output_dir).join(format!("{}", n));
         match std::fs::remove_dir_all(&save_dir) {
-            Ok(_) => info!("Cleaned up output directory: {}", save_dir),
-            Err(e) => warn!("Could not cleanup directory {}: {}", save_dir, e),
+            Ok(_) => info!("Cleaned up output directory: {}", save_dir.display()),
+            Err(e) => warn!("Could not cleanup directory {}: {}", save_dir.display(), e),
         }
     }
 }
 
-fn create_or_load_gnfs(n: &BigInt) -> GNFSWrapper {
+fn create_or_load_gnfs(n: &BigInt, config: &GnfsConfig) -> GNFSWrapper {
     // Note: For now, we don't support loading from checkpoint with GNFSWrapper
     // This is because we'd need to serialize the backend type along with the data.
     // For Phase 3, we'll just create fresh instances.
@@ -309,10 +316,10 @@ fn create_or_load_gnfs(n: &BigInt) -> GNFSWrapper {
         info!("");
     }
 
-    create_new_gnfs(n)
+    create_new_gnfs(n, config)
 }
 
-fn create_new_gnfs(n: &BigInt) -> GNFSWrapper {
+fn create_new_gnfs(n: &BigInt, config: &GnfsConfig) -> GNFSWrapper {
     info!("Creating a new GNFS instance...");
     let cancel_token = CancellationToken::new();
     let polynomial_base = BigInt::from(31);
@@ -322,7 +329,7 @@ fn create_new_gnfs(n: &BigInt) -> GNFSWrapper {
     // These bounds ensure smooth relation density is high enough for practical factorization
     // while minimizing computation time. Tested on M3 MacBook Pro with 8 threads.
     let digits = n.to_string().len();
-    let prime_bound = if digits <= 8 {
+    let base_prime_bound = if digits <= 8 {
         BigInt::from(100)         // 8 digits: ~0.3s, 254 relations
     } else if digits == 9 {
         BigInt::from(100)         // 9 digits: 2-28s (varies), sufficient smooth relations
@@ -343,7 +350,24 @@ fn create_new_gnfs(n: &BigInt) -> GNFSWrapper {
         BigInt::from(digits) * BigInt::from(1000)
     };
 
-    let relation_quantity = 5; // Adjust the relation quantity as needed
+    // Apply performance multiplier from config
+    let prime_bound = if config.performance.prime_bound_multiplier != 1.0 {
+        let multiplied = base_prime_bound.clone() * BigInt::from((config.performance.prime_bound_multiplier * 1000.0) as i64) / BigInt::from(1000);
+        info!("Applied prime bound multiplier {}: {} -> {}", config.performance.prime_bound_multiplier, base_prime_bound, multiplied);
+        multiplied
+    } else {
+        base_prime_bound
+    };
+
+    let base_relation_quantity = 5;
+    let relation_quantity = if config.performance.relation_quantity_multiplier != 1.0 {
+        let multiplied = (base_relation_quantity as f64 * config.performance.relation_quantity_multiplier) as usize;
+        info!("Applied relation quantity multiplier {}: {} -> {}", config.performance.relation_quantity_multiplier, base_relation_quantity, multiplied);
+        multiplied
+    } else {
+        base_relation_quantity
+    };
+
     let relation_value_range = 50; // Adjust the relation value range as needed
     let created_new_data = true;
 
@@ -355,7 +379,7 @@ fn create_new_gnfs(n: &BigInt) -> GNFSWrapper {
     info!("Relation Value: {}", relation_value_range);
     info!("GNFS: {}", created_new_data);
 
-    let gnfs = GNFSWrapper::new(
+    let gnfs = GNFSWrapper::with_config(
         &cancel_token,
         n,
         &polynomial_base,
@@ -364,6 +388,7 @@ fn create_new_gnfs(n: &BigInt) -> GNFSWrapper {
         relation_quantity,
         relation_value_range,
         created_new_data,
+        config.buffer.clone(),
     );
 
     // Save initial parameters

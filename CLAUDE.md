@@ -150,9 +150,78 @@ MY_LOG_LEVEL=debug cargo run
 
 Default level is `info`. Key stages log their progress.
 
+## Configuration
+
+GNFS supports multiple configuration methods with the following precedence:
+
+**Configuration File → Environment Variables → Default Values**
+
+### Configuration Files
+
+GNFS looks for configuration files in this order:
+1. `gnfs.toml` (preferred)
+2. `gnfs.yaml` (fallback)
+
+Copy the example files to get started:
+```bash
+cp gnfs.toml.example gnfs.toml
+# Edit gnfs.toml with your settings
+```
+
+### Configuration Options
+
+#### Output Settings
+- `output_dir`: Directory for GNFS data (default: current directory)
+- `cleanup`: Auto-remove output directory after success (default: false)
+
+#### Performance
+- `threads`: Number of threads (default: all cores)
+- `log_level`: Logging verbosity: error/warn/info/debug/trace (default: info)
+
+#### Buffer Settings
+- `buffer.max_memory_bytes`: Flush threshold in bytes (default: 100MB)
+- `buffer.min_relations`: Minimum relations before flush (default: 25)
+- `buffer.max_relations`: Maximum relations (safety limit, default: 1000)
+
+The buffer uses **size-based flushing** instead of fixed counts:
+- Small relations (7-digit numbers): ~1-2KB each, flush after ~50,000-100,000 relations
+- Large relations (14-digit numbers): ~5-10KB each, flush after ~10,000-20,000 relations
+- Automatically adapts to relation size, preventing memory issues with large numbers
+
+#### Advanced Tuning
+- `performance.prime_bound_multiplier`: Scale prime bounds (default: 1.0)
+- `performance.relation_quantity_multiplier`: Scale relation target (default: 1.0)
+
 ### Environment Variables
 
-The GNFS implementation supports several environment variables for customization:
+All config options can be overridden via environment variables with `GNFS_` prefix:
+
+```bash
+GNFS_OUTPUT_DIR=/tmp cargo run 12345
+GNFS_CLEANUP=true ./gnfs 12345
+GNFS_BUFFER_MAX_MEMORY_BYTES=50000000 ./gnfs 12345  # 50MB buffer
+GNFS_THREADS=4 ./gnfs 12345
+GNFS_LOG_LEVEL=debug ./gnfs 12345
+```
+
+### Precedence Examples
+
+```bash
+# Config file sets buffer to 50MB
+# Env var overrides to 100MB
+GNFS_BUFFER_MAX_MEMORY_BYTES=104857600 ./gnfs 12345
+
+# No config file, no env var → uses default (100MB)
+./gnfs 12345
+
+# Config file sets output_dir="/data"
+# Env var overrides to /tmp
+GNFS_OUTPUT_DIR=/tmp ./gnfs 12345
+```
+
+### Legacy Environment Variables (Deprecated)
+
+The following environment variables are still supported but deprecated in favor of the unified configuration system:
 
 #### GNFS_OUTPUT_DIR
 Controls where GNFS saves its working data (relations, factor bases, progress).

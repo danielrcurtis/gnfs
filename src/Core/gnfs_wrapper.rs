@@ -6,6 +6,7 @@ use crate::core::gnfs::GNFS;
 use crate::core::gnfs_integer::{GnfsInteger, select_backend, BackendType};
 use crate::core::cancellation_token::CancellationToken;
 use crate::backends::*;
+use crate::config::BufferConfig;
 
 /// Runtime wrapper for GNFS that selects the optimal backend based on input size
 ///
@@ -36,6 +37,31 @@ impl GNFSWrapper {
         relation_value_range: usize,
         created_new_data: bool,
     ) -> Self {
+        Self::with_config(
+            cancel_token,
+            n,
+            polynomial_base,
+            poly_degree,
+            prime_bound,
+            relation_quantity,
+            relation_value_range,
+            created_new_data,
+            BufferConfig::default(),
+        )
+    }
+
+    /// Create a new GNFS instance with custom buffer configuration
+    pub fn with_config(
+        cancel_token: &CancellationToken,
+        n: &BigInt,
+        polynomial_base: &BigInt,
+        poly_degree: i32,
+        prime_bound: &BigInt,
+        relation_quantity: usize,
+        relation_value_range: usize,
+        created_new_data: bool,
+        buffer_config: BufferConfig,
+    ) -> Self {
         // Select backend based on number size and polynomial degree
         let backend_type = select_backend(n, poly_degree.abs() as usize);
 
@@ -48,10 +74,7 @@ impl GNFSWrapper {
                 info!("Expected memory savings: ~186x vs BigInt for small numbers");
                 info!("Expected speedup: 50-100x for 11-13 digit numbers");
 
-                // Note: We still use BigInt for n, polynomial_base, and prime_bound
-                // as they are configuration parameters. Only internal computations
-                // use the native type.
-                let gnfs = GNFS::<Native64Signed>::new(
+                let gnfs = GNFS::<Native64Signed>::with_config(
                     cancel_token,
                     n,
                     polynomial_base,
@@ -60,6 +83,7 @@ impl GNFSWrapper {
                     relation_quantity,
                     relation_value_range,
                     created_new_data,
+                    buffer_config,
                 );
                 GNFSWrapper::Native64Signed(gnfs)
             },
@@ -69,7 +93,7 @@ impl GNFSWrapper {
                 info!("Expected memory savings: ~50x vs BigInt for medium numbers");
                 info!("Expected speedup: 30-50x for 14-19 digit numbers");
 
-                let gnfs = GNFS::<Native128Signed>::new(
+                let gnfs = GNFS::<Native128Signed>::with_config(
                     cancel_token,
                     n,
                     polynomial_base,
@@ -78,6 +102,7 @@ impl GNFSWrapper {
                     relation_quantity,
                     relation_value_range,
                     created_new_data,
+                    buffer_config,
                 );
                 GNFSWrapper::Native128Signed(gnfs)
             },
@@ -86,7 +111,7 @@ impl GNFSWrapper {
                 info!("Using Fixed256 backend (crypto_bigint::U256): {} bytes per value", std::mem::size_of::<crypto_bigint::U256>());
                 info!("Expected memory savings: ~25x vs BigInt for 31-77 digit numbers");
 
-                let gnfs = GNFS::<Fixed256>::new(
+                let gnfs = GNFS::<Fixed256>::with_config(
                     cancel_token,
                     n,
                     polynomial_base,
@@ -95,6 +120,7 @@ impl GNFSWrapper {
                     relation_quantity,
                     relation_value_range,
                     created_new_data,
+                    buffer_config,
                 );
                 GNFSWrapper::Fixed256(gnfs)
             },
@@ -103,7 +129,7 @@ impl GNFSWrapper {
                 info!("Using Fixed512 backend (crypto_bigint::U512): {} bytes per value", std::mem::size_of::<crypto_bigint::U512>());
                 info!("Expected memory savings: ~15x vs BigInt for 78-154 digit numbers");
 
-                let gnfs = GNFS::<Fixed512>::new(
+                let gnfs = GNFS::<Fixed512>::with_config(
                     cancel_token,
                     n,
                     polynomial_base,
@@ -112,6 +138,7 @@ impl GNFSWrapper {
                     relation_quantity,
                     relation_value_range,
                     created_new_data,
+                    buffer_config,
                 );
                 GNFSWrapper::Fixed512(gnfs)
             },
@@ -120,7 +147,7 @@ impl GNFSWrapper {
                 info!("Using Arbitrary backend (num::BigInt): dynamic allocation");
                 info!("No memory optimization - using full BigInt for 155+ digit numbers");
 
-                let gnfs = GNFS::<BigIntBackend>::new(
+                let gnfs = GNFS::<BigIntBackend>::with_config(
                     cancel_token,
                     n,
                     polynomial_base,
@@ -129,6 +156,7 @@ impl GNFSWrapper {
                     relation_quantity,
                     relation_value_range,
                     created_new_data,
+                    buffer_config,
                 );
                 GNFSWrapper::Arbitrary(gnfs)
             },

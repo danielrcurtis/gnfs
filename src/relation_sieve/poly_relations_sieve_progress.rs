@@ -14,6 +14,7 @@ use crate::core::count_dictionary::CountDictionary;
 use crate::integer_math::factorization_factory::FactorizationFactory;
 use crate::core::cancellation_token::CancellationToken;
 use crate::square_root::square_finder::is_square;
+use crate::config::BufferConfig;
 
 #[derive(Debug, Clone)]
 pub struct PolyRelationsSieveProgress<T: GnfsInteger> {
@@ -29,6 +30,10 @@ pub struct PolyRelationsSieveProgress<T: GnfsInteger> {
 
 impl<T: GnfsInteger> PolyRelationsSieveProgress<T> {
     pub fn new(gnfs: &GNFS<T>, smooth_relations_target_quantity: isize, value_range: BigInt) -> Self {
+        Self::with_config(gnfs, smooth_relations_target_quantity, value_range, BufferConfig::default())
+    }
+
+    pub fn with_config(gnfs: &GNFS<T>, smooth_relations_target_quantity: isize, value_range: BigInt, buffer_config: BufferConfig) -> Self {
         let required_for_matrix = Self::smooth_relations_required_for_matrix_step(gnfs);
 
         let target_quantity = if smooth_relations_target_quantity == -1 {
@@ -37,12 +42,15 @@ impl<T: GnfsInteger> PolyRelationsSieveProgress<T> {
             std::cmp::max(smooth_relations_target_quantity as usize, required_for_matrix)
         };
 
+        // Get digit count for size estimation
+        let digit_count = gnfs.n.to_string().len();
+
         PolyRelationsSieveProgress {
             a: BigInt::from(0),
             b: BigInt::from(3),
             smooth_relations_target_quantity: target_quantity,
             value_range,
-            relations: RelationContainer::new(),
+            relations: RelationContainer::with_config(buffer_config, digit_count),
             max_b: gnfs.prime_factor_base.algebraic_factor_base_max.clone(),
             smooth_relations_counter: 0,
             free_relations_counter: 0,

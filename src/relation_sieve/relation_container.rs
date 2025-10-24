@@ -9,14 +9,8 @@ use log::{info, warn};
 use super::relation::Relation;
 use crate::core::serialization::types::SerializableRelation;
 use crate::core::gnfs_integer::GnfsInteger;
+use crate::config::BufferConfig;
 use std::marker::PhantomData;
-
-/// Buffer size for flushing relations to disk
-/// Configurable via GNFS_RELATION_BUFFER_SIZE environment variable (default: 50)
-/// Balance between disk I/O frequency and memory usage
-/// Too small (e.g., 5) causes excessive context switches and high system CPU usage
-/// Original value of 50 provides good balance for most workloads
-const SMOOTH_RELATIONS_BUFFER_SIZE: usize = 50;
 
 #[derive(Debug, Clone)]
 pub struct RelationContainer<T: GnfsInteger> {
@@ -27,22 +21,28 @@ pub struct RelationContainer<T: GnfsInteger> {
     // Streaming support for smooth relations
     pub streaming_file_path: Option<PathBuf>,
     pub total_streamed_count: usize,
-    pub buffer_size: usize,
+
+    // Size-based buffering configuration
+    pub buffer_config: BufferConfig,
+    pub current_buffer_size_bytes: usize,
+    pub digit_count: usize, // For size estimation
+
     pub(crate) _phantom: PhantomData<T>,
 }
 
 impl<T: GnfsInteger> RelationContainer<T> {
+    /// Create a new RelationContainer with default buffer configuration
     pub fn new() -> Self {
-        // Allow buffer size to be configured via environment variable
-        let buffer_size = std::env::var("GNFS_RELATION_BUFFER_SIZE")
-            .ok()
-            .and_then(|s| s.parse::<usize>().ok())
-            .unwrap_or(SMOOTH_RELATIONS_BUFFER_SIZE);
+        Self::with_config(BufferConfig::default(), 0)
+    }
 
-        if buffer_size != SMOOTH_RELATIONS_BUFFER_SIZE {
-            info!("Using custom relation buffer size: {} (default: {})",
-                  buffer_size, SMOOTH_RELATIONS_BUFFER_SIZE);
-        }
+    /// Create a new RelationContainer with custom buffer configuration
+    pub fn with_config(buffer_config: BufferConfig, digit_count: usize) -> Self {
+        info!("Initializing RelationContainer:");
+        info!("  Buffer max memory: {:.2} MB", buffer_config.max_memory_bytes as f64 / (1024.0 * 1024.0));
+        info!("  Min relations before flush: {}", buffer_config.min_relations);
+        info!("  Max relations (safety limit): {}", buffer_config.max_relations);
+        info!("  Digit count for size estimation: {}", digit_count);
 
         RelationContainer {
             smooth_relations: Vec::new(),
@@ -50,9 +50,26 @@ impl<T: GnfsInteger> RelationContainer<T> {
             free_relations: Vec::new(),
             streaming_file_path: None,
             total_streamed_count: 0,
-            buffer_size,
+            buffer_config,
+            current_buffer_size_bytes: 0,
+            digit_count,
             _phantom: PhantomData,
         }
+    }
+
+    /// Estimate the size of a single relation in bytes
+    /// Based on: 2 norms + 2 quotients + 2 factorizations (each with ~10-50 BigInt pairs)
+    fn estimate_relation_size(&self) -> usize {
+        // Base overhead: 4 BigInt values (a, b, algebraic_norm, rational_norm, etc.)
+        let base_size = 8 * 100; // ~800 bytes for metadata
+
+        // Factor count scales with digit count and prime bound
+        let avg_factors = (self.digit_count * 5).max(10); // Conservative estimate
+
+        // Each factor pair: (BigInt key, i32 exponent) ≈ 20-50 bytes per pair
+        let factor_size = avg_factors * 35;
+
+        base_size + (factor_size * 2) // algebraic + rational factorizations
     }
 
     /// Initialize streaming to disk
@@ -74,18 +91,35 @@ impl<T: GnfsInteger> RelationContainer<T> {
         // Rayon's parallel collect() over-allocates, this prevents propagation to buffer
         relations.shrink_to_fit();
 
+        // Estimate size of incoming relations
+        let estimated_size = relations.len() * self.estimate_relation_size();
+        self.current_buffer_size_bytes += estimated_size;
+
         // Add to buffer
         self.smooth_relations.append(&mut relations);
 
         // MEMORY LEAK FIX: Log buffer capacity to track over-allocation
-        log::trace!("Buffer state: len={}, capacity={}, wasted_capacity={}",
+        log::trace!("Buffer state: len={}, capacity={}, size_bytes={:.2}MB, wasted_capacity={}",
                    self.smooth_relations.len(),
                    self.smooth_relations.capacity(),
+                   self.current_buffer_size_bytes as f64 / (1024.0 * 1024.0),
                    self.smooth_relations.capacity().saturating_sub(self.smooth_relations.len()));
 
-        // Flush if buffer is full
-        if self.smooth_relations.len() >= self.buffer_size {
+        // Flush if:
+        // 1. Buffer exceeds max memory, AND
+        // 2. We have at least min_relations, OR
+        // 3. We've exceeded max_relations (safety limit)
+        let should_flush =
+            (self.current_buffer_size_bytes >= self.buffer_config.max_memory_bytes
+             && self.smooth_relations.len() >= self.buffer_config.min_relations)
+            || self.smooth_relations.len() >= self.buffer_config.max_relations;
+
+        if should_flush {
+            info!("Flushing {} relations (~{:.2}MB buffer)",
+                  self.smooth_relations.len(),
+                  self.current_buffer_size_bytes as f64 / (1024.0 * 1024.0));
             self.flush_to_disk()?;
+            self.current_buffer_size_bytes = 0;
         }
 
         Ok(())

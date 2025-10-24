@@ -18,6 +18,7 @@ use crate::core::solution::Solution;
 use crate::core::directory_location::DirectoryLocations;
 use crate::core::cancellation_token::CancellationToken;
 use crate::integer_math::prime_factory::PrimeFactory;
+use crate::config::BufferConfig;
 
 #[derive(Debug, Clone)]
 pub struct GNFS<T: GnfsInteger> {
@@ -34,6 +35,7 @@ pub struct GNFS<T: GnfsInteger> {
     pub algebraic_factor_pair_collection: FactorPairCollection,
     pub quadratic_factor_pair_collection: FactorPairCollection,
     pub save_locations: DirectoryLocations,
+    pub buffer_config: BufferConfig,
 }
 
 impl<T: GnfsInteger> GNFS<T> {
@@ -46,6 +48,30 @@ impl<T: GnfsInteger> GNFS<T> {
         relation_quantity: usize,
         relation_value_range: usize,
         created_new_data: bool,
+    ) -> Self {
+        Self::with_config(
+            cancel_token,
+            n,
+            polynomial_base,
+            poly_degree,
+            prime_bound,
+            relation_quantity,
+            relation_value_range,
+            created_new_data,
+            BufferConfig::default(),
+        )
+    }
+
+    pub fn with_config(
+        cancel_token: &CancellationToken,
+        n: &BigInt,
+        polynomial_base: &BigInt,
+        poly_degree: i32,
+        prime_bound: &BigInt,
+        relation_quantity: usize,
+        relation_value_range: usize,
+        created_new_data: bool,
+        buffer_config: BufferConfig,
     ) -> Self {
         let mut gnfs = GNFS {
             n: n.clone(),
@@ -61,6 +87,7 @@ impl<T: GnfsInteger> GNFS<T> {
             algebraic_factor_pair_collection: FactorPairCollection::default(),
             quadratic_factor_pair_collection: FactorPairCollection::default(),
             save_locations: DirectoryLocations::new(&DirectoryLocations::get_unique_name_from_n(&n)),
+            buffer_config: buffer_config.clone(),
         };
 
         if created_new_data || !Path::new(&gnfs.save_locations.save_directory).exists() {
@@ -137,10 +164,11 @@ impl<T: GnfsInteger> GNFS<T> {
                 return gnfs;
             }
 
-            gnfs.current_relations_progress = PolyRelationsSieveProgress::new(
+            gnfs.current_relations_progress = PolyRelationsSieveProgress::with_config(
                 &gnfs,
                 relation_quantity.try_into().unwrap(),
                 relation_value_range.into(),
+                buffer_config,
             );
             info!("Relations container initialized. Target quantity: {}", relation_quantity);
 
@@ -447,6 +475,7 @@ impl<T: GnfsInteger> Default for GNFS<T> {
             algebraic_factor_pair_collection: FactorPairCollection::default(),
             quadratic_factor_pair_collection: FactorPairCollection::default(),
             save_locations: DirectoryLocations::default(),
+            buffer_config: BufferConfig::default(),
         }
     }
 }
