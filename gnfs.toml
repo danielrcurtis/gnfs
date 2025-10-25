@@ -1,0 +1,5 @@
+[buffer]
+batch_size = 2048
+
+[performance]
+prime_bound_multiplier = 1.0

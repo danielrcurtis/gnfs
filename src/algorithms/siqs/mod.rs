@@ -105,6 +105,47 @@ pub struct Relation {
     pub factors: Vec<u32>,    // Exponent vector for each prime in factor base
 }
 
+/// Tracks sieving state for fast polynomial switching
+///
+/// This structure maintains all the pre-computed data needed for fast polynomial
+/// switching in SIQS. By caching modular inverses and delta arrays, we can switch
+/// between polynomials with the same 'a' coefficient in microseconds instead of
+/// milliseconds.
+#[derive(Clone, Debug)]
+pub struct SievingState {
+    /// Current polynomial being used for sieving
+    pub polynomial: SIQSPolynomial,
+
+    /// Sieving roots for current polynomial: (root1, root2) for each prime
+    /// For primes p that divide 'a', both roots are 0
+    /// Index corresponds to factor_base index
+    pub sieve_roots: Vec<(i64, i64)>,
+
+    /// Pre-computed a⁻¹ mod p for all primes in factor base
+    /// Computed once per 'a' coefficient
+    /// For primes dividing 'a' or p=1 (-1 marker), value is 0
+    pub ainv_cache: Vec<i64>,
+
+    /// Pre-computed delta arrays for fast root updates
+    /// delta_arrays[b_idx][prime_idx] = B[b_idx] × a⁻¹ mod p
+    /// Used for incremental root updates when switching polynomials
+    pub delta_arrays: Vec<Vec<i64>>,
+}
+
+impl SievingState {
+    /// Create a new sieving state (placeholder - will be properly implemented in Phase 2.2)
+    pub fn new_placeholder(polynomial: SIQSPolynomial, factor_base_size: usize) -> Self {
+        let j = polynomial.b_array.len();
+
+        SievingState {
+            polynomial,
+            sieve_roots: vec![(0, 0); factor_base_size],
+            ainv_cache: vec![0; factor_base_size],
+            delta_arrays: vec![vec![0; factor_base_size]; j],
+        }
+    }
+}
+
 impl SIQS {
     /// Create a new SIQS instance
     pub fn new(n: &BigInt) -> Self {
@@ -783,5 +824,116 @@ mod tests {
 
         assert!(siqs.factor_base_size > 0);
         assert!(!siqs.factor_base.is_empty());
+    }
+
+    #[test]
+    fn test_sieving_state_creation() {
+        // Create a mock polynomial
+        let poly = SIQSPolynomial {
+            a: BigInt::from(100),
+            b: BigInt::from(50),
+            c: BigInt::from(25),
+            a_factors: vec![2, 5],
+            b_array: vec![BigInt::from(10), BigInt::from(20)],
+            poly_index: 0,
+            max_polynomials: 2,
+        };
+
+        let factor_base_size = 10;
+        let state = SievingState::new_placeholder(poly.clone(), factor_base_size);
+
+        // Verify structure
+        assert_eq!(state.sieve_roots.len(), factor_base_size);
+        assert_eq!(state.ainv_cache.len(), factor_base_size);
+        assert_eq!(state.delta_arrays.len(), 2); // j=2 (b_array.len())
+        assert_eq!(state.delta_arrays[0].len(), factor_base_size);
+        assert_eq!(state.polynomial.a, poly.a);
+        assert_eq!(state.polynomial.b, poly.b);
+    }
+
+    #[test]
+    fn test_sieving_state_sizes() {
+        // Test with different factor base sizes
+        let poly = SIQSPolynomial {
+            a: BigInt::from(1000),
+            b: BigInt::from(500),
+            c: BigInt::from(250),
+            a_factors: vec![2, 5, 10],
+            b_array: vec![BigInt::from(100), BigInt::from(200), BigInt::from(300)],
+            poly_index: 0,
+            max_polynomials: 4, // 2^(3-1) = 4
+        };
+
+        for &fb_size in &[5, 10, 50, 100] {
+            let state = SievingState::new_placeholder(poly.clone(), fb_size);
+
+            assert_eq!(state.sieve_roots.len(), fb_size,
+                      "sieve_roots size should match factor base");
+            assert_eq!(state.ainv_cache.len(), fb_size,
+                      "ainv_cache size should match factor base");
+            assert_eq!(state.delta_arrays.len(), 3,
+                      "delta_arrays should have j rows (b_array.len())");
+
+            for delta_row in &state.delta_arrays {
+                assert_eq!(delta_row.len(), fb_size,
+                          "each delta_array row should match factor base size");
+            }
+        }
+    }
+
+    #[test]
+    fn test_polynomial_with_fast_switching_metadata() {
+        // Verify that generated polynomials have correct metadata
+        let n = BigInt::from(10007);
+        let mut siqs = SIQS::new(&n);
+        siqs.build_factor_base();
+
+        let target_a = siqs.params.target_a(&n);
+
+        if let Some(poly) = generate_polynomial(&n, &siqs.factor_base, &siqs.params, &target_a) {
+            // Verify initial values
+            assert_eq!(poly.poly_index, 0, "Should start at index 0");
+            assert!(poly.max_polynomials > 0, "Should have at least 1 polynomial");
+
+            // For j primes, should have 2^(j-1) polynomials
+            let j = poly.b_array.len();
+            let expected_max = 2u32.pow((j as u32) - 1);
+            assert_eq!(poly.max_polynomials, expected_max,
+                      "max_polynomials should be 2^(j-1) where j={}", j);
+
+            // Verify b_array size matches a_factors
+            assert_eq!(poly.b_array.len(), poly.a_factors.len(),
+                      "b_array and a_factors should have same length");
+        }
+    }
+
+    #[test]
+    fn test_max_polynomials_powers_of_two() {
+        // Test that max_polynomials is always a power of 2 (or 1)
+        // This is critical for Gray code-based switching
+
+        for j in 1..=6 {
+            let b_array = (0..j).map(|i| BigInt::from(i * 10)).collect::<Vec<_>>();
+
+            let poly = SIQSPolynomial {
+                a: BigInt::from(1000),
+                b: BigInt::from(500),
+                c: BigInt::from(250),
+                a_factors: (0..j).map(|i| i as u64 + 2).collect(),
+                b_array,
+                poly_index: 0,
+                max_polynomials: 2u32.pow(j as u32 - 1),
+            };
+
+            // Verify it's a power of 2
+            let max = poly.max_polynomials;
+            assert!(max > 0);
+            assert_eq!(max & (max - 1), 0, // Power of 2 test
+                      "max_polynomials={} should be a power of 2", max);
+
+            // Verify the formula
+            assert_eq!(max, 2u32.pow(j as u32 - 1),
+                      "For j={}, expected 2^{} = {}", j, j - 1, 2u32.pow(j as u32 - 1));
+        }
     }
 }

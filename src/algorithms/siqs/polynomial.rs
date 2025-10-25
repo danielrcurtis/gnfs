@@ -22,6 +22,10 @@ pub struct SIQSPolynomial {
     pub c: BigInt,              // Constant term: (b² - n) / a
     pub a_factors: Vec<u64>,    // Prime factors of 'a'
     pub b_array: Vec<BigInt>,   // B[i] values for fast polynomial switching
+
+    // Fast switching metadata
+    pub poly_index: u32,        // Current polynomial index (0 to max_polynomials - 1)
+    pub max_polynomials: u32,   // Total polynomials for this 'a': 2^(j-1)
 }
 
 impl SIQSPolynomial {
@@ -145,12 +149,25 @@ pub fn generate_polynomial(
     debug!("  c = {}", c);
     debug!("  Verification: b² ≡ n (mod a) ✓");
 
+    // Calculate max polynomials: 2^(j-1)
+    // For j primes, we can generate 2^(j-1) polynomials using Gray code
+    let j = selected_primes.len() as u32;
+    let max_polynomials = if j > 0 {
+        2u32.pow(j - 1)
+    } else {
+        1
+    };
+
+    debug!("  Fast switching: can generate {} polynomials from this 'a'", max_polynomials);
+
     Some(SIQSPolynomial {
         a,
         b,
         c,
         a_factors,
         b_array,
+        poly_index: 0,          // Start at index 0
+        max_polynomials,
     })
 }
 
@@ -296,6 +313,8 @@ mod tests {
             c: BigInt::from(1),
             a_factors: vec![2, 3],
             b_array: vec![],
+            poly_index: 0,
+            max_polynomials: 1,
         };
 
         let n = BigInt::from(48);
@@ -305,5 +324,58 @@ mod tests {
 
         // Q(1) = (6*1 + 7)² - 48 = 169 - 48 = 121
         assert_eq!(poly.evaluate(1, &n), BigInt::from(121));
+    }
+
+    #[test]
+    fn test_polynomial_index_tracking() {
+        // Test that polynomial index is correctly initialized
+        let poly = SIQSPolynomial {
+            a: BigInt::from(100),
+            b: BigInt::from(50),
+            c: BigInt::from(25),
+            a_factors: vec![2, 5],
+            b_array: vec![BigInt::from(10), BigInt::from(20)],
+            poly_index: 0,
+            max_polynomials: 2, // 2^(2-1) = 2
+        };
+
+        assert_eq!(poly.poly_index, 0);
+        assert_eq!(poly.max_polynomials, 2);
+    }
+
+    #[test]
+    fn test_max_polynomials_calculation() {
+        // Test that max_polynomials is correctly calculated as 2^(j-1)
+        // For j=3: 2^(3-1) = 4 polynomials
+        // For j=4: 2^(4-1) = 8 polynomials
+        // For j=5: 2^(5-1) = 16 polynomials
+
+        // Mock factor base with enough primes
+        let mut factor_base = Vec::new();
+        for p in &[2, 3, 5, 7, 11, 13, 17, 19, 23, 29] {
+            factor_base.push(Prime {
+                p: *p,
+                roots: vec![1],
+                tsqrt: 1,
+                log_p: 1.0,
+            });
+        }
+
+        let n = BigInt::from(10007); // Small test number
+        let params = SIQSParameters {
+            smoothness_bound: 30,
+            sieve_interval: 1000,
+            primes_per_a: 3, // j=3 → max_polynomials = 4
+            relation_margin: 10,
+        };
+        let target_a = BigInt::from(100);
+
+        // Generate polynomial
+        if let Some(poly) = generate_polynomial(&n, &factor_base, &params, &target_a) {
+            // For j=3, we should get 2^(3-1) = 4 polynomials
+            assert_eq!(poly.max_polynomials, 4);
+            assert_eq!(poly.poly_index, 0);
+            assert_eq!(poly.b_array.len(), 3);
+        }
     }
 }

@@ -1,9 +1,9 @@
 {
-  "a": "1",
-  "b": "10",
-  "smooth_relations_target_quantity": 1000,
+  "a": "3751",
+  "b": "403",
+  "smooth_relations_target_quantity": 10011,
   "value_range": "201",
-  "max_b": "300",
-  "smooth_relations_counter": 1123,
+  "max_b": "15000",
+  "smooth_relations_counter": 10254,
   "free_relations_counter": 0
 }
