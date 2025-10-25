@@ -147,6 +147,311 @@ impl SievingState {
 }
 
 impl SIQS {
+    /// Pre-compute a⁻¹ mod p for all primes in factor base
+    ///
+    /// This is computed once per 'a' coefficient and cached for fast polynomial switching.
+    /// For primes that divide 'a' or the -1 marker (p=1), we store 0.
+    ///
+    /// # Arguments
+    /// * `a` - The 'a' coefficient of the polynomial
+    /// * `polynomial` - The polynomial containing a_factors to skip
+    ///
+    /// # Returns
+    /// Vector of a⁻¹ mod p for each prime in factor_base
+    fn compute_ainv_cache(&self, a: &BigInt, polynomial: &SIQSPolynomial) -> Vec<i64> {
+        let mut cache = Vec::with_capacity(self.factor_base_size);
+
+        for prime in &self.factor_base {
+            // Skip -1 marker
+            if prime.p <= 1 {
+                cache.push(0);
+                continue;
+            }
+
+            // Skip primes that divide 'a'
+            if polynomial.a_factors.contains(&prime.p) {
+                cache.push(0);
+                continue;
+            }
+
+            let p = BigInt::from(prime.p);
+            let a_mod_p = a.mod_floor(&p);
+
+            match Self::mod_inverse_i64(&a_mod_p.to_i64().unwrap_or(0), prime.p as i64) {
+                Some(inv) => cache.push(inv),
+                None => {
+                    // This should never happen for valid factor base primes
+                    debug!("Warning: Could not compute a⁻¹ mod {} for a={}", prime.p, a);
+                    cache.push(0);
+                }
+            }
+        }
+
+        cache
+    }
+
+    /// Pre-compute delta arrays: 2 × B[i] × a⁻¹ mod p for all primes and all B[i]
+    ///
+    /// These deltas are used for incremental root updates during polynomial switching.
+    /// When b changes by ±2*B[i], roots change by ∓delta.
+    ///
+    /// # Arguments
+    /// * `b_array` - Array of B[i] values from polynomial generation
+    /// * `ainv_cache` - Pre-computed a⁻¹ mod p values
+    ///
+    /// # Returns
+    /// 2D array: delta_arrays[b_idx][prime_idx] = 2 × B[b_idx] × a⁻¹ mod p
+    fn compute_delta_arrays(
+        &self,
+        b_array: &[BigInt],
+        ainv_cache: &[i64],
+    ) -> Vec<Vec<i64>> {
+        let j = b_array.len();
+        let mut delta_arrays = vec![vec![0i64; self.factor_base_size]; j];
+
+        for b_idx in 0..j {
+            let b_i = &b_array[b_idx];
+
+            for (prime_idx, prime) in self.factor_base.iter().enumerate() {
+                if prime.p <= 1 || ainv_cache[prime_idx] == 0 {
+                    // Skip -1 marker and primes dividing 'a'
+                    continue;
+                }
+
+                let p = prime.p as i64;
+                let b_i_mod_p = b_i.mod_floor(&BigInt::from(p)).to_i64().unwrap_or(0);
+                let ainv = ainv_cache[prime_idx];
+
+                // Δ = 2 × B[i] × a⁻¹ mod p
+                // When b changes by ±2*B[i], roots change by ∓Δ mod p
+                delta_arrays[b_idx][prime_idx] = (2 * b_i_mod_p * ainv).rem_euclid(p);
+            }
+        }
+
+        delta_arrays
+    }
+
+    /// Compute sieving roots for a polynomial
+    ///
+    /// For Q(x) = (ax + b)² - n, we need x such that (ax + b)² ≡ n (mod p)
+    /// This means ax + b ≡ ±√n (mod p)
+    /// So x ≡ (±√n - b) × a⁻¹ (mod p)
+    ///
+    /// # Arguments
+    /// * `polynomial` - The SIQS polynomial
+    /// * `ainv_cache` - Pre-computed a⁻¹ mod p values
+    ///
+    /// # Returns
+    /// Vec of (root1, root2) tuples for each prime in factor base
+    /// For primes dividing 'a', both roots are 0
+    fn compute_sieve_roots(
+        &self,
+        polynomial: &SIQSPolynomial,
+        ainv_cache: &[i64],
+    ) -> Vec<(i64, i64)> {
+        let mut roots = Vec::with_capacity(self.factor_base_size);
+
+        for (prime_idx, prime) in self.factor_base.iter().enumerate() {
+            if prime.p <= 1 {
+                // -1 marker: no roots
+                roots.push((0, 0));
+                continue;
+            }
+
+            // Check if prime divides 'a' using ainv_cache marker
+            if ainv_cache[prime_idx] == 0 {
+                // Prime divides 'a': special handling, roots set to 0
+                roots.push((0, 0));
+                continue;
+            }
+
+            let p = prime.p as i64;
+            let b_mod_p = polynomial.b.mod_floor(&BigInt::from(p)).to_i64().unwrap_or(0);
+            let a_inv = ainv_cache[prime_idx];
+
+            // Get square root of n mod p (tsqrt)
+            let tsqrt = prime.tsqrt as i64;
+
+            // Compute both roots:
+            // root1 = (tsqrt - b) × a⁻¹ mod p
+            // root2 = (-tsqrt - b) × a⁻¹ mod p = (p - tsqrt - b) × a⁻¹ mod p
+            let root1 = ((tsqrt - b_mod_p) * a_inv).rem_euclid(p);
+            let root2 = ((p - tsqrt - b_mod_p) * a_inv).rem_euclid(p);
+
+            roots.push((root1, root2));
+        }
+
+        roots
+    }
+
+    /// Initialize complete sieving state for a polynomial
+    ///
+    /// This method performs all pre-computations needed for sieving:
+    /// 1. Computes a⁻¹ mod p for all primes (ainv_cache)
+    /// 2. Computes B[i] × a⁻¹ mod p for fast switching (delta_arrays)
+    /// 3. Computes initial sieving roots for the polynomial
+    ///
+    /// # Arguments
+    /// * `polynomial` - The SIQS polynomial to initialize for
+    ///
+    /// # Returns
+    /// Fully initialized SievingState ready for sieving
+    fn initialize_sieving_state(&self, polynomial: SIQSPolynomial) -> SievingState {
+        // Step 1: Compute a⁻¹ mod p for all primes
+        let ainv_cache = self.compute_ainv_cache(&polynomial.a, &polynomial);
+
+        // Step 2: Compute delta arrays for fast switching
+        let delta_arrays = self.compute_delta_arrays(&polynomial.b_array, &ainv_cache);
+
+        // Step 3: Compute initial sieving roots
+        let sieve_roots = self.compute_sieve_roots(&polynomial, &ainv_cache);
+
+        SievingState {
+            polynomial,
+            sieve_roots,
+            ainv_cache,
+            delta_arrays,
+        }
+    }
+
+    /// Gray code helper: Find which bit flipped between two successive Gray code values
+    ///
+    /// In Gray code, successive values differ by exactly one bit. This function
+    /// identifies which bit position changed.
+    ///
+    /// # Arguments
+    /// * `prev_index` - Previous polynomial index (binary)
+    /// * `next_index` - Next polynomial index (binary)
+    ///
+    /// # Returns
+    /// The bit position that flipped (0-indexed from right)
+    fn gray_code_flip_position(prev_index: u32, next_index: u32) -> Option<usize> {
+        // Convert to Gray code
+        let prev_gray = Self::binary_to_gray(prev_index);
+        let next_gray = Self::binary_to_gray(next_index);
+
+        // XOR to find which bit changed
+        let diff = prev_gray ^ next_gray;
+
+        if diff == 0 {
+            return None; // No change
+        }
+
+        // Find position of the single bit that's set
+        // Gray code property: only one bit changes, so diff should be a power of 2
+        Some(diff.trailing_zeros() as usize)
+    }
+
+    /// Switch to the next polynomial using fast Gray code switching
+    ///
+    /// This method efficiently switches to the next polynomial in the sequence
+    /// using pre-computed delta arrays. Only the changed B[i] term is updated.
+    ///
+    /// Algorithm:
+    /// 1. Determine which B[i] to flip using Gray code
+    /// 2. Update b: b' = b ± 2 × B[flip_idx]
+    /// 3. Update roots incrementally: soln' = soln ∓ Δ[flip_idx] mod p
+    ///
+    /// # Arguments
+    /// * `state` - Current sieving state (will be modified)
+    ///
+    /// # Returns
+    /// true if successfully switched, false if no more polynomials
+    fn switch_polynomial(&self, state: &mut SievingState) -> bool {
+        let current_index = state.polynomial.poly_index;
+        let max_polynomials = state.polynomial.max_polynomials;
+
+        // Check if we've exhausted all polynomials for this 'a'
+        if current_index + 1 >= max_polynomials {
+            return false;
+        }
+
+        let next_index = current_index + 1;
+
+        // Determine which bit flipped in Gray code
+        let flip_idx = match Self::gray_code_flip_position(current_index, next_index) {
+            Some(idx) => idx,
+            None => return false,
+        };
+
+        // Ensure flip_idx is within bounds
+        if flip_idx >= state.polynomial.b_array.len() {
+            return false;
+        }
+
+        // Determine sign based on Gray code bit value
+        // If bit is being set to 1: add 2*B[flip_idx]
+        // If bit is being cleared to 0: subtract 2*B[flip_idx]
+        let next_gray = Self::binary_to_gray(next_index);
+        let bit_is_set = (next_gray & (1 << flip_idx)) != 0;
+
+        // Update b: b' = b ± 2 × B[flip_idx]
+        let two_b_i = &state.polynomial.b_array[flip_idx] * 2;
+        if bit_is_set {
+            state.polynomial.b += &two_b_i;
+        } else {
+            state.polynomial.b -= &two_b_i;
+        }
+
+        // Update c: c = (b² - n) / a
+        let b_squared = &state.polynomial.b * &state.polynomial.b;
+        state.polynomial.c = (b_squared - &self.n) / &state.polynomial.a;
+
+        // Update sieving roots incrementally
+        for (prime_idx, prime) in self.factor_base.iter().enumerate() {
+            if prime.p <= 1 {
+                continue; // Skip -1 marker
+            }
+
+            // Skip primes that divide 'a' (marked by ainv_cache = 0)
+            if state.ainv_cache[prime_idx] == 0 {
+                continue;
+            }
+
+            let p = prime.p as i64;
+            let delta = state.delta_arrays[flip_idx][prime_idx];
+
+            // Update both roots: soln' = soln ∓ Δ mod p
+            let (root1, root2) = state.sieve_roots[prime_idx];
+
+            if bit_is_set {
+                // Adding 2*B[i] to b, so subtract delta from roots
+                state.sieve_roots[prime_idx] = (
+                    (root1 - delta).rem_euclid(p),
+                    (root2 - delta).rem_euclid(p),
+                );
+            } else {
+                // Subtracting 2*B[i] from b, so add delta to roots
+                state.sieve_roots[prime_idx] = (
+                    (root1 + delta).rem_euclid(p),
+                    (root2 + delta).rem_euclid(p),
+                );
+            }
+        }
+
+        // Update polynomial index
+        state.polynomial.poly_index = next_index;
+
+        true
+    }
+
+    /// Convert binary number to Gray code
+    fn binary_to_gray(n: u32) -> u32 {
+        n ^ (n >> 1)
+    }
+
+    /// Convert Gray code to binary number
+    #[allow(dead_code)]
+    fn gray_to_binary(gray: u32) -> u32 {
+        let mut binary = gray;
+        let mut shift = 1;
+        while shift < 32 {
+            binary ^= gray >> shift;
+            shift <<= 1;
+        }
+        binary
+    }
+
     /// Create a new SIQS instance
     pub fn new(n: &BigInt) -> Self {
         let sqrt_n = n.sqrt();
@@ -413,50 +718,169 @@ impl SIQS {
 
     /// Sieve with multiple SIQS polynomials
     fn sieve_with_polynomials(&self) -> Vec<Relation> {
-        info!("Sieving with SIQS polynomials...");
+        info!("Sieving with SIQS polynomials (fast switching enabled)...");
 
         let mut all_relations = Vec::new();
         let required_relations = self.factor_base_size + self.params.relation_margin;
 
         let target_a = self.params.target_a(&self.n);
-        let max_polynomials = 100; // Limit number of polynomials to try
+        let max_a_values = 100; // Maximum number of different 'a' coefficients to try
 
-        for poly_idx in 0..max_polynomials {
-            // Generate a new polynomial
+        let mut total_polynomials = 0;
+        let mut switched_count = 0;
+
+        for a_idx in 0..max_a_values {
+            // Generate initial polynomial with new 'a'
             let polynomial = match generate_polynomial(&self.n, &self.factor_base, &self.params, &target_a) {
                 Some(poly) => poly,
                 None => {
-                    warn!("Failed to generate polynomial {}", poly_idx + 1);
+                    warn!("Failed to generate polynomial for 'a' {}", a_idx + 1);
                     continue;
                 }
             };
 
-            info!("Polynomial {}: a = {}, b = {}", poly_idx + 1, polynomial.a, polynomial.b);
+            let max_poly = polynomial.max_polynomials;
+            info!("Generated 'a' #{}: can switch through {} polynomials", a_idx + 1, max_poly);
 
-            // Sieve with this polynomial
-            let relations = self.sieve_with_polynomial(&polynomial);
-            let smooth_count = relations.len();
+            // Initialize sieving state with pre-computed caches
+            let mut state = self.initialize_sieving_state(polynomial);
 
-            info!("Found {} smooth relations with polynomial {}", smooth_count, poly_idx + 1);
+            // Sieve with all polynomials from this 'a' using fast switching
+            for poly_idx_in_a in 0..max_poly {
+                total_polynomials += 1;
 
-            all_relations.extend(relations);
+                if poly_idx_in_a == 0 {
+                    info!("Polynomial {} (a={}, poly_idx=0): Initial polynomial",
+                          total_polynomials, state.polynomial.a);
+                } else {
+                    info!("Polynomial {} (a={}, poly_idx={}): Fast-switched",
+                          total_polynomials, state.polynomial.a, poly_idx_in_a);
+                }
 
-            // Check if we have enough relations
-            if all_relations.len() >= required_relations {
-                info!("Collected {} relations (need {}), stopping sieving",
-                      all_relations.len(), required_relations);
-                break;
+                // Sieve with current polynomial
+                let relations = self.sieve_with_state(&state);
+                let smooth_count = relations.len();
+
+                info!("Found {} smooth relations", smooth_count);
+
+                all_relations.extend(relations);
+
+                // Check if we have enough relations
+                if all_relations.len() >= required_relations {
+                    info!("Collected {} relations (need {}), stopping sieving",
+                          all_relations.len(), required_relations);
+                    info!("Fast polynomial switches: {}", switched_count);
+                    return all_relations;
+                }
+
+                // Switch to next polynomial (if not the last one for this 'a')
+                if poly_idx_in_a < max_poly - 1 {
+                    if self.switch_polynomial(&mut state) {
+                        switched_count += 1;
+                    } else {
+                        warn!("Failed to switch polynomial, moving to next 'a'");
+                        break;
+                    }
+                }
             }
 
-            // Progress update
-            if (poly_idx + 1) % 10 == 0 {
-                info!("Tried {} polynomials, collected {} / {} relations",
-                      poly_idx + 1, all_relations.len(), required_relations);
-            }
+            // Progress update after exhausting all polynomials from this 'a'
+            info!("Exhausted all {} polynomials from 'a' #{}, tried {} total polynomials, collected {} / {} relations",
+                  max_poly, a_idx + 1, total_polynomials, all_relations.len(), required_relations);
         }
 
         info!("Total relations collected: {} (need {})", all_relations.len(), required_relations);
+        info!("Total polynomials tried: {}, fast switches: {}", total_polynomials, switched_count);
         all_relations
+    }
+
+    /// Sieve using pre-computed sieving state (fast switching optimized)
+    fn sieve_with_state(&self, state: &SievingState) -> Vec<Relation> {
+        let polynomial = &state.polynomial;
+        let m = self.params.sieve_interval;
+        let sqrt_n = self.sqrt_n.to_i64().unwrap_or(0);
+
+        // Sieve interval around sqrt(n)
+        let start_x = sqrt_n - m / 2;
+        let end_x = sqrt_n + m / 2;
+        let interval_size = (end_x - start_x + 1) as usize;
+
+        // Initialize log approximation array
+        let mut log_array = vec![0.0f32; interval_size];
+
+        // For each prime in factor base, use pre-computed roots
+        for (prime_idx, prime) in self.factor_base.iter().enumerate() {
+            if prime.p <= 1 {
+                continue; // Skip -1 marker
+            }
+
+            // Skip primes that divide 'a' (marked by zeros in state)
+            if state.ainv_cache[prime_idx] == 0 {
+                continue;
+            }
+
+            let p = prime.p as i64;
+            let log_p = prime.log_p;
+
+            // Use pre-computed roots from sieving state
+            let (root1, root2) = state.sieve_roots[prime_idx];
+
+            // Sieve both roots
+            for &root in &[root1, root2] {
+                if root == 0 && root1 == root2 {
+                    continue; // Skip if both roots are 0
+                }
+
+                // Sieve all positions x ≡ root (mod p)
+                let first_x = if root >= start_x {
+                    root
+                } else {
+                    start_x + ((root - start_x).rem_euclid(p))
+                };
+
+                let mut x = first_x;
+                while x <= end_x {
+                    let array_idx = (x - start_x) as usize;
+                    if array_idx < interval_size {
+                        log_array[array_idx] += log_p;
+                    }
+                    x += p;
+                }
+            }
+        }
+
+        // Calculate threshold
+        let sqrt_n_float = self.sqrt_n.to_f64().unwrap_or(1.0);
+        let a_float = polynomial.a.to_f64().unwrap_or(1.0);
+
+        let max_q_x = a_float * 2.0 * sqrt_n_float * (m as f64 / 2.0);
+        let expected_log = max_q_x.ln() as f32;
+
+        let threshold_multiplier = match self.n.to_string().len() {
+            0..=30 => 0.55,
+            31..=50 => 0.60,
+            51..=70 => 0.65,
+            _ => 0.70,
+        };
+        let threshold = expected_log * threshold_multiplier;
+
+        // Collect candidates
+        let mut candidates = Vec::new();
+        for x in start_x..=end_x {
+            let array_idx = (x - start_x) as usize;
+            if array_idx < interval_size && log_array[array_idx] >= threshold {
+                candidates.push(x);
+            }
+        }
+
+        debug!("Found {} candidates for polynomial", candidates.len());
+
+        // Trial divide candidates
+        let relations: Vec<Relation> = candidates.par_iter()
+            .filter_map(|&x| self.trial_divide_siqs(x, polynomial))
+            .collect();
+
+        relations
     }
 
     /// Sieve with a single SIQS polynomial
@@ -935,5 +1359,709 @@ mod tests {
             assert_eq!(max, 2u32.pow(j as u32 - 1),
                       "For j={}, expected 2^{} = {}", j, j - 1, 2u32.pow(j as u32 - 1));
         }
+    }
+
+    #[test]
+    fn test_compute_ainv_cache() {
+        // Create a simple SIQS instance for testing
+        let n = BigInt::from(10007);
+        let mut siqs = SIQS::new(&n);
+        siqs.build_factor_base();
+
+        // Create a test polynomial with known 'a'
+        let poly = SIQSPolynomial {
+            a: BigInt::from(30), // 30 = 2 × 3 × 5
+            b: BigInt::from(50),
+            c: BigInt::from(25),
+            a_factors: vec![2, 3, 5],
+            b_array: vec![BigInt::from(10), BigInt::from(20), BigInt::from(30)],
+            poly_index: 0,
+            max_polynomials: 4,
+        };
+
+        // Compute ainv cache
+        let ainv_cache = siqs.compute_ainv_cache(&poly.a, &poly);
+
+        // Verify size
+        assert_eq!(ainv_cache.len(), siqs.factor_base_size);
+
+        // Verify mathematical correctness: a × ainv ≡ 1 (mod p)
+        for (idx, prime) in siqs.factor_base.iter().enumerate() {
+            if prime.p <= 1 {
+                // -1 marker should have ainv = 0
+                assert_eq!(ainv_cache[idx], 0, "ainv for -1 marker should be 0");
+                continue;
+            }
+
+            if poly.a_factors.contains(&prime.p) {
+                // Primes dividing 'a' should have ainv = 0
+                assert_eq!(ainv_cache[idx], 0,
+                          "ainv for prime {} dividing 'a' should be 0", prime.p);
+                continue;
+            }
+
+            let ainv = ainv_cache[idx];
+            let p = prime.p as i64;
+
+            // Verify: (a mod p) × ainv ≡ 1 (mod p)
+            let a_mod_p = poly.a.mod_floor(&BigInt::from(p)).to_i64().unwrap_or(0);
+            let product = (a_mod_p * ainv).rem_euclid(p);
+
+            assert_eq!(product, 1,
+                      "For prime p={}, a={}, ainv={}: (a × ainv) mod p should be 1, got {}",
+                      p, poly.a, ainv, product);
+        }
+    }
+
+    #[test]
+    fn test_compute_delta_arrays() {
+        // Create a simple SIQS instance
+        let n = BigInt::from(10007);
+        let mut siqs = SIQS::new(&n);
+        siqs.build_factor_base();
+
+        // Create test polynomial
+        let poly = SIQSPolynomial {
+            a: BigInt::from(30), // 30 = 2 × 3 × 5
+            b: BigInt::from(50),
+            c: BigInt::from(25),
+            a_factors: vec![2, 3, 5],
+            b_array: vec![BigInt::from(7), BigInt::from(11)], // j=2
+            poly_index: 0,
+            max_polynomials: 2,
+        };
+
+        // Compute ainv cache first
+        let ainv_cache = siqs.compute_ainv_cache(&poly.a, &poly);
+
+        // Compute delta arrays
+        let delta_arrays = siqs.compute_delta_arrays(&poly.b_array, &ainv_cache);
+
+        // Verify dimensions
+        assert_eq!(delta_arrays.len(), 2, "Should have j=2 rows");
+        for row in &delta_arrays {
+            assert_eq!(row.len(), siqs.factor_base_size,
+                      "Each row should match factor base size");
+        }
+
+        // Verify mathematical correctness: delta[i][p] = 2 × B[i] × ainv[p] mod p
+        for b_idx in 0..poly.b_array.len() {
+            let b_i = &poly.b_array[b_idx];
+
+            for (prime_idx, prime) in siqs.factor_base.iter().enumerate() {
+                if prime.p <= 1 || poly.a_factors.contains(&prime.p) {
+                    // Should be 0 for -1 marker and primes dividing 'a'
+                    assert_eq!(delta_arrays[b_idx][prime_idx], 0);
+                    continue;
+                }
+
+                let p = prime.p as i64;
+                let ainv = ainv_cache[prime_idx];
+                let delta = delta_arrays[b_idx][prime_idx];
+
+                // Verify: delta = 2 × (B[i] mod p) × ainv mod p
+                let b_i_mod_p = b_i.mod_floor(&BigInt::from(p)).to_i64().unwrap_or(0);
+                let expected_delta = (2 * b_i_mod_p * ainv).rem_euclid(p);
+
+                assert_eq!(delta, expected_delta,
+                          "For B[{}]={}, prime p={}: delta should be {} × {} mod {} = {}, got {}",
+                          b_idx, b_i, p, b_i_mod_p, ainv, p, expected_delta, delta);
+            }
+        }
+    }
+
+    #[test]
+    fn test_ainv_cache_skips_a_factors() {
+        // Verify that ainv_cache correctly skips primes dividing 'a'
+        let n = BigInt::from(10007);
+        let mut siqs = SIQS::new(&n);
+        siqs.build_factor_base();
+
+        // Create polynomial where 'a' has specific factors
+        let a_factors = vec![3, 5, 7];
+        let poly = SIQSPolynomial {
+            a: BigInt::from(3 * 5 * 7), // 105
+            b: BigInt::from(50),
+            c: BigInt::from(25),
+            a_factors: a_factors.clone(),
+            b_array: vec![BigInt::from(10)],
+            poly_index: 0,
+            max_polynomials: 1,
+        };
+
+        let ainv_cache = siqs.compute_ainv_cache(&poly.a, &poly);
+
+        // Check that primes 3, 5, 7 have ainv = 0
+        for (idx, prime) in siqs.factor_base.iter().enumerate() {
+            if a_factors.contains(&prime.p) {
+                assert_eq!(ainv_cache[idx], 0,
+                          "Prime {} divides 'a', should have ainv = 0", prime.p);
+            }
+        }
+    }
+
+    #[test]
+    fn test_delta_arrays_dimensions() {
+        // Test that delta_arrays has correct dimensions for various j values
+        let n = BigInt::from(10007);
+        let mut siqs = SIQS::new(&n);
+        siqs.build_factor_base();
+
+        for j in 1..=5 {
+            let b_array = (0..j).map(|i| BigInt::from((i + 1) * 10)).collect::<Vec<_>>();
+            let poly = SIQSPolynomial {
+                a: BigInt::from(30),
+                b: BigInt::from(50),
+                c: BigInt::from(25),
+                a_factors: vec![2, 3, 5],
+                b_array: b_array.clone(),
+                poly_index: 0,
+                max_polynomials: 2u32.pow(j as u32 - 1),
+            };
+
+            let ainv_cache = siqs.compute_ainv_cache(&poly.a, &poly);
+            let delta_arrays = siqs.compute_delta_arrays(&b_array, &ainv_cache);
+
+            assert_eq!(delta_arrays.len(), j,
+                      "For j={}, delta_arrays should have {} rows", j, j);
+
+            for (row_idx, row) in delta_arrays.iter().enumerate() {
+                assert_eq!(row.len(), siqs.factor_base_size,
+                          "Row {} should have {} columns", row_idx, siqs.factor_base_size);
+            }
+        }
+    }
+
+    #[test]
+    fn test_compute_sieve_roots() {
+        // Test that sieve roots satisfy the polynomial equation
+        let n = BigInt::from(10007);
+        let mut siqs = SIQS::new(&n);
+        siqs.build_factor_base();
+
+        // Create a test polynomial
+        let poly = SIQSPolynomial {
+            a: BigInt::from(30), // 30 = 2 × 3 × 5
+            b: BigInt::from(50),
+            c: BigInt::from(25),
+            a_factors: vec![2, 3, 5],
+            b_array: vec![],
+            poly_index: 0,
+            max_polynomials: 4,
+        };
+
+        // Compute prerequisites
+        let ainv_cache = siqs.compute_ainv_cache(&poly.a, &poly);
+        let roots = siqs.compute_sieve_roots(&poly, &ainv_cache);
+
+        // Verify size
+        assert_eq!(roots.len(), siqs.factor_base_size);
+
+        // Verify roots satisfy polynomial equation: (a × root + b)² ≡ n (mod p)
+        for (idx, prime) in siqs.factor_base.iter().enumerate() {
+            if prime.p <= 1 {
+                // -1 marker should have (0, 0) roots
+                assert_eq!(roots[idx], (0, 0), "Roots for -1 marker should be (0, 0)");
+                continue;
+            }
+
+            let (root1, root2) = roots[idx];
+            let p = prime.p;
+
+            if poly.a_factors.contains(&p) {
+                // Primes dividing 'a' should have (0, 0) roots
+                assert_eq!(roots[idx], (0, 0),
+                          "Roots for prime {} dividing 'a' should be (0, 0)", p);
+                continue;
+            }
+
+            // Verify root1 is in valid range
+            assert!(root1 >= 0 && root1 < p as i64,
+                   "root1={} should be in [0, {})", root1, p);
+
+            // Verify root2 is in valid range
+            assert!(root2 >= 0 && root2 < p as i64,
+                   "root2={} should be in [0, {})", root2, p);
+
+            // Verify both roots satisfy: (a × root + b)² ≡ n (mod p)
+            for (root_name, root) in [("root1", root1), ("root2", root2)] {
+                let a_mod_p = poly.a.mod_floor(&BigInt::from(p)).to_i64().unwrap_or(0);
+                let b_mod_p = poly.b.mod_floor(&BigInt::from(p)).to_i64().unwrap_or(0);
+                let n_mod_p = n.mod_floor(&BigInt::from(p)).to_i64().unwrap_or(0);
+
+                // Compute (a × root + b) mod p
+                let ax_plus_b = (a_mod_p * root + b_mod_p).rem_euclid(p as i64);
+
+                // Compute (a × root + b)² mod p
+                let q_x = (ax_plus_b * ax_plus_b).rem_euclid(p as i64);
+
+                assert_eq!(q_x, n_mod_p,
+                          "For prime p={}, {}: (a × {} + b)² mod p should equal n mod p, got {} ≠ {}",
+                          p, root_name, root, q_x, n_mod_p);
+            }
+        }
+    }
+
+    #[test]
+    fn test_sieve_roots_two_distinct() {
+        // Test that root1 and root2 are different (unless p=2)
+        let n = BigInt::from(10007);
+        let mut siqs = SIQS::new(&n);
+        siqs.build_factor_base();
+
+        let poly = SIQSPolynomial {
+            a: BigInt::from(21), // 21 = 3 × 7
+            b: BigInt::from(37),
+            c: BigInt::from(10),
+            a_factors: vec![3, 7],
+            b_array: vec![],
+            poly_index: 0,
+            max_polynomials: 2,
+        };
+
+        let ainv_cache = siqs.compute_ainv_cache(&poly.a, &poly);
+        let roots = siqs.compute_sieve_roots(&poly, &ainv_cache);
+
+        for (idx, prime) in siqs.factor_base.iter().enumerate() {
+            if prime.p <= 1 {
+                continue;
+            }
+
+            if poly.a_factors.contains(&prime.p) {
+                continue;
+            }
+
+            let (root1, root2) = roots[idx];
+            let p = prime.p;
+
+            // For p > 2, root1 and root2 should be distinct
+            // (For p = 2, they might be equal)
+            if p > 2 {
+                assert_ne!(root1, root2,
+                          "For prime p={}, root1 and root2 should be distinct", p);
+            }
+        }
+    }
+
+    #[test]
+    fn test_sieve_roots_with_real_polynomial() {
+        // Integration test with real polynomial generation
+        let n = BigInt::from(10007);
+        let mut siqs = SIQS::new(&n);
+        siqs.build_factor_base();
+
+        let target_a = siqs.params.target_a(&n);
+
+        if let Some(poly) = generate_polynomial(&n, &siqs.factor_base, &siqs.params, &target_a) {
+            let ainv_cache = siqs.compute_ainv_cache(&poly.a, &poly);
+            let roots = siqs.compute_sieve_roots(&poly, &ainv_cache);
+
+            // All roots should be computed
+            assert_eq!(roots.len(), siqs.factor_base_size);
+
+            // Spot check a few primes
+            for (idx, prime) in siqs.factor_base.iter().enumerate().take(10) {
+                if prime.p <= 1 || poly.a_factors.contains(&prime.p) {
+                    continue;
+                }
+
+                let (root1, root2) = roots[idx];
+
+                // Verify roots are in valid range
+                assert!(root1 >= 0 && root1 < prime.p as i64);
+                assert!(root2 >= 0 && root2 < prime.p as i64);
+            }
+        }
+    }
+
+    #[test]
+    fn test_initialize_sieving_state() {
+        // Test full initialization of sieving state
+        let n = BigInt::from(10007);
+        let mut siqs = SIQS::new(&n);
+        siqs.build_factor_base();
+
+        let poly = SIQSPolynomial {
+            a: BigInt::from(30), // 30 = 2 × 3 × 5
+            b: BigInt::from(50),
+            c: BigInt::from(25),
+            a_factors: vec![2, 3, 5],
+            b_array: vec![BigInt::from(10), BigInt::from(20), BigInt::from(30)],
+            poly_index: 0,
+            max_polynomials: 4,
+        };
+
+        let state = siqs.initialize_sieving_state(poly.clone());
+
+        // Verify polynomial is stored
+        assert_eq!(state.polynomial.a, poly.a);
+        assert_eq!(state.polynomial.b, poly.b);
+
+        // Verify all arrays have correct sizes
+        assert_eq!(state.ainv_cache.len(), siqs.factor_base_size,
+                  "ainv_cache should match factor base size");
+        assert_eq!(state.sieve_roots.len(), siqs.factor_base_size,
+                  "sieve_roots should match factor base size");
+        assert_eq!(state.delta_arrays.len(), 3,
+                  "delta_arrays should have 3 rows (j=3)");
+
+        for row in &state.delta_arrays {
+            assert_eq!(row.len(), siqs.factor_base_size,
+                      "Each delta_arrays row should match factor base size");
+        }
+
+        // Verify mathematical correctness of components
+        // Test ainv_cache
+        for (idx, prime) in siqs.factor_base.iter().enumerate() {
+            if prime.p <= 1 || poly.a_factors.contains(&prime.p) {
+                assert_eq!(state.ainv_cache[idx], 0);
+                continue;
+            }
+
+            let p = prime.p as i64;
+            let a_mod_p = poly.a.mod_floor(&BigInt::from(p)).to_i64().unwrap_or(0);
+            let ainv = state.ainv_cache[idx];
+            let product = (a_mod_p * ainv).rem_euclid(p);
+            assert_eq!(product, 1, "ainv should satisfy a × ainv ≡ 1 (mod p)");
+        }
+
+        // Test sieve_roots
+        for (idx, prime) in siqs.factor_base.iter().enumerate() {
+            if prime.p <= 1 || poly.a_factors.contains(&prime.p) {
+                assert_eq!(state.sieve_roots[idx], (0, 0));
+                continue;
+            }
+
+            let (root1, root2) = state.sieve_roots[idx];
+            let p = prime.p;
+
+            // Verify roots are in valid range
+            assert!(root1 >= 0 && root1 < p as i64);
+            assert!(root2 >= 0 && root2 < p as i64);
+        }
+    }
+
+    #[test]
+    fn test_initialize_sieving_state_with_real_polynomial() {
+        // Integration test with real polynomial generation
+        let n = BigInt::from(10007);
+        let mut siqs = SIQS::new(&n);
+        siqs.build_factor_base();
+
+        let target_a = siqs.params.target_a(&n);
+
+        if let Some(poly) = generate_polynomial(&n, &siqs.factor_base, &siqs.params, &target_a) {
+            let state = siqs.initialize_sieving_state(poly.clone());
+
+            // Verify structure
+            assert_eq!(state.ainv_cache.len(), siqs.factor_base_size);
+            assert_eq!(state.sieve_roots.len(), siqs.factor_base_size);
+            assert_eq!(state.delta_arrays.len(), poly.b_array.len());
+
+            // Verify polynomial is stored correctly
+            assert_eq!(state.polynomial.a, poly.a);
+            assert_eq!(state.polynomial.b, poly.b);
+            assert_eq!(state.polynomial.poly_index, 0);
+            assert!(state.polynomial.max_polynomials > 0);
+
+            // Verify no placeholder values (all should be real data)
+            let mut non_zero_ainv = 0;
+            let mut non_zero_roots = 0;
+
+            for idx in 0..siqs.factor_base_size {
+                if state.ainv_cache[idx] != 0 {
+                    non_zero_ainv += 1;
+                }
+                if state.sieve_roots[idx] != (0, 0) {
+                    non_zero_roots += 1;
+                }
+            }
+
+            // Most primes should have non-zero values
+            // (only primes dividing 'a' and -1 marker should be 0)
+            let expected_zeros = poly.a_factors.len() + 1; // a_factors + -1 marker
+            assert!(non_zero_ainv >= siqs.factor_base_size - expected_zeros,
+                   "Most ainv values should be non-zero");
+        }
+    }
+
+    #[test]
+    fn test_initialize_sieving_state_multiple_polynomials() {
+        // Test that we can initialize multiple polynomials
+        let n = BigInt::from(10007);
+        let mut siqs = SIQS::new(&n);
+        siqs.build_factor_base();
+
+        let target_a = siqs.params.target_a(&n);
+
+        // Generate and initialize multiple polynomials
+        for i in 0..3 {
+            if let Some(poly) = generate_polynomial(&n, &siqs.factor_base, &siqs.params, &target_a) {
+                let state = siqs.initialize_sieving_state(poly.clone());
+
+                // Each state should be independent and valid
+                assert_eq!(state.polynomial.a, poly.a);
+                assert_eq!(state.ainv_cache.len(), siqs.factor_base_size);
+                assert_eq!(state.sieve_roots.len(), siqs.factor_base_size);
+
+                // Verify at least one root is computed
+                let has_roots = state.sieve_roots.iter().any(|&(r1, r2)| r1 != 0 || r2 != 0);
+                assert!(has_roots, "Iteration {}: Should have at least some non-zero roots", i);
+            }
+        }
+    }
+
+    #[test]
+    fn test_gray_code_conversion() {
+        // Test binary to Gray code conversion
+        assert_eq!(SIQS::binary_to_gray(0), 0);  // 000 -> 000
+        assert_eq!(SIQS::binary_to_gray(1), 1);  // 001 -> 001
+        assert_eq!(SIQS::binary_to_gray(2), 3);  // 010 -> 011
+        assert_eq!(SIQS::binary_to_gray(3), 2);  // 011 -> 010
+        assert_eq!(SIQS::binary_to_gray(4), 6);  // 100 -> 110
+        assert_eq!(SIQS::binary_to_gray(5), 7);  // 101 -> 111
+        assert_eq!(SIQS::binary_to_gray(6), 5);  // 110 -> 101
+        assert_eq!(SIQS::binary_to_gray(7), 4);  // 111 -> 100
+
+        // Verify Gray code property: successive values differ by one bit
+        for i in 0..15 {
+            let gray_i = SIQS::binary_to_gray(i);
+            let gray_next = SIQS::binary_to_gray(i + 1);
+            let diff = gray_i ^ gray_next;
+
+            // Verify exactly one bit differs (diff should be a power of 2)
+            assert!(diff.is_power_of_two(),
+                   "Gray code {} -> {} should differ by one bit, diff={}",
+                   gray_i, gray_next, diff);
+        }
+    }
+
+    #[test]
+    fn test_gray_code_flip_position() {
+        // Test that we correctly identify which bit flipped
+        // Gray code sequence: 0, 1, 3, 2, 6, 7, 5, 4, ...
+        // Flip positions:     0, 1, 0, 2, 0, 1, 0, 3, ...
+
+        assert_eq!(SIQS::gray_code_flip_position(0, 1), Some(0)); // 000 -> 001
+        assert_eq!(SIQS::gray_code_flip_position(1, 2), Some(1)); // 001 -> 011
+        assert_eq!(SIQS::gray_code_flip_position(2, 3), Some(0)); // 011 -> 010
+        assert_eq!(SIQS::gray_code_flip_position(3, 4), Some(2)); // 010 -> 110
+        assert_eq!(SIQS::gray_code_flip_position(4, 5), Some(0)); // 110 -> 111
+        assert_eq!(SIQS::gray_code_flip_position(5, 6), Some(1)); // 111 -> 101
+        assert_eq!(SIQS::gray_code_flip_position(6, 7), Some(0)); // 101 -> 100
+
+        // No flip
+        assert_eq!(SIQS::gray_code_flip_position(5, 5), None);
+    }
+
+    #[test]
+    fn test_switch_polynomial_basic() {
+        // Test basic polynomial switching
+        let n = BigInt::from(10007);
+        let mut siqs = SIQS::new(&n);
+        siqs.build_factor_base();
+
+        let poly = SIQSPolynomial {
+            a: BigInt::from(30), // 30 = 2 × 3 × 5
+            b: BigInt::from(50),
+            c: BigInt::from(25),
+            a_factors: vec![2, 3, 5],
+            b_array: vec![BigInt::from(10), BigInt::from(20), BigInt::from(30)],
+            poly_index: 0,
+            max_polynomials: 4, // 2^(3-1) = 4
+        };
+
+        let mut state = siqs.initialize_sieving_state(poly.clone());
+
+        // Store initial values
+        let initial_b = state.polynomial.b.clone();
+        let initial_index = state.polynomial.poly_index;
+
+        // Switch to next polynomial
+        let success = siqs.switch_polynomial(&mut state);
+        assert!(success, "Should successfully switch to next polynomial");
+
+        // Verify index advanced
+        assert_eq!(state.polynomial.poly_index, initial_index + 1);
+
+        // Verify b changed
+        assert_ne!(state.polynomial.b, initial_b, "b should have changed");
+
+        // Verify 'a' stayed the same
+        assert_eq!(state.polynomial.a, poly.a, "'a' should remain constant");
+    }
+
+    #[test]
+    fn test_switch_polynomial_roots_valid() {
+        // Test that roots remain valid after switching
+        let n = BigInt::from(10007);
+        let mut siqs = SIQS::new(&n);
+        siqs.build_factor_base();
+
+        let poly = SIQSPolynomial {
+            a: BigInt::from(21), // 21 = 3 × 7
+            b: BigInt::from(37),
+            c: BigInt::from(10),
+            a_factors: vec![3, 7],
+            b_array: vec![BigInt::from(15), BigInt::from(20)],
+            poly_index: 0,
+            max_polynomials: 2, // 2^(2-1) = 2
+        };
+
+        let mut state = siqs.initialize_sieving_state(poly.clone());
+
+        // Switch polynomial
+        let success = siqs.switch_polynomial(&mut state);
+        assert!(success);
+
+        // Verify roots satisfy polynomial equation: (a × root + b)² ≡ n (mod p)
+        for (idx, prime) in siqs.factor_base.iter().enumerate() {
+            if prime.p <= 1 || poly.a_factors.contains(&prime.p) {
+                continue;
+            }
+
+            let (root1, root2) = state.sieve_roots[idx];
+            let p = prime.p;
+            let n_mod_p = n.mod_floor(&BigInt::from(p)).to_i64().unwrap_or(0);
+
+            // Verify both roots
+            for (root_name, root) in [("root1", root1), ("root2", root2)] {
+                let a_mod_p = state.polynomial.a.mod_floor(&BigInt::from(p)).to_i64().unwrap_or(0);
+                let b_mod_p = state.polynomial.b.mod_floor(&BigInt::from(p)).to_i64().unwrap_or(0);
+
+                let ax_plus_b = (a_mod_p * root + b_mod_p).rem_euclid(p as i64);
+                let q_x = (ax_plus_b * ax_plus_b).rem_euclid(p as i64);
+
+                assert_eq!(q_x, n_mod_p,
+                          "After switch, prime p={}, {}: (a × {} + b)² mod p should equal n mod p",
+                          p, root_name, root);
+            }
+        }
+    }
+
+    #[test]
+    fn test_switch_through_all_polynomials() {
+        // Integration test: switch through all polynomials for a given 'a'
+        let n = BigInt::from(10007);
+        let mut siqs = SIQS::new(&n);
+        siqs.build_factor_base();
+
+        let poly = SIQSPolynomial {
+            a: BigInt::from(30), // 30 = 2 × 3 × 5
+            b: BigInt::from(50),
+            c: BigInt::from(25),
+            a_factors: vec![2, 3, 5],
+            b_array: vec![BigInt::from(10), BigInt::from(20), BigInt::from(30)],
+            poly_index: 0,
+            max_polynomials: 4, // 2^(3-1) = 4
+        };
+
+        let mut state = siqs.initialize_sieving_state(poly.clone());
+
+        let max_poly = state.polynomial.max_polynomials;
+        let mut switched_count = 0;
+
+        // Switch through all polynomials
+        while state.polynomial.poly_index < max_poly - 1 {
+            let current_index = state.polynomial.poly_index;
+            let success = siqs.switch_polynomial(&mut state);
+
+            assert!(success, "Should successfully switch from index {}", current_index);
+            assert_eq!(state.polynomial.poly_index, current_index + 1,
+                      "Index should increment");
+
+            switched_count += 1;
+
+            // Verify 'a' remains constant
+            assert_eq!(state.polynomial.a, poly.a, "'a' should remain constant");
+
+            // Verify c = (b² - n) / a
+            let b_squared = &state.polynomial.b * &state.polynomial.b;
+            let expected_c = (b_squared - &n) / &state.polynomial.a;
+            assert_eq!(state.polynomial.c, expected_c, "c should be correctly updated");
+        }
+
+        // Should have switched max_polynomials - 1 times
+        assert_eq!(switched_count, max_poly - 1,
+                  "Should switch through all {} polynomials", max_poly);
+
+        // Next switch should fail (exhausted)
+        let success = siqs.switch_polynomial(&mut state);
+        assert!(!success, "Should fail to switch beyond max_polynomials");
+    }
+
+    #[test]
+    fn test_switch_polynomial_with_real_generation() {
+        // Integration test with real polynomial generation
+        let n = BigInt::from(10007);
+        let mut siqs = SIQS::new(&n);
+        siqs.build_factor_base();
+
+        let target_a = siqs.params.target_a(&n);
+
+        if let Some(poly) = generate_polynomial(&n, &siqs.factor_base, &siqs.params, &target_a) {
+            let max_poly = poly.max_polynomials;
+            let mut state = siqs.initialize_sieving_state(poly.clone());
+
+            // Switch through at least 3 polynomials (or all if fewer)
+            let switch_count = std::cmp::min(3, max_poly - 1);
+
+            for i in 0..switch_count {
+                let success = siqs.switch_polynomial(&mut state);
+                assert!(success, "Switch {} should succeed", i);
+
+                // Verify polynomial equation holds for all roots
+                for (idx, prime) in siqs.factor_base.iter().enumerate() {
+                    if prime.p <= 1 || poly.a_factors.contains(&prime.p) {
+                        continue;
+                    }
+
+                    let (root1, root2) = state.sieve_roots[idx];
+                    let p = prime.p;
+
+                    // Verify roots are in valid range
+                    assert!(root1 >= 0 && root1 < p as i64,
+                           "root1 should be in [0, {})", p);
+                    assert!(root2 >= 0 && root2 < p as i64,
+                           "root2 should be in [0, {})", p);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_b_array_incremental_update() {
+        // Test that b updates correctly using B[i] values
+        let n = BigInt::from(10007);
+        let mut siqs = SIQS::new(&n);
+        siqs.build_factor_base();
+
+        let b_array = vec![BigInt::from(10), BigInt::from(20), BigInt::from(30)];
+        let poly = SIQSPolynomial {
+            a: BigInt::from(30),
+            b: BigInt::from(50), // Initial b = sum of B[i] = 10 + 20 + 30 = 60... wait, let me recalculate
+            // Actually for SIQS, initial b is computed from CRT, not simple sum
+            // But for testing incremental updates, what matters is that b' = b ± 2*B[flip_idx]
+            c: BigInt::from(25),
+            a_factors: vec![2, 3, 5],
+            b_array: b_array.clone(),
+            poly_index: 0,
+            max_polynomials: 4,
+        };
+
+        let mut state = siqs.initialize_sieving_state(poly.clone());
+        let initial_b = state.polynomial.b.clone();
+
+        // First switch: index 0 -> 1
+        // Gray code: 0 (000) -> 1 (001), bit 0 flips
+        siqs.switch_polynomial(&mut state);
+
+        // The exact b value depends on Gray code logic, but we can verify
+        // that |b - initial_b| equals 2 * B[flip_idx] for some flip_idx
+        let b_diff = (&state.polynomial.b - &initial_b).abs();
+        let valid_diffs: Vec<BigInt> = b_array.iter().map(|bi| bi * 2).collect();
+
+        let is_valid = valid_diffs.iter().any(|d| d == &b_diff);
+        assert!(is_valid, "b difference should be 2*B[i] for some i");
     }
 }
