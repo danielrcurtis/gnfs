@@ -26,6 +26,7 @@
 pub mod trial_division;
 pub mod pollard_rho;
 pub mod quadratic_sieve;
+pub mod siqs;
 
 use num::BigInt;
 use log::info;
@@ -199,23 +200,40 @@ pub fn factor(n: &BigInt) -> Result<(BigInt, BigInt), String> {
         }
 
         FactorizationAlgorithm::QuadraticSieve => {
-            info!("Attempting Quadratic Sieve...");
-            match quadratic_sieve::quadratic_sieve(n) {
-                Some(factors) => {
-                    info!("✓ Quadratic Sieve succeeded");
-                    Ok(factors)
-                }
-                None => {
-                    info!("✗ Quadratic Sieve not yet implemented");
-                    info!("Falling back to Pollard's Rho (may be slow)...");
+            // For 40+ digits, use SIQS instead of single-polynomial QS
+            let digits = n.to_string().len();
 
-                    match pollard_rho::pollard_rho(n, 1000000) {
-                        Some(factors) => {
-                            info!("✓ Pollard's Rho succeeded (with extended iterations)");
-                            Ok(factors)
-                        }
-                        None => {
-                            Err("Quadratic Sieve not implemented, Pollard's Rho failed. Use GNFS for this number size.".to_string())
+            if digits >= 40 {
+                info!("Attempting SIQS (Self-Initializing Quadratic Sieve)...");
+                match siqs::siqs(n) {
+                    Some(factors) => {
+                        info!("✓ SIQS succeeded");
+                        Ok(factors)
+                    }
+                    None => {
+                        info!("✗ SIQS failed to find enough relations");
+                        Err("SIQS failed. Consider increasing sieve parameters or using GNFS.".to_string())
+                    }
+                }
+            } else {
+                info!("Attempting Quadratic Sieve (single-polynomial)...");
+                match quadratic_sieve::quadratic_sieve(n) {
+                    Some(factors) => {
+                        info!("✓ Quadratic Sieve succeeded");
+                        Ok(factors)
+                    }
+                    None => {
+                        info!("✗ Quadratic Sieve failed");
+                        info!("Falling back to Pollard's Rho (may be slow)...");
+
+                        match pollard_rho::pollard_rho(n, 1000000) {
+                            Some(factors) => {
+                                info!("✓ Pollard's Rho succeeded (with extended iterations)");
+                                Ok(factors)
+                            }
+                            None => {
+                                Err("Quadratic Sieve failed, Pollard's Rho failed. Try GNFS.".to_string())
+                            }
                         }
                     }
                 }
@@ -257,8 +275,14 @@ pub fn factor_with(n: &BigInt, algorithm: FactorizationAlgorithm) -> Result<(Big
         }
 
         FactorizationAlgorithm::QuadraticSieve => {
-            quadratic_sieve::quadratic_sieve(n)
-                .ok_or_else(|| "Quadratic sieve not yet implemented".to_string())
+            let digits = n.to_string().len();
+            if digits >= 40 {
+                siqs::siqs(n)
+                    .ok_or_else(|| "SIQS failed".to_string())
+            } else {
+                quadratic_sieve::quadratic_sieve(n)
+                    .ok_or_else(|| "Quadratic sieve failed".to_string())
+            }
         }
 
         FactorizationAlgorithm::GNFS => {
