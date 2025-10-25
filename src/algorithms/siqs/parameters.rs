@@ -33,7 +33,7 @@ impl SIQSParameters {
             31..=39 => (5000, 550000, 4, 25),
 
             // SIQS sweet spot (40-100 digits)
-            40..=44 => (8000, 700000, 4, 30),
+            40..=44 => (15000, 1200000, 5, 50),
             45..=49 => (15000, 1200000, 4, 40),
             50..=54 => (25000, 1800000, 4, 50),
             55..=59 => (42000, 3000000, 5, 60),
@@ -103,9 +103,9 @@ mod tests {
         // Test 40-digit number
         let n40 = BigInt::from(10u64).pow(40);
         let params40 = SIQSParameters::from_number_size(&n40);
-        assert_eq!(params40.smoothness_bound, 8000);
-        assert_eq!(params40.sieve_interval, 700000);
-        assert_eq!(params40.primes_per_a, 4);
+        assert_eq!(params40.smoothness_bound, 15000);
+        assert_eq!(params40.sieve_interval, 1200000);
+        assert_eq!(params40.primes_per_a, 5);
 
         // Test 50-digit number
         let n50 = BigInt::from(10u64).pow(50);
@@ -130,14 +130,14 @@ mod tests {
     #[test]
     fn test_a_prime_range() {
         let params = SIQSParameters {
-            smoothness_bound: 8000,
-            sieve_interval: 700000,
-            primes_per_a: 4,
-            relation_margin: 30,
+            smoothness_bound: 15000,
+            sieve_interval: 1200000,
+            primes_per_a: 5,
+            relation_margin: 50,
         };
 
         let (lower, upper) = params.a_prime_range();
-        assert_eq!(lower, 800);  // B/10
-        assert_eq!(upper, 2666);  // B/3
+        assert_eq!(lower, 1500);  // B/10
+        assert_eq!(upper, 5000);  // B/3
     }
 }

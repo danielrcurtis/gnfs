@@ -55,17 +55,20 @@ impl SIQSPolynomial {
 /// 4. Compute b = B[1] + B[2] + ... + B[j]
 /// 5. Compute c = (b² - n) / a
 ///
+/// The iteration parameter varies the prime selection to generate different 'a' values
+///
 /// Returns polynomial and B-array for fast switching
 pub fn generate_polynomial(
     n: &BigInt,
     factor_base: &[Prime],
     params: &SIQSParameters,
     target_a: &BigInt,
+    iteration: usize,
 ) -> Option<SIQSPolynomial> {
     let j = params.primes_per_a;
 
-    // Step 1: Select j primes for 'a' coefficient
-    let selected_primes = select_a_primes(factor_base, params, target_a, j)?;
+    // Step 1: Select j primes for 'a' coefficient (varied by iteration)
+    let selected_primes = select_a_primes(factor_base, params, target_a, j, iteration)?;
 
     if selected_primes.len() != j {
         debug!("Could not select {} primes for 'a'", j);
@@ -178,11 +181,13 @@ pub fn generate_polynomial(
 /// - Product should be close to target_a ≈ sqrt(2n)/M
 /// - Avoid very small primes (already heavily sieved)
 /// - Avoid very large primes (few sieve hits)
+/// - Use iteration parameter to vary starting offset (prevents duplicate 'a' values)
 fn select_a_primes(
     factor_base: &[Prime],
     params: &SIQSParameters,
     target_a: &BigInt,
     j: usize,
+    iteration: usize,
 ) -> Option<Vec<Prime>> {
     let (prime_min, prime_max) = params.a_prime_range();
 
@@ -199,20 +204,27 @@ fn select_a_primes(
     }
 
     // Use greedy selection to get product close to target_a
-    // Start from middle of candidates and work outward
+    // Skip primes based on iteration to generate different 'a' values
     let mut selected = Vec::new();
     let mut product = BigInt::one();
     let mut used_indices = std::collections::HashSet::new();
 
-    let mid = candidates.len() / 2;
+    // Create a set of indices to skip based on iteration
+    // Skip (iteration * j) primes to ensure different selections
+    let skip_count = (iteration * j) % candidates.len();
+    let mut skipped_indices = std::collections::HashSet::new();
+    for i in 0..skip_count.min(candidates.len() - j) {
+        skipped_indices.insert(i);
+    }
 
     for _ in 0..j {
-        let mut best_idx = mid;
+        let mut best_idx = 0;
         let mut best_distance = BigInt::from(u64::MAX);
 
         // Find prime that brings product closest to target
+        // Skip primes based on iteration to vary selection
         for (idx, prime) in candidates.iter().enumerate() {
-            if used_indices.contains(&idx) {
+            if used_indices.contains(&idx) || skipped_indices.contains(&idx) {
                 continue;
             }
 
@@ -371,7 +383,7 @@ mod tests {
         let target_a = BigInt::from(100);
 
         // Generate polynomial
-        if let Some(poly) = generate_polynomial(&n, &factor_base, &params, &target_a) {
+        if let Some(poly) = generate_polynomial(&n, &factor_base, &params, &target_a, 0) {
             // For j=3, we should get 2^(3-1) = 4 polynomials
             assert_eq!(poly.max_polynomials, 4);
             assert_eq!(poly.poly_index, 0);

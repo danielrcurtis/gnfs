@@ -113,8 +113,7 @@ pub fn choose_algorithm(n: &BigInt) -> FactorizationAlgorithm {
 
     let algorithm = match digits {
         0..=19 => FactorizationAlgorithm::TrialDivision,
-        20..=39 => FactorizationAlgorithm::PollardRho,
-        40..=99 => FactorizationAlgorithm::QuadraticSieve,
+        20..=59 => FactorizationAlgorithm::PollardRho,
         _ => FactorizationAlgorithm::GNFS,
     };
 

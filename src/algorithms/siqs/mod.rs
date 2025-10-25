@@ -730,8 +730,8 @@ impl SIQS {
         let mut switched_count = 0;
 
         for a_idx in 0..max_a_values {
-            // Generate initial polynomial with new 'a'
-            let polynomial = match generate_polynomial(&self.n, &self.factor_base, &self.params, &target_a) {
+            // Generate initial polynomial with new 'a' (varied by a_idx to avoid duplicates)
+            let polynomial = match generate_polynomial(&self.n, &self.factor_base, &self.params, &target_a, a_idx) {
                 Some(poly) => poly,
                 None => {
                     warn!("Failed to generate polynomial for 'a' {}", a_idx + 1);
@@ -1314,7 +1314,7 @@ mod tests {
 
         let target_a = siqs.params.target_a(&n);
 
-        if let Some(poly) = generate_polynomial(&n, &siqs.factor_base, &siqs.params, &target_a) {
+        if let Some(poly) = generate_polynomial(&n, &siqs.factor_base, &siqs.params, &target_a, 0) {
             // Verify initial values
             assert_eq!(poly.poly_index, 0, "Should start at index 0");
             assert!(poly.max_polynomials > 0, "Should have at least 1 polynomial");
@@ -1652,7 +1652,7 @@ mod tests {
 
         let target_a = siqs.params.target_a(&n);
 
-        if let Some(poly) = generate_polynomial(&n, &siqs.factor_base, &siqs.params, &target_a) {
+        if let Some(poly) = generate_polynomial(&n, &siqs.factor_base, &siqs.params, &target_a, 0) {
             let ainv_cache = siqs.compute_ainv_cache(&poly.a, &poly);
             let roots = siqs.compute_sieve_roots(&poly, &ainv_cache);
 
@@ -1750,7 +1750,7 @@ mod tests {
 
         let target_a = siqs.params.target_a(&n);
 
-        if let Some(poly) = generate_polynomial(&n, &siqs.factor_base, &siqs.params, &target_a) {
+        if let Some(poly) = generate_polynomial(&n, &siqs.factor_base, &siqs.params, &target_a, 0) {
             let state = siqs.initialize_sieving_state(poly.clone());
 
             // Verify structure
@@ -1796,7 +1796,7 @@ mod tests {
 
         // Generate and initialize multiple polynomials
         for i in 0..3 {
-            if let Some(poly) = generate_polynomial(&n, &siqs.factor_base, &siqs.params, &target_a) {
+            if let Some(poly) = generate_polynomial(&n, &siqs.factor_base, &siqs.params, &target_a, 0) {
                 let state = siqs.initialize_sieving_state(poly.clone());
 
                 // Each state should be independent and valid
@@ -1999,7 +1999,7 @@ mod tests {
 
         let target_a = siqs.params.target_a(&n);
 
-        if let Some(poly) = generate_polynomial(&n, &siqs.factor_base, &siqs.params, &target_a) {
+        if let Some(poly) = generate_polynomial(&n, &siqs.factor_base, &siqs.params, &target_a, 0) {
             let max_poly = poly.max_polynomials;
             let mut state = siqs.initialize_sieving_state(poly.clone());
 
