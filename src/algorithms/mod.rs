@@ -23,13 +23,13 @@
 //   let algorithm = choose_algorithm(&n);  // Returns TrialDivision
 //   let result = factor(&n)?;              // Returns Some((11, 13))
 
-pub mod trial_division;
 pub mod pollard_rho;
 pub mod quadratic_sieve;
 pub mod siqs;
+pub mod trial_division;
 
-use num::BigInt;
 use log::info;
+use num::BigInt;
 
 /// Enumeration of available factorization algorithms
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -113,7 +113,8 @@ pub fn choose_algorithm(n: &BigInt) -> FactorizationAlgorithm {
 
     let algorithm = match digits {
         0..=19 => FactorizationAlgorithm::TrialDivision,
-        20..=59 => FactorizationAlgorithm::PollardRho,
+        20..=39 => FactorizationAlgorithm::PollardRho,
+        40..=79 => FactorizationAlgorithm::QuadraticSieve,
         _ => FactorizationAlgorithm::GNFS,
     };
 
@@ -176,9 +177,7 @@ pub fn factor(n: &BigInt) -> Result<(BigInt, BigInt), String> {
                             info!("✓ Pollard's Rho succeeded");
                             Ok(factors)
                         }
-                        None => {
-                            Err(format!("No factors found - {} may be prime", n))
-                        }
+                        None => Err(format!("No factors found - {} may be prime", n)),
                     }
                 }
             }
@@ -193,7 +192,9 @@ pub fn factor(n: &BigInt) -> Result<(BigInt, BigInt), String> {
                 }
                 None => {
                     info!("✗ Pollard's Rho failed after 100000 iterations");
-                    Err(format!("Pollard's Rho failed - try increasing iterations or use GNFS"))
+                    Err(format!(
+                        "Pollard's Rho failed - try increasing iterations or use GNFS"
+                    ))
                 }
             }
         }
@@ -211,7 +212,10 @@ pub fn factor(n: &BigInt) -> Result<(BigInt, BigInt), String> {
                     }
                     None => {
                         info!("✗ SIQS failed to find enough relations");
-                        Err("SIQS failed. Consider increasing sieve parameters or using GNFS.".to_string())
+                        Err(
+                            "SIQS failed. Consider increasing sieve parameters or using GNFS."
+                                .to_string(),
+                        )
                     }
                 }
             } else {
@@ -230,9 +234,8 @@ pub fn factor(n: &BigInt) -> Result<(BigInt, BigInt), String> {
                                 info!("✓ Pollard's Rho succeeded (with extended iterations)");
                                 Ok(factors)
                             }
-                            None => {
-                                Err("Quadratic Sieve failed, Pollard's Rho failed. Try GNFS.".to_string())
-                            }
+                            None => Err("Quadratic Sieve failed, Pollard's Rho failed. Try GNFS."
+                                .to_string()),
                         }
                     }
                 }
@@ -259,34 +262,31 @@ pub fn factor(n: &BigInt) -> Result<(BigInt, BigInt), String> {
 /// # Returns
 /// * `Ok((p, q))` - A factorization where p * q = n
 /// * `Err(String)` - An error message if factorization failed
-pub fn factor_with(n: &BigInt, algorithm: FactorizationAlgorithm) -> Result<(BigInt, BigInt), String> {
+pub fn factor_with(
+    n: &BigInt,
+    algorithm: FactorizationAlgorithm,
+) -> Result<(BigInt, BigInt), String> {
     info!("Using forced algorithm: {}", algorithm.name());
 
     match algorithm {
-        FactorizationAlgorithm::TrialDivision => {
-            trial_division::trial_division(n, None)
-                .ok_or_else(|| "Trial division failed".to_string())
-        }
+        FactorizationAlgorithm::TrialDivision => trial_division::trial_division(n, None)
+            .ok_or_else(|| "Trial division failed".to_string()),
 
         FactorizationAlgorithm::PollardRho => {
-            pollard_rho::pollard_rho(n, 100000)
-                .ok_or_else(|| "Pollard's rho failed".to_string())
+            pollard_rho::pollard_rho(n, 100000).ok_or_else(|| "Pollard's rho failed".to_string())
         }
 
         FactorizationAlgorithm::QuadraticSieve => {
             let digits = n.to_string().len();
             if digits >= 40 {
-                siqs::siqs(n)
-                    .ok_or_else(|| "SIQS failed".to_string())
+                siqs::siqs(n).ok_or_else(|| "SIQS failed".to_string())
             } else {
                 quadratic_sieve::quadratic_sieve(n)
                     .ok_or_else(|| "Quadratic sieve failed".to_string())
             }
         }
 
-        FactorizationAlgorithm::GNFS => {
-            Err("GNFS requires full context - use main.rs".to_string())
-        }
+        FactorizationAlgorithm::GNFS => Err("GNFS requires full context - use main.rs".to_string()),
     }
 }
 
@@ -310,7 +310,8 @@ mod tests {
     #[test]
     fn test_choose_algorithm_large() {
         // 50-digit number
-        let n = BigInt::parse_bytes(b"12345678901234567890123456789012345678901234567890", 10).unwrap();
+        let n =
+            BigInt::parse_bytes(b"12345678901234567890123456789012345678901234567890", 10).unwrap();
         assert_eq!(choose_algorithm(&n), FactorizationAlgorithm::QuadraticSieve);
     }
 

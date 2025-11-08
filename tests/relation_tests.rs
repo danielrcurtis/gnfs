@@ -1,8 +1,9 @@
 // Test cases for GNFS relation finding with different parameters
-use gnfs::core::gnfs::GNFS;
-use gnfs::core::cancellation_token::CancellationToken;
-use num::BigInt;
 use env_logger::Env;
+use gnfs::backends::bigint_backend::BigIntBackend;
+use gnfs::core::cancellation_token::CancellationToken;
+use gnfs::core::gnfs::GNFS;
+use num::BigInt;
 
 #[test]
 fn test_option1_larger_prime_bounds() {
@@ -30,7 +31,7 @@ fn test_option1_larger_prime_bounds() {
 
     let cancel_token = CancellationToken::new();
 
-    let mut gnfs = GNFS::new(
+    let mut gnfs = GNFS::<BigIntBackend>::new(
         &cancel_token,
         &n,
         &polynomial_base,
@@ -42,10 +43,23 @@ fn test_option1_larger_prime_bounds() {
     );
 
     println!("Factor bases created:");
-    println!("  Rational: {} primes", gnfs.prime_factor_base.rational_factor_base.len());
-    println!("  Algebraic: {} primes", gnfs.prime_factor_base.algebraic_factor_base.len());
-    println!("  Quadratic: {} primes", gnfs.prime_factor_base.quadratic_factor_base.len());
-    println!("  Target relations: {}", gnfs.current_relations_progress.smooth_relations_target_quantity);
+    println!(
+        "  Rational: {} primes",
+        gnfs.prime_factor_base.rational_factor_base.len()
+    );
+    println!(
+        "  Algebraic: {} primes",
+        gnfs.prime_factor_base.algebraic_factor_base.len()
+    );
+    println!(
+        "  Quadratic: {} primes",
+        gnfs.prime_factor_base.quadratic_factor_base.len()
+    );
+    println!(
+        "  Target relations: {}",
+        gnfs.current_relations_progress
+            .smooth_relations_target_quantity
+    );
 
     // Sieve for a limited time
     println!("\nSieving for relations (max 100 B iterations)...");
@@ -66,10 +80,12 @@ fn test_option1_larger_prime_bounds() {
         gnfs.current_relations_progress = progress;
 
         if i % 10 == 0 {
-            println!("  B = {}, Smooth = {}/{}",
+            println!(
+                "  B = {}, Smooth = {}/{}",
                 gnfs.current_relations_progress.b,
                 gnfs.current_relations_progress.smooth_relations_counter,
-                gnfs.current_relations_progress.smooth_relations_target_quantity
+                gnfs.current_relations_progress
+                    .smooth_relations_target_quantity
             );
         }
 
@@ -79,12 +95,17 @@ fn test_option1_larger_prime_bounds() {
     }
 
     println!("\nResults:");
-    println!("  Smooth relations found: {}", gnfs.current_relations_progress.smooth_relations_counter);
+    println!(
+        "  Smooth relations found: {}",
+        gnfs.current_relations_progress.smooth_relations_counter
+    );
     println!("  Final B value: {}", gnfs.current_relations_progress.b);
 
     // Assert we found at least one smooth relation
-    assert!(gnfs.current_relations_progress.smooth_relations_counter > 0,
-        "Should find at least one smooth relation with larger prime bounds");
+    assert!(
+        gnfs.current_relations_progress.smooth_relations_counter > 0,
+        "Should find at least one smooth relation with larger prime bounds"
+    );
 }
 
 #[test]
@@ -113,7 +134,7 @@ fn test_option2_simpler_number() {
 
     let cancel_token = CancellationToken::new();
 
-    let mut gnfs = GNFS::new(
+    let mut gnfs = GNFS::<BigIntBackend>::new(
         &cancel_token,
         &n,
         &polynomial_base,
@@ -125,16 +146,41 @@ fn test_option2_simpler_number() {
     );
 
     println!("Factor bases created:");
-    println!("  Rational: {} primes", gnfs.prime_factor_base.rational_factor_base.len());
-    println!("  Algebraic: {} primes", gnfs.prime_factor_base.algebraic_factor_base.len());
-    println!("  Quadratic: {} primes", gnfs.prime_factor_base.quadratic_factor_base.len());
-    println!("  Target relations: {}", gnfs.current_relations_progress.smooth_relations_target_quantity);
+    println!(
+        "  Rational: {} primes",
+        gnfs.prime_factor_base.rational_factor_base.len()
+    );
+    println!(
+        "  Algebraic: {} primes",
+        gnfs.prime_factor_base.algebraic_factor_base.len()
+    );
+    println!(
+        "  Quadratic: {} primes",
+        gnfs.prime_factor_base.quadratic_factor_base.len()
+    );
+    println!(
+        "  Target relations: {}",
+        gnfs.current_relations_progress
+            .smooth_relations_target_quantity
+    );
 
     // Show first few primes in each base
-    println!("\nRational factor base (first 10): {:?}",
-        gnfs.prime_factor_base.rational_factor_base.iter().take(10).collect::<Vec<_>>());
-    println!("Algebraic factor base (first 10): {:?}",
-        gnfs.prime_factor_base.algebraic_factor_base.iter().take(10).collect::<Vec<_>>());
+    println!(
+        "\nRational factor base (first 10): {:?}",
+        gnfs.prime_factor_base
+            .rational_factor_base
+            .iter()
+            .take(10)
+            .collect::<Vec<_>>()
+    );
+    println!(
+        "Algebraic factor base (first 10): {:?}",
+        gnfs.prime_factor_base
+            .algebraic_factor_base
+            .iter()
+            .take(10)
+            .collect::<Vec<_>>()
+    );
 
     // Sieve for relations
     println!("\nSieving for relations (max 50 B iterations)...");
@@ -142,7 +188,11 @@ fn test_option2_simpler_number() {
     let max_iterations = 50;
 
     for i in 0..max_iterations {
-        if gnfs.current_relations_progress.smooth_relations_counter >= gnfs.current_relations_progress.smooth_relations_target_quantity {
+        if gnfs.current_relations_progress.smooth_relations_counter
+            >= gnfs
+                .current_relations_progress
+                .smooth_relations_target_quantity
+        {
             break;
         }
 
@@ -155,10 +205,12 @@ fn test_option2_simpler_number() {
         gnfs.current_relations_progress = progress;
 
         if i % 5 == 0 {
-            println!("  B = {}, Smooth = {}/{}",
+            println!(
+                "  B = {}, Smooth = {}/{}",
                 gnfs.current_relations_progress.b,
                 gnfs.current_relations_progress.smooth_relations_counter,
-                gnfs.current_relations_progress.smooth_relations_target_quantity
+                gnfs.current_relations_progress
+                    .smooth_relations_target_quantity
             );
         }
 
@@ -168,20 +220,38 @@ fn test_option2_simpler_number() {
     }
 
     println!("\nResults:");
-    println!("  Smooth relations found: {}", gnfs.current_relations_progress.smooth_relations_counter);
+    println!(
+        "  Smooth relations found: {}",
+        gnfs.current_relations_progress.smooth_relations_counter
+    );
     println!("  Final B value: {}", gnfs.current_relations_progress.b);
 
     // Print any smooth relations found
     if gnfs.current_relations_progress.smooth_relations_counter > 0 {
         println!("\nFirst smooth relations:");
-        for (i, rel) in gnfs.current_relations_progress.relations.smooth_relations.iter().take(5).enumerate() {
-            println!("  {}. (a={}, b={}) → alg_norm={}, rat_norm={}",
-                i+1, rel.a, rel.b, rel.algebraic_norm, rel.rational_norm);
+        for (i, rel) in gnfs
+            .current_relations_progress
+            .relations
+            .smooth_relations
+            .iter()
+            .take(5)
+            .enumerate()
+        {
+            println!(
+                "  {}. (a={}, b={}) → alg_norm={}, rat_norm={}",
+                i + 1,
+                rel.a,
+                rel.b,
+                rel.algebraic_norm,
+                rel.rational_norm
+            );
         }
     }
 
-    assert!(gnfs.current_relations_progress.smooth_relations_counter > 0,
-        "Should find smooth relations with simpler number N=143");
+    assert!(
+        gnfs.current_relations_progress.smooth_relations_counter > 0,
+        "Should find smooth relations with simpler number N=143"
+    );
 }
 
 #[test]
@@ -203,7 +273,7 @@ fn test_verify_first_relations() {
 
     let cancel_token = CancellationToken::new();
 
-    let gnfs = GNFS::new(
+    let gnfs = GNFS::<BigIntBackend>::new(
         &cancel_token,
         &n,
         &polynomial_base,
@@ -227,14 +297,27 @@ fn test_verify_first_relations() {
             rel.sieve(&gnfs);
 
             let is_smooth = rel.is_smooth();
-            println!("  (a={}, b={}) → alg_norm={}, rat_norm={}, alg_quot={}, rat_quot={}, smooth={}",
-                a, b, rel.algebraic_norm, rel.rational_norm,
-                rel.algebraic_quotient, rel.rational_quotient, is_smooth);
+            println!(
+                "  (a={}, b={}) → alg_norm={}, rat_norm={}, alg_quot={}, rat_quot={}, smooth={}",
+                a,
+                b,
+                rel.algebraic_norm,
+                rel.rational_norm,
+                rel.algebraic_quotient,
+                rel.rational_quotient,
+                is_smooth
+            );
 
             if is_smooth {
                 println!("    ✓ FOUND SMOOTH RELATION!");
-                println!("    Algebraic factorization: {}", rel.algebraic_factorization.format_string_as_factorization());
-                println!("    Rational factorization: {}", rel.rational_factorization.format_string_as_factorization());
+                println!(
+                    "    Algebraic factorization: {}",
+                    rel.algebraic_factorization.format_string_as_factorization()
+                );
+                println!(
+                    "    Rational factorization: {}",
+                    rel.rational_factorization.format_string_as_factorization()
+                );
             }
         }
     }
@@ -259,7 +342,7 @@ fn test_main_program_flow() {
 
     let cancel_token = CancellationToken::new();
 
-    let mut gnfs = GNFS::new(
+    let mut gnfs = GNFS::<BigIntBackend>::new(
         &cancel_token,
         &n,
         &polynomial_base,
@@ -273,15 +356,22 @@ fn test_main_program_flow() {
     println!("Initial state:");
     println!("  A = {}", gnfs.current_relations_progress.a);
     println!("  B = {}", gnfs.current_relations_progress.b);
-    println!("  Smooth counter = {}", gnfs.current_relations_progress.smooth_relations_counter);
-    println!("  Target = {}", gnfs.current_relations_progress.smooth_relations_target_quantity);
+    println!(
+        "  Smooth counter = {}",
+        gnfs.current_relations_progress.smooth_relations_counter
+    );
+    println!(
+        "  Target = {}",
+        gnfs.current_relations_progress
+            .smooth_relations_target_quantity
+    );
 
     // Call generate_relations once (one round)
     println!("\nCalling generate_relations...");
     // Need to temporarily move progress out to avoid borrowing issues
     let mut progress = std::mem::replace(
         &mut gnfs.current_relations_progress,
-        gnfs::relation_sieve::poly_relations_sieve_progress::PolyRelationsSieveProgress::default()
+        gnfs::relation_sieve::poly_relations_sieve_progress::PolyRelationsSieveProgress::default(),
     );
     progress.generate_relations(&gnfs, &cancel_token);
     gnfs.current_relations_progress = progress;
@@ -289,18 +379,31 @@ fn test_main_program_flow() {
     println!("\nAfter generate_relations:");
     println!("  A = {}", gnfs.current_relations_progress.a);
     println!("  B = {}", gnfs.current_relations_progress.b);
-    println!("  Smooth counter = {}", gnfs.current_relations_progress.smooth_relations_counter);
-    println!("  Smooth relations found: {}", gnfs.current_relations_progress.relations.smooth_relations.len());
+    println!(
+        "  Smooth counter = {}",
+        gnfs.current_relations_progress.smooth_relations_counter
+    );
+    println!(
+        "  Smooth relations found: {}",
+        gnfs.current_relations_progress
+            .relations
+            .smooth_relations
+            .len()
+    );
 
     // Print the smooth relations
     if gnfs.current_relations_progress.smooth_relations_counter > 0 {
         println!("\nSmooth relations:");
         for rel in &gnfs.current_relations_progress.relations.smooth_relations {
-            println!("  (a={}, b={}) → alg_norm={}, rat_norm={}",
-                rel.a, rel.b, rel.algebraic_norm, rel.rational_norm);
+            println!(
+                "  (a={}, b={}) → alg_norm={}, rat_norm={}",
+                rel.a, rel.b, rel.algebraic_norm, rel.rational_norm
+            );
         }
     }
 
-    assert!(gnfs.current_relations_progress.smooth_relations_counter > 0,
-        "Should find smooth relations using generate_relations");
+    assert!(
+        gnfs.current_relations_progress.smooth_relations_counter > 0,
+        "Should find smooth relations using generate_relations"
+    );
 }

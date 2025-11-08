@@ -21,9 +21,9 @@
 // - Silverman (1987): "The Multiple Polynomial Quadratic Sieve"
 // - Contini (1997): "Factoring Integers with the Self-Initializing Quadratic Sieve"
 
-use num::{BigInt, Integer, One, Signed, ToPrimitive, Zero};
-use log::{debug, info, warn};
 use crate::integer_math::gcd::GCD;
+use log::{debug, info, warn};
+use num::{BigInt, Integer, One, Signed, ToPrimitive, Zero};
 use rayon::prelude::*;
 
 /// Attempts to factor n using the Quadratic Sieve algorithm.
@@ -146,15 +146,15 @@ impl QuadraticSieve {
             21..=23 => (1000, 200000),
 
             // Research-backed parameters for QS sweet spot (24-66 digits)
-            24..=29 => (2000, 300000),      // ~24-29 digits
-            30..=34 => (3500, 450000),      // ~30-34 digits
-            35..=39 => (5000, 550000),      // ~35-39 digits
-            40..=44 => (8000, 700000),      // ~40-44 digits (research: 6k-10k, 400k-600k)
-            45..=49 => (15000, 1200000),    // ~45-49 digits (research: 12k-18k, 600k-900k)
-            50..=54 => (25000, 1800000),    // ~50-54 digits (research: 20k-30k, 900k-1.5M)
-            55..=59 => (42000, 3000000),    // ~55-59 digits (research: 35k-50k, 1.5M-2.5M)
-            60..=64 => (65000, 4500000),    // ~60-64 digits (research: 50k-80k, 2.5M-4M)
-            65..=69 => (100000, 7000000),   // ~65-69 digits (research: 80k-120k, 4M-6M)
+            24..=29 => (2000, 300000),    // ~24-29 digits
+            30..=34 => (3500, 450000),    // ~30-34 digits
+            35..=39 => (5000, 550000),    // ~35-39 digits
+            40..=44 => (8000, 700000),    // ~40-44 digits (research: 6k-10k, 400k-600k)
+            45..=49 => (15000, 1200000),  // ~45-49 digits (research: 12k-18k, 600k-900k)
+            50..=54 => (25000, 1800000),  // ~50-54 digits (research: 20k-30k, 900k-1.5M)
+            55..=59 => (42000, 3000000),  // ~55-59 digits (research: 35k-50k, 1.5M-2.5M)
+            60..=64 => (65000, 4500000),  // ~60-64 digits (research: 50k-80k, 2.5M-4M)
+            65..=69 => (100000, 7000000), // ~65-69 digits (research: 80k-120k, 4M-6M)
 
             // Large numbers (70-100 digits) - extrapolated with safety margins
             70..=74 => (150000, 11000000),  // ~70-74 digits
@@ -170,8 +170,8 @@ impl QuadraticSieve {
                 warn!("Number > 100 digits - QS is suboptimal, GNFS strongly recommended");
                 warn!("QS/GNFS crossover is typically around 100-110 digits");
                 let d = digits as f64;
-                let factor_base = (d * 15000.0) as u64;          // Linear scaling
-                let sieve_interval = (d * d * 150000.0) as i64;  // Quadratic scaling
+                let factor_base = (d * 15000.0) as u64; // Linear scaling
+                let sieve_interval = (d * d * 150000.0) as i64; // Quadratic scaling
                 (factor_base, sieve_interval)
             }
         }
@@ -225,8 +225,14 @@ impl QuadraticSieve {
         self.factor_base = factor_base;
 
         info!("Factor base size: {}", self.factor_base_size);
-        info!("First 10 primes: {:?}",
-              self.factor_base.iter().take(10).map(|pr| pr.p).collect::<Vec<_>>());
+        info!(
+            "First 10 primes: {:?}",
+            self.factor_base
+                .iter()
+                .take(10)
+                .map(|pr| pr.p)
+                .collect::<Vec<_>>()
+        );
     }
 
     /// Simple primality test for small numbers
@@ -371,12 +377,15 @@ impl QuadraticSieve {
         let mut log_array = vec![0.0f32; interval_size];
 
         // Pre-compute log values for primes
-        let log_primes: Vec<f32> = self.factor_base.iter()
+        let log_primes: Vec<f32> = self
+            .factor_base
+            .iter()
             .map(|pr| if pr.p > 1 { (pr.p as f32).ln() } else { 0.0 })
             .collect();
 
         // For each prime in factor base, sieve positions where Q(x) is divisible by p
-        for (idx, prime) in self.factor_base.iter().enumerate().skip(1) { // Skip -1
+        for (idx, prime) in self.factor_base.iter().enumerate().skip(1) {
+            // Skip -1
             let p = prime.p as i64;
             let log_p = log_primes[idx];
 
@@ -434,10 +443,10 @@ impl QuadraticSieve {
         // Lower threshold = more candidates but slower trial division
         // Higher threshold = fewer candidates but may miss smooth relations
         let threshold_multiplier = match self.n.to_string().len() {
-            0..=10 => 0.50,   // Very aggressive for small numbers
-            11..=30 => 0.60,  // Moderate for medium numbers
-            31..=60 => 0.65,  // Balanced for QS sweet spot
-            _ => 0.70,        // Conservative for large numbers
+            0..=10 => 0.50,  // Very aggressive for small numbers
+            11..=30 => 0.60, // Moderate for medium numbers
+            31..=60 => 0.65, // Balanced for QS sweet spot
+            _ => 0.70,       // Conservative for large numbers
         };
         let threshold = expected_log * threshold_multiplier;
 
@@ -456,10 +465,14 @@ impl QuadraticSieve {
             }
         }
 
-        info!("Found {} candidates (log threshold passed)", candidates.len());
+        info!(
+            "Found {} candidates (log threshold passed)",
+            candidates.len()
+        );
 
         // Trial divide candidates to confirm smoothness and build relations
-        let relations: Vec<Relation> = candidates.par_iter()
+        let relations: Vec<Relation> = candidates
+            .par_iter()
             .filter_map(|&x| self.trial_divide_candidate(x))
             .collect();
 
@@ -542,6 +555,12 @@ impl QuadraticSieve {
         let num_rows = matrix.len();
         let num_cols = matrix[0].len();
 
+        // Track how each row is composed from the original relations. Start with identity.
+        let mut combinations = vec![vec![0u8; num_rows]; num_rows];
+        for i in 0..num_rows {
+            combinations[i][i] = 1;
+        }
+
         let mut pivot_row = 0;
         let mut pivot_cols = Vec::new();
 
@@ -553,6 +572,7 @@ impl QuadraticSieve {
                 if matrix[row][col] == 1 {
                     // Swap rows
                     matrix.swap(pivot_row, row);
+                    combinations.swap(pivot_row, row);
                     found_pivot = true;
                     break;
                 }
@@ -570,6 +590,9 @@ impl QuadraticSieve {
                     for c in 0..num_cols {
                         matrix[row][c] ^= matrix[pivot_row][c]; // XOR for GF(2)
                     }
+                    for idx in 0..num_rows {
+                        combinations[row][idx] ^= combinations[pivot_row][idx];
+                    }
                 }
             }
 
@@ -583,41 +606,35 @@ impl QuadraticSieve {
         let mut dependencies = Vec::new();
 
         for row_idx in pivot_row..num_rows {
-            let mut dependency = Vec::new();
-
-            // This row should be all zeros (free variable)
-            // Back-substitute to find which original relations combine to zero
-            for col in 0..num_cols {
-                if matrix[row_idx][col] == 1 {
-                    dependency.push(col);
+            if matrix[row_idx].iter().any(|&bit| bit == 1) {
+                continue;
+            }
+            let mut combination = Vec::new();
+            for (relation_idx, &bit) in combinations[row_idx].iter().enumerate() {
+                if bit == 1 {
+                    combination.push(relation_idx);
                 }
             }
-
-            if !dependency.is_empty() {
-                dependencies.push(dependency);
+            if !combination.is_empty() {
+                dependencies.push(combination);
             }
         }
 
         // If no dependencies from free rows, find from the reduced matrix
         if dependencies.is_empty() {
-            // Try all subset combinations (simplified approach)
-            for row_idx in 0..num_rows.min(pivot_row) {
-                let mut dep = vec![row_idx];
-
-                // Try to find complementary rows
-                for other in row_idx + 1..num_rows.min(pivot_row + 5) {
-                    dep.push(other);
-                    if dep.len() >= 2 {
-                        dependencies.push(dep.clone());
-                        if dependencies.len() >= 10 {
-                            break;
-                        }
-                    }
-                    dep.pop();
+            // As a fallback, scan for linear combinations by examining remaining rows
+            for row_idx in 0..pivot_row {
+                if matrix[row_idx].iter().any(|&bit| bit == 1) {
+                    continue;
                 }
-
-                if dependencies.len() >= 10 {
-                    break;
+                let mut combination = Vec::new();
+                for (relation_idx, &bit) in combinations[row_idx].iter().enumerate() {
+                    if bit == 1 {
+                        combination.push(relation_idx);
+                    }
+                }
+                if !combination.is_empty() {
+                    dependencies.push(combination);
                 }
             }
         }
@@ -627,7 +644,11 @@ impl QuadraticSieve {
     }
 
     /// Extract factors from a linear dependency
-    fn extract_factors(&self, relations: &[Relation], dependency: &[usize]) -> Option<(BigInt, BigInt)> {
+    fn extract_factors(
+        &self,
+        relations: &[Relation],
+        dependency: &[usize],
+    ) -> Option<(BigInt, BigInt)> {
         // Multiply left sides: X = product of x values
         let mut x_product = BigInt::one();
         for &idx in dependency {
@@ -720,15 +741,25 @@ impl QuadraticSieve {
         info!("  Found: {} relations", relations.len());
 
         if relations.len() < required_relations {
-            warn!("Not enough smooth relations: found {}, need {}",
-                  relations.len(), required_relations);
-            warn!("Success rate: {:.1}%", (relations.len() as f64 / required_relations as f64) * 100.0);
+            warn!(
+                "Not enough smooth relations: found {}, need {}",
+                relations.len(),
+                required_relations
+            );
+            warn!(
+                "Success rate: {:.1}%",
+                (relations.len() as f64 / required_relations as f64) * 100.0
+            );
             warn!("Try increasing sieve interval or smoothness bound");
             return None;
         }
 
         info!("");
-        info!("Collected {} relations (need {})", relations.len(), required_relations);
+        info!(
+            "Collected {} relations (need {})",
+            relations.len(),
+            required_relations
+        );
         info!("");
 
         // Step 3: Build matrix
@@ -759,11 +790,7 @@ impl QuadraticSieve {
                     info!("");
 
                     // Return in ascending order
-                    return if &p <= &q {
-                        Some((p, q))
-                    } else {
-                        Some((q, p))
-                    };
+                    return if &p <= &q { Some((p, q)) } else { Some((q, p)) };
                 }
             }
         }
@@ -834,8 +861,12 @@ mod tests {
         for root in &roots {
             let root_big = BigInt::from(*root);
             let check = (&root_big * &root_big).mod_floor(&BigInt::from(p));
-            assert_eq!(check, n.mod_floor(&BigInt::from(p)),
-                      "Root {} should satisfy x² ≡ 2 (mod 7)", root);
+            assert_eq!(
+                check,
+                n.mod_floor(&BigInt::from(p)),
+                "Root {} should satisfy x² ≡ 2 (mod 7)",
+                root
+            );
         }
 
         // Also test another simple case
@@ -849,8 +880,12 @@ mod tests {
         for root in &roots2 {
             let root_big = BigInt::from(*root);
             let check = (&root_big * &root_big).mod_floor(&BigInt::from(p2));
-            assert_eq!(check, n2.mod_floor(&BigInt::from(p2)),
-                      "Root {} should satisfy x² ≡ 4 (mod 11)", root);
+            assert_eq!(
+                check,
+                n2.mod_floor(&BigInt::from(p2)),
+                "Root {} should satisfy x² ≡ 4 (mod 11)",
+                root
+            );
         }
     }
 
