@@ -185,6 +185,50 @@ impl<T: GnfsInteger> GNFS<T> {
         gnfs
     }
 
+    /// Reconstruct a GNFS instance from a checkpoint (parameters.json + progress.json)
+    pub fn from_checkpoint(
+        serializable: crate::core::serialization::types::SerializableGNFS,
+        buffer_config: BufferConfig,
+    ) -> Self {
+        let n = BigInt::parse_bytes(serializable.n.as_bytes(), 10)
+            .expect("Failed to parse n from checkpoint");
+        let polynomial_base = BigInt::parse_bytes(serializable.polynomial_base.as_bytes(), 10)
+            .expect("Failed to parse polynomial_base from checkpoint");
+
+        let current_polynomial = Polynomial::from(serializable.current_polynomial);
+        let polynomial_collection: Vec<Polynomial> = serializable.polynomial_collection
+            .into_iter()
+            .map(Polynomial::from)
+            .collect();
+
+        let prime_factor_base = FactorBase::from(serializable.prime_factor_base);
+        let rational_factor_pair_collection = FactorPairCollection::from(serializable.rational_factor_pair_collection);
+        let algebraic_factor_pair_collection = FactorPairCollection::from(serializable.algebraic_factor_pair_collection);
+        let quadratic_factor_pair_collection = FactorPairCollection::from(serializable.quadratic_factor_pair_collection);
+
+        let mut gnfs = GNFS {
+            n,
+            _phantom: PhantomData,
+            factorization: serializable.factorization.map(crate::core::solution::Solution::from),
+            polynomial_degree: serializable.polynomial_degree,
+            polynomial_base,
+            polynomial_collection,
+            current_polynomial,
+            current_relations_progress: PolyRelationsSieveProgress::default(),
+            prime_factor_base,
+            rational_factor_pair_collection,
+            algebraic_factor_pair_collection,
+            quadratic_factor_pair_collection,
+            save_locations: serializable.save_locations,
+            buffer_config,
+        };
+
+        // Rebuild the prime factor bases from bounds (the actual prime lists are not saved)
+        gnfs.set_prime_factor_bases();
+
+        gnfs
+    }
+
     pub fn log_message(&mut self, message: String) {
         info!("{}", message);
     }

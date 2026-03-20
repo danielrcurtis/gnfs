@@ -40,11 +40,10 @@ pub fn all<T: GnfsInteger>(gnfs: &GNFS<T>) {
     save::relations::free::all_solutions(gnfs);
 }
 
-pub fn parameters<T: GnfsInteger>(_gnfs: &GNFS<T>) {
-    // TODO: Phase 3 - Re-implement with proper GNFS<T> serialization
-    // let serializable_gnfs = SerializableGNFS::from(gnfs.clone());
-    // save::object(&serializable_gnfs, &gnfs.save_locations.parameters_filepath);
-    eprintln!("Warning: parameters serialization is temporarily disabled");
+pub fn parameters<T: GnfsInteger>(gnfs: &GNFS<T>) {
+    use crate::core::serialization::types::SerializableGNFS;
+    let serializable_gnfs = SerializableGNFS::from(gnfs);
+    save::object(&serializable_gnfs, &gnfs.save_locations.parameters_filepath);
 }
 
 pub fn progress<T: GnfsInteger>(gnfs: &GNFS<T>) {
@@ -57,21 +56,21 @@ pub mod factor_pair {
     use super::*;
 
     pub fn rational<T: GnfsInteger>(gnfs: &GNFS<T>) {
-        if !gnfs.rational_factor_pair_collection.len() == 0 {
+        if gnfs.rational_factor_pair_collection.len() > 0 {
             let serializable_collection = SerializableFactorPairCollection::from(gnfs.rational_factor_pair_collection.clone());
             save::object(&serializable_collection, &gnfs.save_locations.rational_factor_pair_filepath);
         }
     }
 
     pub fn algebraic<T: GnfsInteger>(gnfs: &GNFS<T>) {
-        if !gnfs.algebraic_factor_pair_collection.len() == 0 {
+        if gnfs.algebraic_factor_pair_collection.len() > 0 {
             let serializable_collection = SerializableFactorPairCollection::from(gnfs.algebraic_factor_pair_collection.clone());
             save::object(&serializable_collection, &gnfs.save_locations.algebraic_factor_pair_filepath);
         }
     }
 
     pub fn quadratic<T: GnfsInteger>(gnfs: &GNFS<T>) {
-        if !gnfs.quadratic_factor_pair_collection.len() == 0 {
+        if gnfs.quadratic_factor_pair_collection.len() > 0 {
             let serializable_collection = SerializableFactorPairCollection::from(gnfs.quadratic_factor_pair_collection.clone());
             save::object(&serializable_collection, &gnfs.save_locations.quadratic_factor_pair_filepath);
         }

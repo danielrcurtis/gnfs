@@ -29,8 +29,14 @@ pub fn progress(filename: &str) -> crate::core::serialization::types::Serializab
 }
 
 /// Load a complete GNFS checkpoint from the given directory
-/// TODO: Re-implement with proper generics in Phase 3
-pub fn load_checkpoint<T: GnfsInteger>(save_directory: &str, n: &num::BigInt) -> GNFS<T> {
+pub fn load_checkpoint<T: GnfsInteger>(
+    save_directory: &str,
+    n: &num::BigInt,
+    buffer_config: crate::config::BufferConfig,
+) -> GNFS<T> {
+    use log::info;
+    use crate::core::directory_location::DirectoryLocations;
+
     // Load parameters.json
     let params_path = format!("{}/parameters.json", save_directory);
     let serializable_gnfs: SerializableGNFS = parameters(&params_path);
@@ -42,13 +48,15 @@ pub fn load_checkpoint<T: GnfsInteger>(save_directory: &str, n: &num::BigInt) ->
         panic!("Checkpoint n ({}) does not match expected n ({})", loaded_n, n);
     }
 
-    // TODO: Phase 3 - Implement proper deserialization with generics
-    // For now, this is a placeholder that panics
-    panic!("load_checkpoint needs to be re-implemented with generics support");
+    // Validate backend matches
+    let expected_backend = T::backend_name();
+    if serializable_gnfs.backend_name != expected_backend {
+        panic!("Checkpoint backend ({}) does not match expected backend ({})",
+               serializable_gnfs.backend_name, expected_backend);
+    }
 
-    /*
-    // Convert serializable GNFS to GNFS struct
-    let mut gnfs = GNFS::from(serializable_gnfs);
+    // Reconstruct GNFS from checkpoint
+    let mut gnfs = GNFS::<T>::from_checkpoint(serializable_gnfs, buffer_config);
 
     // Ensure the save_locations points to the correct directory
     gnfs.save_locations = DirectoryLocations::new(save_directory);
@@ -57,15 +65,7 @@ pub fn load_checkpoint<T: GnfsInteger>(save_directory: &str, n: &num::BigInt) ->
     let progress_path = format!("{}/progress.json", save_directory);
     if Path::new(&progress_path).exists() {
         let serializable_progress = progress(&progress_path);
-
-        // Convert and apply progress
-        let mut loaded_progress = crate::relation_sieve::poly_relations_sieve_progress::PolyRelationsSieveProgress::from(serializable_progress);
-
-        // Preserve the relations container from the current progress
-        // (we'll load relations separately)
-        let relations_container = loaded_progress.relations.clone();
-        gnfs.current_relations_progress = loaded_progress;
-        gnfs.current_relations_progress.relations = relations_container;
+        gnfs.current_relations_progress = serializable_progress.to_progress::<T>();
 
         info!("Loaded progress: A={}, B={}", gnfs.current_relations_progress.a, gnfs.current_relations_progress.b);
         info!("Progress counters: smooth={}/{}, free={}",
@@ -74,17 +74,10 @@ pub fn load_checkpoint<T: GnfsInteger>(save_directory: &str, n: &num::BigInt) ->
               gnfs.current_relations_progress.free_relations_counter);
     }
 
-    // Load factor pair collections (they were saved in parameters.json, so already loaded)
-    // But we can optionally reload them from separate files if they exist
+    // Load factor pair collections from separate files if they exist
     factor_pair::rational(&mut gnfs);
     factor_pair::algebraic(&mut gnfs);
     factor_pair::quadratic(&mut gnfs);
-
-    // Reconstruct factor bases from the loaded parameters
-    gnfs.set_prime_factor_bases();
-
-    // Load smooth relations
-    relations::smooth(&mut gnfs);
 
     // Validate polynomial
     let poly_result = gnfs.current_polynomial.evaluate(&gnfs.polynomial_base);
@@ -93,15 +86,14 @@ pub fn load_checkpoint<T: GnfsInteger>(save_directory: &str, n: &num::BigInt) ->
         info!("  f(m) = {}", poly_result);
         info!("  n    = {}", gnfs.n);
     } else {
-        info!("Polynomial validation: f(m) = n ✓");
+        info!("Polynomial validation: f(m) = n");
     }
 
     info!("Successfully loaded checkpoint from {}", save_directory);
-    info!("  Relations loaded: {}", gnfs.current_relations_progress.smooth_relations_counter);
+    info!("  Relations streamed: {}", gnfs.current_relations_progress.smooth_relations_counter);
     info!("  Position: A={}, B={}", gnfs.current_relations_progress.a, gnfs.current_relations_progress.b);
 
     gnfs
-    */
 }
 
 pub fn generic_fixed_array<T: serde::de::DeserializeOwned>(filename: &str) -> T {
