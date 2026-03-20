@@ -184,7 +184,7 @@ pub mod relations {
             let mut json = serde_json::to_string_pretty(&serializable_relation).expect("Failed to serialize relation");
     
             if Path::new(&gnfs.save_locations.smooth_relations_filepath).exists() {
-                json.insert_str(0, ",");
+                json.insert(0, ',');
             }
     
             fs::write(&gnfs.save_locations.smooth_relations_filepath, json)
@@ -214,7 +214,7 @@ pub mod relations {
             std::mem::swap(&mut gnfs.current_relations_progress.relations.free_relations, &mut free_relations);
         }
     
-        pub fn single_solution<T: GnfsInteger>(gnfs: &mut GNFS<T>, solution: &mut Vec<Relation<T>>) {
+        pub fn single_solution<T: GnfsInteger>(gnfs: &mut GNFS<T>, solution: &mut [Relation<T>]) {
             if !solution.is_empty() {
                 for rel in solution.iter_mut() {
                     rel.is_persisted = true;

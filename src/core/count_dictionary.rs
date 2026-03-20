@@ -1,13 +1,20 @@
 // src/core/count_dictionary.rs
 use num::{BigInt, One, Zero};
 use std::collections::BTreeMap;
+use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CountDictionary(pub BTreeMap<BigInt, BigInt>);
 
+impl Default for CountDictionary {
+    fn default() -> Self {
+        CountDictionary(BTreeMap::new())
+    }
+}
+
 impl CountDictionary {
     pub fn new() -> Self {
-        CountDictionary(BTreeMap::new())
+        Self::default()
     }
 
     pub fn add(&mut self, key: &BigInt) {
@@ -29,6 +36,10 @@ impl CountDictionary {
         self.0.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     pub fn to_dict(&self) -> BTreeMap<BigInt, BigInt> {
         self.0.clone()
     }
@@ -37,13 +48,8 @@ impl CountDictionary {
         self.0.clone()
     }
 
-    pub fn to_string(&self) -> String {
-        let mut result = String::from("{\n");
-        for (key, value) in &self.0 {
-            result.push_str(&format!("\t{:5}: {:5}\n", key, value));
-        }
-        result.push('}');
-        result
+    pub fn format_as_string(&self) -> String {
+        format!("{}", self)
     }
 
     pub fn retain<F>(&mut self, predicate: F)
@@ -56,5 +62,15 @@ impl CountDictionary {
     pub fn format_string_as_factorization(&self) -> String {
         let factors: Vec<String> = self.0.iter().map(|(key, value)| format!("{}^{}", key, value)).collect();
         format!(" -> {{\t{}\t}};", factors.join(" * "))
+    }
+}
+
+impl fmt::Display for CountDictionary {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{{\n")?;
+        for (key, value) in &self.0 {
+            write!(f, "\t{:5}: {:5}\n", key, value)?;
+        }
+        write!(f, "}}")
     }
 }
