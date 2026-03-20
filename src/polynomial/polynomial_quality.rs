@@ -29,10 +29,10 @@ pub struct PolynomialQualityMetrics {
     pub overall_score: f64,
 }
 
-impl PolynomialQualityMetrics {
-    /// Display the quality metrics in a human-readable format
-    pub fn to_string(&self) -> String {
-        format!(
+impl std::fmt::Display for PolynomialQualityMetrics {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
             "Quality Metrics:\n  RSS: {:.2}\n  Max Coeff: {}\n  Sum |Coeffs|: {}\n  Skewness: {:.4}\n  Overall Score: {:.2}",
             self.root_sum_squares,
             self.max_coefficient,
@@ -284,7 +284,7 @@ fn calculate_skewness(poly: &Polynomial, m: &BigInt) -> f64 {
     let skewness = geometric_mean / m_f64.powf(0.5);
 
     // Ensure skewness is in reasonable range [0.1, 10.0]
-    skewness.max(0.1).min(10.0)
+    skewness.clamp(0.1, 10.0)
 }
 
 /// Compare two polynomials and return the better one

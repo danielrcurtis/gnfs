@@ -73,19 +73,19 @@ pub fn square_root(start_polynomial: &Polynomial, f: &Polynomial, p: &BigInt, de
 
         // Line 39: theta.modpow()
         let zeta_start = Instant::now();
-        let zeta = theta.modpow(&(&i * &s), p);
+        let zeta = theta.modpow(&(i * &s), p);
         let zeta_elapsed = zeta_start.elapsed();
         total_zeta_time += zeta_elapsed;
 
         // Line 41: lambda update
         let lambda_start = Instant::now();
-        lambda = (&lambda * &zeta.pow((2u32.pow((r - i) as u32)) as u32)).mod_floor(p);
+        lambda = (&lambda * &zeta.pow(2u32.pow((r - i) as u32))).mod_floor(p);
         let lambda_elapsed = lambda_start.elapsed();
         total_lambda_time += lambda_elapsed;
 
         // Line 43: Polynomial::multiply()
         let multiply_start = Instant::now();
-        omega_poly = Polynomial::multiply(&omega_poly, &Polynomial::from_term(zeta.pow(2u32.pow((r - i - 1) as u32) as u32), 0));
+        omega_poly = Polynomial::multiply(&omega_poly, &Polynomial::from_term(zeta.pow(2u32.pow((r - i - 1) as u32)), 0));
         let multiply_elapsed = multiply_start.elapsed();
         total_multiply_time += multiply_elapsed;
 
@@ -146,7 +146,7 @@ pub fn chinese_remainder(primes: &[BigInt], values: &[BigInt]) -> Option<BigInt>
 
     for (i, pi) in primes.iter().enumerate() {
         let pj = &prime_product / pi;
-        let aj = modular_multiplicative_inverse(&pj, &pi)?; // Use ? to handle the Option
+        let aj = modular_multiplicative_inverse(&pj, pi)?; // Use ? to handle the Option
         let ax_pj = &values[i] * &aj * pj;
         z += ax_pj;
     }

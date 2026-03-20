@@ -214,7 +214,7 @@ impl GnfsInteger for Fixed512 {
                 let (_quotient, remainder) = product.div_rem(&nz_m);
                 result = remainder;
             }
-            exp = exp >> 1;
+            exp >>= 1;
             let square = base.wrapping_mul(&base);
             let (_quotient, remainder) = square.div_rem(&nz_m);
             base = remainder;
@@ -235,7 +235,7 @@ impl GnfsInteger for Fixed512 {
     }
 
     fn bits(&self) -> usize {
-        512 - self.0.leading_zeros() as usize
+        512 - self.0.leading_zeros()
     }
 
     fn max_value() -> Option<Self> {

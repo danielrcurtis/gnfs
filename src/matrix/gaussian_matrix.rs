@@ -30,12 +30,12 @@ impl<'a, T: GnfsInteger> GaussianMatrix<'a, T> {
 
         let mut relations_as_rows: Vec<GaussianRow<T>> = relations
             .iter()
-            .map(|rel| GaussianRow::new(&gnfs, rel.clone()))
+            .map(|rel| GaussianRow::new(gnfs, rel.clone()))
             .collect();
 
         let mut selected_rows: Vec<GaussianRow<T>> = relations_as_rows
             .iter_mut()
-            .take(PolyRelationsSieveProgress::smooth_relations_required_for_matrix_step(&gnfs).to_usize().unwrap())
+            .take(PolyRelationsSieveProgress::smooth_relations_required_for_matrix_step(gnfs).to_usize().unwrap())
             .map(|row| row.to_owned())
             .collect();
 
@@ -244,13 +244,15 @@ impl<'a, T: GnfsInteger> GaussianMatrix<'a, T> {
         matrix.iter().map(|row| Self::vector_to_string(row)).collect::<Vec<String>>().join("\n")
     }
 
-    pub fn to_string(&self) -> String {
+}
+
+impl<'a, T: GnfsInteger> std::fmt::Display for GaussianMatrix<'a, T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Convert sparse matrix to dense representation for string output
         let mut dense_rows = Vec::new();
         for i in 0..self.m.num_rows {
             dense_rows.push(self.m.get_row_dense(i));
         }
-        Self::matrix_to_string(&dense_rows)
+        write!(f, "{}", Self::matrix_to_string(&dense_rows))
     }
-
 }

@@ -220,12 +220,7 @@ impl SparseMatrix {
     ///
     /// O(n) where n = number of rows to search, but each check is O(1) HashMap lookup
     pub fn find_pivot(&self, col: usize, start_row: usize) -> Option<usize> {
-        for row in start_row..self.num_rows {
-            if self.get(row, col) {
-                return Some(row);
-            }
-        }
-        None
+        (start_row..self.num_rows).find(|&row| self.get(row, col))
     }
 
     /// Gets a row as a dense Vec<bool> for compatibility with existing code

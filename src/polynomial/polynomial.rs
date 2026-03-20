@@ -83,11 +83,14 @@ impl Term {
         Term::new(coefficient, exponent)
     }
 
-    pub fn to_string(&self) -> String {
+}
+
+impl Display for Term {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         let mut result = String::new();
 
         if self.coefficient.is_negative() {
-            result.push_str("-");
+            result.push('-');
         }
 
         if self.coefficient != BigInt::one() {
@@ -95,16 +98,15 @@ impl Term {
         }
 
         if self.exponent > 0 {
-            result.push_str("X");
+            result.push('X');
             if self.exponent > 1 {
-                result.push_str("^");
+                result.push('^');
                 result.push_str(&self.exponent.to_string());
             }
         }
 
-        result
+        write!(f, "{}", result)
     }
-
 }
 
 impl PartialOrd for Term {

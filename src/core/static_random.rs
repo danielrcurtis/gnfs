@@ -8,6 +8,12 @@ pub struct StaticRandom {
     rng: ChaCha8Rng,
 }
 
+impl Default for StaticRandom {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl StaticRandom {
     pub fn new() -> Self {
         let mut seed = [0u8; 32];
@@ -20,6 +26,7 @@ impl StaticRandom {
         StaticRandom { rng }
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> u32 {
         self.rng.random()
     }

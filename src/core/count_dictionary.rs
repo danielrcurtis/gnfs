@@ -3,14 +3,8 @@ use num::{BigInt, One, Zero};
 use std::collections::BTreeMap;
 use std::fmt;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CountDictionary(pub BTreeMap<BigInt, BigInt>);
-
-impl Default for CountDictionary {
-    fn default() -> Self {
-        CountDictionary(BTreeMap::new())
-    }
-}
 
 impl CountDictionary {
     pub fn new() -> Self {
@@ -67,9 +61,9 @@ impl CountDictionary {
 
 impl fmt::Display for CountDictionary {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{{\n")?;
+        writeln!(f, "{{")?;
         for (key, value) in &self.0 {
-            write!(f, "\t{:5}: {:5}\n", key, value)?;
+            writeln!(f, "\t{:5}: {:5}", key, value)?;
         }
         write!(f, "}}")
     }

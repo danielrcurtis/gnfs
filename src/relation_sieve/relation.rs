@@ -194,12 +194,12 @@ impl<T: GnfsInteger> Hash for Relation<T> {
 
 impl<T: GnfsInteger> PartialOrd for Relation<T> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.a.cmp(&other.a).then(self.b.cmp(&other.b)))
+        Some(self.cmp(other))
     }
 }
 
 impl<T: GnfsInteger> Ord for Relation<T> {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.partial_cmp(other).unwrap()
+        self.a.cmp(&other.a).then(self.b.cmp(&other.b))
     }
 }

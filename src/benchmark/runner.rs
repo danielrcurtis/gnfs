@@ -52,14 +52,10 @@ impl BenchmarkRunner {
         // Determine prime bound based on digit count (matching main.rs logic)
         // Updated with Fix 2: exponential scaling for 10+ digits
         let digits = n.to_string().len();
-        let prime_bound = if digits <= 8 {
-            BigInt::from(100)         // 8 digits: ~0.3s, 254 relations
-        } else if digits == 9 {
-            BigInt::from(100)         // 9 digits: 2-28s (varies), sufficient smooth relations
-        } else if digits == 10 {
-            BigInt::from(1000)        // 10 digits: increased from 200, then 500 (Fix 2 - prevent exhaustion)
-        } else if digits == 11 {
-            BigInt::from(1000)        // 11 digits: increased from 400 (exponential scaling)
+        let prime_bound = if digits <= 9 {
+            BigInt::from(100)         // up to 9 digits: ~0.3s-28s, sufficient smooth relations
+        } else if digits <= 11 {
+            BigInt::from(1000)        // 10-11 digits: increased from 200-400 (Fix 2 - prevent exhaustion)
         } else if digits == 12 {
             BigInt::from(2000)        // 12 digits: increased from 800 (exponential scaling)
         } else if digits <= 14 {

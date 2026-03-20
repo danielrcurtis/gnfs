@@ -78,7 +78,7 @@ impl GnfsInteger for Native128 {
     }
 
     fn is_even(&self) -> bool {
-        self.0 % 2 == 0
+        self.0.is_multiple_of(2)
     }
 
     fn pow(&self, exp: u32) -> Self {

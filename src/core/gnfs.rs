@@ -369,10 +369,6 @@ impl<T: GnfsInteger> GNFS<T> {
         // TODO: Implement saving the state
         // Serialization::save_factor_pair_quadratic(self);
         info!("Completed quadratic factor base (3 of 3).");
-
-        if cancel_token.is_cancellation_requested() {
-            return;
-        }
     }
 
     pub fn group_rough_numbers(rough_numbers: &[Relation<T>]) -> Vec<Vec<Relation<T>>> {
