@@ -122,8 +122,6 @@ impl RedisKeys {
     /// Hash of worker heartbeats: worker_id → timestamp
     pub fn heartbeat(&self) -> String { format!("{}:heartbeat", self.prefix) }
 
-    /// Per-worker progress hash
-    pub fn worker_progress(&self, worker_id: &str) -> String {
-        format!("{}:worker:{}:progress", self.prefix, worker_id)
-    }
+    /// Last expanded B value (for coordinator resume)
+    pub fn last_expand_b(&self) -> String { format!("{}:last_expand_b", self.prefix) }
 }

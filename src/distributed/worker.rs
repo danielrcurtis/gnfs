@@ -254,14 +254,8 @@ fn sieve_chunk<T: GnfsInteger>(gnfs: &GNFS<T>, chunk: &Chunk) -> Vec<Serializabl
 
         // Generate A values and test for smoothness
         let a_values: Vec<BigInt> = (chunk.a_start..chunk.a_start + chunk.a_range)
-            .flat_map(|a| {
-                // Alternating positive/negative: 1, -1, 2, -2, ...
-                if a == 0 {
-                    vec![BigInt::from(1), BigInt::from(-1)]
-                } else {
-                    vec![BigInt::from(a), BigInt::from(-a)]
-                }
-            })
+            .filter(|a| *a != 0) // Skip 0 (gcd(0, b) = b, never coprime)
+            .flat_map(|a| vec![BigInt::from(a), BigInt::from(-a)])
             .filter(|a| GCD::are_coprime_pair(a, &current_b))
             .collect();
 

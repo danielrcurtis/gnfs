@@ -54,7 +54,7 @@ pub fn run(
     let gnfs = create_gnfs_for_distributed(n, config);
 
     // Serialize and publish params
-    let params_json = serialize_params(&gnfs);
+    let params_json = serialize_params(&gnfs)?;
     let _: () = conn.set(keys.params(), &params_json)
         .map_err(|e| format!("Redis SET params error: {}", e))?;
     info!("Published GNFS parameters to Redis");
@@ -80,6 +80,10 @@ pub fn run(
             .map_err(|e| format!("Redis ZADD error: {}", e))?;
     }
 
+    // Track last expanded B value for resume
+    let _: () = conn.set(keys.last_expand_b(), initial_max_b)
+        .map_err(|e| format!("Redis SET last_expand_b error: {}", e))?;
+
     // Set status to sieving
     let _: () = conn.set(keys.status(), FactorizationStatus::Sieving.as_str())
         .map_err(|e| format!("Redis SET status error: {}", e))?;
@@ -100,7 +104,8 @@ fn monitor_loop(
 ) -> Result<(), String> {
     let reclaim_script = redis::Script::new(redis_client::RECLAIM_STALE_SCRIPT);
 
-    let mut last_expand_b = 500i64;
+    // Restore last_expand_b from Redis (supports coordinator resume)
+    let mut last_expand_b: i64 = conn.get(keys.last_expand_b()).unwrap_or(500i64);
     let mut monitor_interval = 0u64;
 
     loop {
@@ -162,7 +167,7 @@ fn monitor_loop(
                 .arg(now)
                 .arg(dist_config.claim_timeout_secs as i64)
                 .invoke(conn)
-                .unwrap_or(0);
+                .unwrap_or_else(|e| { warn!("Reclaim script error: {}", e); 0 });
 
             if reclaimed > 0 {
                 warn!("Reclaimed {} stale chunks from dead workers", reclaimed);
@@ -192,6 +197,8 @@ fn monitor_loop(
             }
 
             last_expand_b = new_b_end;
+            let _: () = conn.set(keys.last_expand_b(), last_expand_b)
+                .map_err(|e| format!("Redis SET last_expand_b error: {}", e))?;
         }
     }
 }
@@ -264,30 +271,16 @@ fn create_gnfs_for_distributed(n: &BigInt, config: &GnfsConfig) -> GNFSWrapper {
 }
 
 /// Serialize GNFS params to JSON string
-fn serialize_params(gnfs: &GNFSWrapper) -> String {
-    // Dispatch through the wrapper to get SerializableGNFS
-    match gnfs {
-        GNFSWrapper::Native64Signed(g) => {
-            let s = SerializableGNFS::from(g);
-            serde_json::to_string(&s).expect("Failed to serialize params")
-        }
-        GNFSWrapper::Native128Signed(g) => {
-            let s = SerializableGNFS::from(g);
-            serde_json::to_string(&s).expect("Failed to serialize params")
-        }
-        GNFSWrapper::Fixed256(g) => {
-            let s = SerializableGNFS::from(g);
-            serde_json::to_string(&s).expect("Failed to serialize params")
-        }
-        GNFSWrapper::Fixed512(g) => {
-            let s = SerializableGNFS::from(g);
-            serde_json::to_string(&s).expect("Failed to serialize params")
-        }
-        GNFSWrapper::Arbitrary(g) => {
-            let s = SerializableGNFS::from(g);
-            serde_json::to_string(&s).expect("Failed to serialize params")
-        }
-    }
+fn serialize_params(gnfs: &GNFSWrapper) -> Result<String, String> {
+    let serializable = match gnfs {
+        GNFSWrapper::Native64Signed(g) => SerializableGNFS::from(g),
+        GNFSWrapper::Native128Signed(g) => SerializableGNFS::from(g),
+        GNFSWrapper::Fixed256(g) => SerializableGNFS::from(g),
+        GNFSWrapper::Fixed512(g) => SerializableGNFS::from(g),
+        GNFSWrapper::Arbitrary(g) => SerializableGNFS::from(g),
+    };
+    serde_json::to_string(&serializable)
+        .map_err(|e| format!("Failed to serialize params: {}", e))
 }
 
 /// Collect all smooth relations from the Redis stream
