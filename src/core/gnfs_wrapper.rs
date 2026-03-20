@@ -409,6 +409,12 @@ impl GNFSWrapper {
                 break;
             }
 
+            // Break if search space is exhausted (no point continuing)
+            if gnfs.current_relations_progress.search_exhausted {
+                info!("Search space exhausted. Stopping sieve.");
+                break;
+            }
+
             if gnfs.current_relations_progress.smooth_relations_counter >= gnfs.current_relations_progress.smooth_relations_target_quantity {
                 break;
             }

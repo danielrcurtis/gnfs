@@ -179,6 +179,7 @@ impl SerializablePolyRelationsSieveProgress {
             consecutive_zero_batches: self.consecutive_zero_batches,
             initial_max_b: BigInt::parse_bytes(self.initial_max_b.as_bytes(), 10).unwrap(),
             total_batches_processed: self.total_batches_processed,
+            search_exhausted: false,
         }
     }
 }

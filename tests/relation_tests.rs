@@ -8,7 +8,7 @@ use env_logger::Env;
 #[test]
 fn test_option1_larger_prime_bounds() {
     // Option 1: Use larger prime bounds with N=45113
-    env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
+    let _ = env_logger::Builder::from_env(Env::default().default_filter_or("debug")).try_init();
 
     let n = BigInt::from(45113);
     let polynomial_base = BigInt::from(31);
@@ -91,7 +91,7 @@ fn test_option1_larger_prime_bounds() {
 #[test]
 fn test_option2_simpler_number() {
     // Option 2: Use much simpler number N=143 (11 × 13)
-    env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
+    let _ = env_logger::Builder::from_env(Env::default().default_filter_or("debug")).try_init();
 
     let n = BigInt::from(143); // 11 × 13
     let polynomial_base = BigInt::from(11); // One of the factors
@@ -188,7 +188,7 @@ fn test_option2_simpler_number() {
 #[test]
 fn test_verify_first_relations() {
     // Test to verify the first few relations are computed correctly
-    env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
+    let _ = env_logger::Builder::from_env(Env::default().default_filter_or("debug")).try_init();
 
     let n = BigInt::from(45113);
     let polynomial_base = BigInt::from(31);
@@ -244,7 +244,7 @@ fn test_verify_first_relations() {
 #[test]
 fn test_main_program_flow() {
     // Test that exactly mimics the main program flow
-    env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
+    let _ = env_logger::Builder::from_env(Env::default().default_filter_or("debug")).try_init();
 
     let n = BigInt::from(45113);
     let polynomial_base = BigInt::from(31);

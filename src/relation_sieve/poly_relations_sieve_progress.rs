@@ -30,6 +30,8 @@ pub struct PolyRelationsSieveProgress<T: GnfsInteger> {
     pub consecutive_zero_batches: usize,
     pub initial_max_b: BigInt,
     pub total_batches_processed: usize,
+    /// Set to true when sieving determines the search space is exhausted
+    pub search_exhausted: bool,
 }
 
 impl<T: GnfsInteger> PolyRelationsSieveProgress<T> {
@@ -63,6 +65,7 @@ impl<T: GnfsInteger> PolyRelationsSieveProgress<T> {
             consecutive_zero_batches: 0,
             initial_max_b,
             total_batches_processed: 0,
+            search_exhausted: false,
         }
     }
     
@@ -289,6 +292,7 @@ impl<T: GnfsInteger> PolyRelationsSieveProgress<T> {
                 log::error!("  - Use larger relation_value_range");
                 log::error!("  - This number may require different polynomial parameters");
                 log::error!("==========================================");
+                self.search_exhausted = true;
                 break;
             }
 
@@ -313,6 +317,7 @@ impl<T: GnfsInteger> PolyRelationsSieveProgress<T> {
                 log::error!("  - Increase prime bounds significantly");
                 log::error!("  - Use different polynomial selection strategy");
                 log::error!("==========================================");
+                self.search_exhausted = true;
                 break;
             }
 
@@ -329,6 +334,7 @@ impl<T: GnfsInteger> PolyRelationsSieveProgress<T> {
                 // If we've also seen many zero batches, abort
                 if self.consecutive_zero_batches >= 50 {
                     log::error!("Aborting due to slow progress and frequent zero-relation batches.");
+                    self.search_exhausted = true;
                     break;
                 }
             }
@@ -469,6 +475,7 @@ impl<T: GnfsInteger> Default for PolyRelationsSieveProgress<T> {
             consecutive_zero_batches: 0,
             initial_max_b: BigInt::from(0),
             total_batches_processed: 0,
+            search_exhausted: false,
         }
     }
 }
