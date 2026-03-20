@@ -45,7 +45,7 @@ impl<T: GnfsInteger> GaussianRow<T> {
         let mut prime_factory = PrimeFactory::new();
         let prime_index = prime_factory.get_index_from_value(max_value);
         let mut result = vec![false; prime_index as usize];
-        if prime_factorization_dict.len() == 0 {
+        if prime_factorization_dict.is_empty() {
             return result;
         }
         for (key, value) in prime_factorization_dict.to_dict() {
