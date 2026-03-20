@@ -29,18 +29,23 @@ fn main() {
         return;
     }
 
-    // Otherwise, parse number to factor
-    let n = if args.len() > 1 {
-        match BigInt::from_str(&args[1]) {
+    // Check for --force-gnfs flag (can appear before or after the number)
+    let force_gnfs = args.iter().any(|a| a == "--force-gnfs");
+    let number_args: Vec<&String> = args.iter().skip(1).filter(|a| *a != "--force-gnfs").collect();
+
+    // Parse number to factor
+    let n = if let Some(arg) = number_args.first() {
+        match BigInt::from_str(arg) {
             Ok(num) => {
                 info!("Factoring number from command line: {}", num);
                 num
             },
             Err(e) => {
-                eprintln!("Error parsing number '{}': {}", args[1], e);
-                eprintln!("Usage: {} <number_to_factor>", args[0]);
+                eprintln!("Error parsing number '{}': {}", arg, e);
+                eprintln!("Usage: {} [--force-gnfs] <number_to_factor>", args[0]);
                 eprintln!("       {} --bench [digit_counts...]", args[0]);
                 eprintln!("Example: {} 45113", args[0]);
+                eprintln!("         {} --force-gnfs 45113", args[0]);
                 eprintln!("         {} --bench 7 9 11", args[0]);
                 std::process::exit(1);
             }
@@ -106,8 +111,12 @@ fn main() {
     debug!("Is 5 prime? {}", is_prime);
 
     // Use algorithm dispatcher to automatically select the best factorization method
-    // This replaces the old hardcoded trial division check
-    let algorithm = choose_algorithm(&n);
+    let algorithm = if force_gnfs {
+        info!("--force-gnfs: bypassing algorithm selection, using GNFS directly");
+        FactorizationAlgorithm::GNFS
+    } else {
+        choose_algorithm(&n)
+    };
 
     // For algorithms other than GNFS, attempt fast factorization
     if algorithm != FactorizationAlgorithm::GNFS {
