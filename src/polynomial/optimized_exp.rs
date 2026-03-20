@@ -626,6 +626,9 @@ fn extract_window(exponent: &BigInt, start: i64, max_window_size: usize) -> (u64
     let mut window_len = 0usize;
 
     // Extract bits from start down to start - max_window_size + 1
+    // Build the window value with correct bit ordering: the bit at position `start`
+    // becomes the MSB of the window value, so that the numeric value matches the
+    // actual exponent bits being represented.
     for offset in 0..max_window_size {
         let bit_pos = start - offset as i64;
         if bit_pos < 0 {
@@ -633,7 +636,8 @@ fn extract_window(exponent: &BigInt, start: i64, max_window_size: usize) -> (u64
         }
 
         if exponent.bit(bit_pos as u64) {
-            window_value |= 1 << offset;
+            // Shift existing value left and set the new bit
+            window_value = (window_value << 1) | 1;
             window_len = offset + 1;
         } else if window_len > 0 {
             // Stop at first 0 bit after seeing 1s
@@ -1172,7 +1176,12 @@ mod tests {
         let result_windowed = windowed_exponentiate_mod(&base, &exp, &modulus, &prime, 4);
 
         // Compute using naive method for comparison
-        let result_naive = Polynomial::exponentiate_mod(&base, &exp, &modulus, &prime);
+        let mut result_naive = Polynomial::exponentiate_mod(&base, &exp, &modulus, &prime);
+
+        // Normalize the naive result: reduce coefficients mod prime and remove zero terms
+        // The windowed method eagerly reduces coefficients, while the naive method may not
+        result_naive = result_naive.field_modulus(&prime);
+        result_naive.remove_zeros();
 
         assert_eq!(result_windowed, result_naive);
     }
@@ -1209,8 +1218,8 @@ mod tests {
         assert_eq!(value, 0b11); // Should extract "11"
         assert_eq!(len, 2);
 
-        // Extract window starting at bit 5
-        let (value, len) = extract_window(&exp, 5, 4);
+        // Extract window starting at bit 4 (which is 1 in 11010110)
+        let (value, len) = extract_window(&exp, 4, 4);
         assert_eq!(value, 0b1); // Should extract "1"
         assert_eq!(len, 1);
     }

@@ -63,6 +63,7 @@ pub struct SquareFinder<T: GnfsInteger> {
 
     gnfs: GNFS<T>,
     rational_norms: Vec<BigInt>,
+    #[allow(dead_code)]
     algebraic_norm_collection: Vec<BigInt>,
     relations_set: Vec<Relation<T>>,
     _phantom: PhantomData<T>,
@@ -272,7 +273,7 @@ impl<T: GnfsInteger> SquareFinder<T> {
 
         let mut primes = Vec::new();
         let mut values = Vec::new();
-        let mut total_primes_tested = 0;
+        let mut _total_primes_tested = 0;
         let mut batch_number = 0;
 
         loop {
@@ -338,7 +339,7 @@ impl<T: GnfsInteger> SquareFinder<T> {
                 .collect();
 
             let batch_elapsed = batch_start.elapsed();
-            total_primes_tested += prime_batch.len();
+            _total_primes_tested += prime_batch.len();
 
             info!("{}", format!("Batch #{} completed in {:.2}s ({} primes tested, {} irreducible found, {:.0} primes/sec)",
                 batch_number, batch_elapsed.as_secs_f64(), prime_batch.len(), irreducible_results.len(),
@@ -439,11 +440,11 @@ impl<T: GnfsInteger> SquareFinder<T> {
     pub fn solve(cancel_token: &CancellationToken, gnfs: &mut GNFS<T>) -> bool {
         let mut tried_free_relation_indices = Vec::new();
     
-        let poly_base = gnfs.polynomial_base.clone();
+        let _poly_base = gnfs.polynomial_base.clone();
         let free_relations = gnfs.current_relations_progress.relations.free_relations.clone();
         let mut square_root_finder = SquareFinder::new(gnfs);
     
-        let mut free_relation_index = 0;
+        let mut _free_relation_index = 0;
         let mut solution_found = false;
     
         while !solution_found {
@@ -461,18 +462,18 @@ impl<T: GnfsInteger> SquareFinder<T> {
     
             let mut static_random = StaticRandom::new();
             loop {
-                free_relation_index = static_random.next_range(0, free_relations.len() as u32);
-                if !tried_free_relation_indices.contains(&free_relation_index) {
+                _free_relation_index = static_random.next_range(0, free_relations.len() as u32);
+                if !tried_free_relation_indices.contains(&_free_relation_index) {
                     break;
                 }
             }
     
-            tried_free_relation_indices.push(free_relation_index);
+            tried_free_relation_indices.push(_free_relation_index);
     
-            let selected_relation_set: &_ = &free_relations[free_relation_index as usize];
+            let selected_relation_set: &_ = &free_relations[_free_relation_index as usize];
     
             gnfs.log_message("".to_string());
-            gnfs.log_message(format!("Selected solution set index # {}", free_relation_index + 1));
+            gnfs.log_message(format!("Selected solution set index # {}", _free_relation_index + 1));
             gnfs.log_message("".to_string());
             gnfs.log_message("Calculating Rational Square Root β ∈ ℤ[θ] ...".to_string());
             gnfs.log_message("".to_string());
@@ -513,7 +514,7 @@ impl<T: GnfsInteger> SquareFinder<T> {
             if non_trivial_factors_found {
                 solution_found = gnfs.set_factorization_solution(&p, &q);
 
-                gnfs.log_message(format!("Selected solution set index # {}", free_relation_index + 1));
+                gnfs.log_message(format!("Selected solution set index # {}", _free_relation_index + 1));
                 gnfs.log_message("".to_string());
 
                 if solution_found {

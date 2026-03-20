@@ -11,6 +11,7 @@ mod sieve_advancement_tests {
 
     /// Simulates the A/B advancement logic from poly_relations_sieve_progress.rs
     /// This is extracted to test the core logic without needing a full GNFS instance.
+    #[allow(dead_code)]
     struct SieveState {
         a: BigInt,
         b: BigInt,
@@ -29,7 +30,7 @@ mod sieve_advancement_tests {
         }
 
         /// Simulates one iteration of the sieving loop
-        fn advance(&mut self, batch_size: i64, b_values_actually_processed: i64, effective_value_range: i64) {
+        fn advance(&mut self, _batch_size: i64, b_values_actually_processed: i64, effective_value_range: i64) {
             // Capture start_a at beginning of iteration (CRITICAL - must be inside loop)
             let start_a = self.a.clone();
 

@@ -2,7 +2,6 @@
 
 use std::fs;
 use std::path::Path;
-use crate::core::directory_location::DirectoryLocations;
 use crate::polynomial::polynomial::Polynomial;
 use serde_json;
 use crate::relation_sieve::relation::Relation;
@@ -32,8 +31,6 @@ pub fn progress(filename: &str) -> crate::core::serialization::types::Serializab
 /// Load a complete GNFS checkpoint from the given directory
 /// TODO: Re-implement with proper generics in Phase 3
 pub fn load_checkpoint<T: GnfsInteger>(save_directory: &str, n: &num::BigInt) -> GNFS<T> {
-    use log::info;
-
     // Load parameters.json
     let params_path = format!("{}/parameters.json", save_directory);
     let serializable_gnfs: SerializableGNFS = parameters(&params_path);

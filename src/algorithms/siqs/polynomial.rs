@@ -8,8 +8,8 @@
 // - b² ≡ n (mod a) (computed using Chinese Remainder Theorem)
 // - c = (b² - n) / a
 
-use num::{BigInt, Integer, One, ToPrimitive, Zero};
-use log::{debug, info};
+use num::{BigInt, Integer, One, Zero};
+use log::debug;
 
 use super::Prime;
 use super::parameters::SIQSParameters;

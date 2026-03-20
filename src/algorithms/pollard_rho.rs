@@ -5,7 +5,7 @@
 // Best for: Numbers in the 20-40 digit range
 // Typical performance: 20-30 digit numbers in < 100ms
 
-use num::{BigInt, Integer, One, Zero};
+use num::{BigInt, Integer, One};
 use log::debug;
 use crate::integer_math::gcd::GCD;
 

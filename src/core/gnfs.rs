@@ -498,22 +498,21 @@ mod tests {
     #[test]
     fn test_construct_polynomial_base_m_method() {
         // Test case 1: N = 45113, m = 31, degree = 3
-        let cancel_token = CancellationToken::new();
+        // Uses construct_new_polynomial directly to test the base-m method
+        // (GNFS::new uses find_optimal_base which may choose a different base)
         let n = BigInt::from(45113);
         let polynomial_base = BigInt::from(31);
         let poly_degree = 3;
-        let prime_bound = BigInt::from(100);
 
-        let gnfs = GNFS::<BigIntBackend>::new(
-            &cancel_token,
-            &n,
-            &polynomial_base,
-            poly_degree,
-            &prime_bound,
-            1,
-            1000,
-            true,
-        );
+        let mut gnfs = GNFS::<BigIntBackend> {
+            n: n.clone(),
+            _phantom: PhantomData,
+            polynomial_degree: poly_degree,
+            polynomial_base: polynomial_base.clone(),
+            ..Default::default()
+        };
+
+        gnfs.construct_new_polynomial(&polynomial_base, poly_degree);
 
         // Verify polynomial was constructed
         assert_eq!(gnfs.current_polynomial.degree(), 3);
@@ -576,8 +575,10 @@ mod tests {
 
         gnfs.construct_new_polynomial(&polynomial_base, poly_degree);
 
-        // Should create polynomial of specified degree
-        assert_eq!(gnfs.current_polynomial.degree(), poly_degree);
+        // The base-m representation of 12345 in base 17 is:
+        // 12345 = 3 + 12*17 + 8*17^2 + 2*17^3 + 0*17^4
+        // The leading coefficient is 0, so the actual polynomial degree is 3, not 4.
+        assert_eq!(gnfs.current_polynomial.degree(), 3);
 
         // Should satisfy f(m) = N
         let evaluation = gnfs.current_polynomial.evaluate(&polynomial_base);

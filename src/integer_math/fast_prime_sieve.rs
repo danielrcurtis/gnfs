@@ -4,7 +4,6 @@ use std::mem::size_of;
 use log::debug;
 use num::Zero;
 use num::{BigUint, ToPrimitive};
-use serde::de;
 use crate::core::cpu_info;
 use std::cell::RefCell;
 
@@ -85,6 +84,7 @@ impl IntoIterator for FastPrimeSieve {
     }
 }
 
+#[allow(dead_code)]
 struct BasePrimes {
     primes: std::iter::Flatten<std::iter::Once<FastPrimeSieve>>,
 }
@@ -103,6 +103,7 @@ trait BasePrimesTrait: Iterator<Item = BigUint> {}
 
 pub struct FastPrimeSieveIterator {
     base_primes_array: RefCell<Vec<u32>>,
+    #[allow(dead_code)]
     base_primes: Option<Box<dyn BasePrimesTrait>>,
     buffer_bits: usize,
     buffer_bits_next: usize,

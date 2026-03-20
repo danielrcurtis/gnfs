@@ -5,7 +5,7 @@
 // Best for: Numbers < 20 digits (< 10^20)
 // Typical performance: 10-digit numbers in < 1ms
 
-use num::{BigInt, Integer, One, ToPrimitive, Zero};
+use num::{BigInt, Integer, One, ToPrimitive};
 use log::debug;
 
 /// Attempts to factor n using trial division up to sqrt(n) or the specified limit.

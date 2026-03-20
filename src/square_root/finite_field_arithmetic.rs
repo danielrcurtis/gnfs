@@ -168,8 +168,6 @@ pub fn mod_mod(to_reduce: &Polynomial, mod_poly: &Polynomial, prime_modulus: &Bi
 /// This is faster than creating the full X^p polynomial and then reducing it
 /// because we can use binary exponentiation which only requires O(log p) polynomial multiplications
 pub fn x_power_p_minus_x_mod_f(p: &BigInt, f: &Polynomial, prime: &BigInt) -> Polynomial {
-    use crate::polynomial::polynomial::Term;
-
     // Compute X^p mod f using binary exponentiation
     let x = Polynomial::from_term(BigInt::one(), 1); // X
     let x_pow_p_mod_f = Polynomial::exponentiate_mod(&x, p, f, prime);

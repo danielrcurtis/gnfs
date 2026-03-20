@@ -183,7 +183,7 @@ impl<T: GnfsInteger> PolyRelationsSieveProgress<T> {
 
                 // Collect only coprime A values (filters early)
                 let a_values: Vec<BigInt> = a_iter
-                    .filter(|a| !cancel_token.is_cancellation_requested())
+                    .filter(|_a| !cancel_token.is_cancellation_requested())
                     .filter(|a| GCD::are_coprime_pair(a, &current_b))
                     .collect();
 
