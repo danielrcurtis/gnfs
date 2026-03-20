@@ -23,6 +23,7 @@ pub mod json_converters {
     {
         #[derive(Deserialize)]
         #[serde(field_identifier, rename_all = "lowercase")]
+        #[allow(dead_code)]
         enum Field {
             Terms,
         }
@@ -67,6 +68,7 @@ pub mod json_converters {
     {
         #[derive(Deserialize)]
         #[serde(field_identifier, rename_all = "lowercase")]
+        #[allow(dead_code)]
         enum Field {
             Coefficient,
             Exponent,

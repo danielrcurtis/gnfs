@@ -1,6 +1,6 @@
 // src/polynomial/polynomial_construction.rs
 
-use num::{BigInt, Zero, One, Integer, ToPrimitive, Signed};
+use num::{BigInt, Zero, One, ToPrimitive, Signed};
 use log::{debug, info};
 use crate::polynomial::polynomial::{Polynomial, Term};
 use crate::polynomial::polynomial_quality::{evaluate_quality, PolynomialQualityMetrics};

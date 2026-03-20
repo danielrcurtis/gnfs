@@ -4,7 +4,6 @@ use num::{BigInt, Zero};
 use serde::{Serialize, Deserialize};
 use std::collections::BTreeMap;
 use std::str::FromStr;
-use crate::core::gnfs::GNFS;
 use crate::core::gnfs_integer::GnfsInteger;
 use crate::core::directory_location::DirectoryLocations;
 use crate::core::factor_base::FactorBase;

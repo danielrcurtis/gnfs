@@ -1,6 +1,7 @@
 // Test cases for GNFS relation finding with different parameters
 use gnfs::core::gnfs::GNFS;
 use gnfs::core::cancellation_token::CancellationToken;
+use gnfs::backends::BigIntBackend;
 use num::BigInt;
 use env_logger::Env;
 
@@ -30,7 +31,7 @@ fn test_option1_larger_prime_bounds() {
 
     let cancel_token = CancellationToken::new();
 
-    let mut gnfs = GNFS::new(
+    let mut gnfs = GNFS::<BigIntBackend>::new(
         &cancel_token,
         &n,
         &polynomial_base,
@@ -113,7 +114,7 @@ fn test_option2_simpler_number() {
 
     let cancel_token = CancellationToken::new();
 
-    let mut gnfs = GNFS::new(
+    let mut gnfs = GNFS::<BigIntBackend>::new(
         &cancel_token,
         &n,
         &polynomial_base,
@@ -203,7 +204,7 @@ fn test_verify_first_relations() {
 
     let cancel_token = CancellationToken::new();
 
-    let gnfs = GNFS::new(
+    let gnfs = GNFS::<BigIntBackend>::new(
         &cancel_token,
         &n,
         &polynomial_base,
@@ -259,7 +260,7 @@ fn test_main_program_flow() {
 
     let cancel_token = CancellationToken::new();
 
-    let mut gnfs = GNFS::new(
+    let mut gnfs = GNFS::<BigIntBackend>::new(
         &cancel_token,
         &n,
         &polynomial_base,

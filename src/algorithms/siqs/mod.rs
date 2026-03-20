@@ -884,6 +884,7 @@ impl SIQS {
     }
 
     /// Sieve with a single SIQS polynomial
+    #[allow(dead_code)]
     fn sieve_with_polynomial(&self, polynomial: &SIQSPolynomial) -> Vec<Relation> {
         let m = self.params.sieve_interval;
         let sqrt_n = self.sqrt_n.to_i64().unwrap_or(0);
@@ -1229,13 +1230,11 @@ impl SIQS {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::str::FromStr;
-
     #[test]
     fn test_siqs_small() {
         // 8051 = 83 × 97
         let n = BigInt::from(8051);
-        let result = siqs(&n);
+        let _result = siqs(&n);
         // May fail until polynomial generation is implemented
         // assert!(result.is_some());
     }
@@ -1766,14 +1765,14 @@ mod tests {
 
             // Verify no placeholder values (all should be real data)
             let mut non_zero_ainv = 0;
-            let mut non_zero_roots = 0;
+            let mut _non_zero_roots = 0;
 
             for idx in 0..siqs.factor_base_size {
                 if state.ainv_cache[idx] != 0 {
                     non_zero_ainv += 1;
                 }
                 if state.sieve_roots[idx] != (0, 0) {
-                    non_zero_roots += 1;
+                    _non_zero_roots += 1;
                 }
             }
 

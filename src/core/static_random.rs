@@ -11,29 +11,29 @@ pub struct StaticRandom {
 impl StaticRandom {
     pub fn new() -> Self {
         let mut seed = [0u8; 32];
-        rand::thread_rng().fill(&mut seed);
+        rand::rng().fill(&mut seed);
         let mut rng = ChaCha8Rng::from_seed(seed);
-        let counter = rng.gen_range(100..200);
+        let counter = rng.random_range(100..200);
         for _ in 0..counter {
-            rng.gen::<u32>();
+            rng.random::<u32>();
         }
         StaticRandom { rng }
     }
 
     pub fn next(&mut self) -> u32 {
-        self.rng.gen()
+        self.rng.random()
     }
 
     pub fn next_max(&mut self, max_value: u32) -> u32 {
-        self.rng.gen_range(0..max_value)
+        self.rng.random_range(0..max_value)
     }
 
     pub fn next_range(&mut self, min_value: u32, max_value: u32) -> u32 {
-        self.rng.gen_range(min_value..max_value)
+        self.rng.random_range(min_value..max_value)
     }
 
     pub fn next_double(&mut self) -> f64 {
-        self.rng.gen()
+        self.rng.random()
     }
 
     pub fn next_bytes(&mut self, bytes: &mut [u8]) {

@@ -1,6 +1,6 @@
 // src/polynomial/polynomial_quality.rs
 
-use num::{BigInt, ToPrimitive, Zero, One, Signed};
+use num::{BigInt, ToPrimitive, Zero, Signed};
 use crate::polynomial::polynomial::Polynomial;
 
 /// Quality metrics for evaluating GNFS polynomials
@@ -339,6 +339,7 @@ pub fn select_best<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use num::One;
     use crate::polynomial::polynomial::{Polynomial, Term};
 
     #[test]

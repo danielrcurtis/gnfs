@@ -626,22 +626,35 @@ fn extract_window(exponent: &BigInt, start: i64, max_window_size: usize) -> (u64
     let mut window_len = 0usize;
 
     // Extract bits from start down to start - max_window_size + 1
+    // Build the window value with proper bit ordering: the bit at position `start`
+    // becomes the MSB of the window value, so that the numeric value matches the
+    // actual exponent bits being represented.
     for offset in 0..max_window_size {
         let bit_pos = start - offset as i64;
         if bit_pos < 0 {
             break;
         }
 
+        window_len += 1;
+
+        // Shift existing value left and add the new bit as LSB
+        window_value <<= 1;
         if exponent.bit(bit_pos as u64) {
-            window_value |= 1 << offset;
-            window_len = offset + 1;
-        } else if window_len > 0 {
-            // Stop at first 0 bit after seeing 1s
-            break;
+            window_value |= 1;
         } else {
-            // Leading zeros before first 1
+            // 0-bit: include it in the window length but stop scanning
+            // The window value will be even, but we need to handle trailing zeros
+            // by trimming them off (the caller expects an odd window value)
             break;
         }
+    }
+
+    // Trim trailing zeros from the window: the windowed exponentiation algorithm
+    // requires the window value to be odd. Any trailing zero bits should be handled
+    // as individual squarings by the caller, so we shorten the window.
+    while window_len > 1 && (window_value & 1) == 0 {
+        window_value >>= 1;
+        window_len -= 1;
     }
 
     // Ensure we return at least length 1 (for the initial 1-bit that triggered this)
@@ -1172,7 +1185,12 @@ mod tests {
         let result_windowed = windowed_exponentiate_mod(&base, &exp, &modulus, &prime, 4);
 
         // Compute using naive method for comparison
-        let result_naive = Polynomial::exponentiate_mod(&base, &exp, &modulus, &prime);
+        let mut result_naive = Polynomial::exponentiate_mod(&base, &exp, &modulus, &prime);
+
+        // Normalize the naive result: reduce coefficients mod prime and remove zero terms
+        // The windowed method eagerly reduces coefficients, while the naive method may not
+        result_naive = result_naive.field_modulus(&prime);
+        result_naive.remove_zeros();
 
         assert_eq!(result_windowed, result_naive);
     }
@@ -1209,8 +1227,8 @@ mod tests {
         assert_eq!(value, 0b11); // Should extract "11"
         assert_eq!(len, 2);
 
-        // Extract window starting at bit 5
-        let (value, len) = extract_window(&exp, 5, 4);
+        // Extract window starting at bit 4 (which is 1 in 11010110)
+        let (value, len) = extract_window(&exp, 4, 4);
         assert_eq!(value, 0b1); // Should extract "1"
         assert_eq!(len, 1);
     }

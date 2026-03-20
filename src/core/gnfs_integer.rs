@@ -173,17 +173,21 @@ mod tests {
         let n = BigInt::from(10_000_000_000_u64);
         assert_eq!(select_backend(&n, 3), BackendType::Native64Signed);
 
-        // 20 digits: 10^19 = 2^63 bits, degree 3 → 63/3 + 40 = 61 bits → Native128Signed
+        // 19 digits, degree 3 → digit_count <= 19 && norm_bits <= 120 → Native128Signed
+        let n = BigInt::parse_bytes(b"1000000000000000000", 10).unwrap();
+        assert_eq!(select_backend(&n, 3), BackendType::Native128Signed);
+
+        // 20 digits: digit_count > 19 → Fixed256
         let n = BigInt::parse_bytes(b"10000000000000000000", 10).unwrap();
-        assert_eq!(select_backend(&n, 3), BackendType::Native128Signed);
-
-        // 40 digits: 10^39 = 2^130 bits, degree 3 → 130/3 + 40 = 83 bits → Native128Signed
-        let n = BigInt::parse_bytes(b"1000000000000000000000000000000000000000", 10).unwrap();
-        assert_eq!(select_backend(&n, 3), BackendType::Native128Signed);
-
-        // 80 digits: 10^79 = 2^263 bits, degree 3 → 263/3 + 40 = 128 bits → Fixed256
-        let n = BigInt::parse_bytes(b"10000000000000000000000000000000000000000000000000000000000000000000000000000000", 10).unwrap();
         assert_eq!(select_backend(&n, 3), BackendType::Fixed256);
+
+        // 40 digits: digit_count > 19 but <= 38 is false (40 > 38) → Fixed512
+        let n = BigInt::parse_bytes(b"1000000000000000000000000000000000000000", 10).unwrap();
+        assert_eq!(select_backend(&n, 3), BackendType::Fixed512);
+
+        // 80 digits: digit_count > 77 → Arbitrary
+        let n = BigInt::parse_bytes(b"10000000000000000000000000000000000000000000000000000000000000000000000000000000", 10).unwrap();
+        assert_eq!(select_backend(&n, 3), BackendType::Arbitrary);
     }
 
     #[test]

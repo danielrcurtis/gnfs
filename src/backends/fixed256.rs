@@ -3,7 +3,7 @@
 use num::BigInt;
 use std::fmt;
 use crate::core::gnfs_integer::GnfsInteger;
-use crypto_bigint::{U256, Encoding, NonZero, Limb};
+use crypto_bigint::{U256, Encoding, NonZero};
 
 /// Fixed-width 256-bit backend for GNFS arithmetic
 ///

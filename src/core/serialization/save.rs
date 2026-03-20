@@ -2,16 +2,14 @@
 
 use std::fs;
 use std::path::Path;
-use std::io::Write;
 use serde::Serialize;
 use serde_json;
-use num::BigInt;
 use crate::core::gnfs::GNFS;
 use crate::core::gnfs_integer::GnfsInteger;
 use crate::core::serialization::save;
 use crate::relation_sieve::relation::Relation;
 use crate::core::serialization::types::{
-    SerializableGNFS, SerializablePolynomial, SerializableFactorPairCollection,
+    SerializablePolynomial, SerializableFactorPairCollection,
     SerializableRelation
 };
 
@@ -42,7 +40,7 @@ pub fn all<T: GnfsInteger>(gnfs: &GNFS<T>) {
     save::relations::free::all_solutions(gnfs);
 }
 
-pub fn parameters<T: GnfsInteger>(gnfs: &GNFS<T>) {
+pub fn parameters<T: GnfsInteger>(_gnfs: &GNFS<T>) {
     // TODO: Phase 3 - Re-implement with proper GNFS<T> serialization
     // let serializable_gnfs = SerializableGNFS::from(gnfs.clone());
     // save::object(&serializable_gnfs, &gnfs.save_locations.parameters_filepath);

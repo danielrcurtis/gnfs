@@ -96,6 +96,7 @@ struct Prime {
 
 /// Represents a smooth relation: Q(x) factors over the factor base
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 struct Relation {
     x: i64,
     q_x: BigInt,
@@ -190,7 +191,9 @@ impl QuadraticSieve {
         });
 
         // Special handling for p = 2
-        if self.n.mod_floor(&BigInt::from(8)) == BigInt::one() {
+        // For odd n, Q(x) = x² - n is even when x is odd, so 2 always divides some Q(x)
+        // Include 2 in the factor base for all odd n
+        if self.n.is_odd() {
             factor_base.push(Prime {
                 p: 2,
                 roots: vec![1],
@@ -423,35 +426,46 @@ impl QuadraticSieve {
             }
         }
 
-        // Calculate threshold for sieving
-        // For x near sqrt(n), Q(x) = x² - n ≈ 2*sqrt(n)*|x - sqrt(n)|
-        // Maximum Q(x) in interval: 2*sqrt(n)*M where M is sieve_interval/2
-        let sqrt_n_float = self.sqrt_n.to_f64().unwrap_or(1.0);
-        let max_q_x = 2.0 * sqrt_n_float * (self.sieve_interval as f64 / 2.0);
-        let expected_log = max_q_x.ln() as f32;
-
-        // Threshold: percentage of expected log (sum of factor base prime logs)
-        // Lower threshold = more candidates but slower trial division
-        // Higher threshold = fewer candidates but may miss smooth relations
-        let threshold_multiplier = match self.n.to_string().len() {
-            0..=10 => 0.50,   // Very aggressive for small numbers
-            11..=30 => 0.60,  // Moderate for medium numbers
-            31..=60 => 0.65,  // Balanced for QS sweet spot
-            _ => 0.70,        // Conservative for large numbers
+        // Calculate per-position threshold for sieving
+        // For each position x, Q(x) = x² - n. If Q(x) is smooth, the accumulated
+        // log from sieving should be close to log(|Q(x)|). We use a slack term to
+        // allow for small prime powers and rounding: a candidate passes if
+        // sieve_log >= log(|Q(x)|) - slack.
+        //
+        // The slack accounts for small primes whose contributions may be missed
+        // and for approximation errors in the log sieve.
+        let n_digits = self.n.to_string().len();
+        let threshold_slack: f32 = match n_digits {
+            0..=10 => 3.0,    // Very generous for small numbers
+            11..=30 => 4.0,   // Moderate slack
+            31..=60 => 5.0,   // Balanced for QS sweet spot
+            _ => 6.0,         // Conservative for large numbers
         };
-        let threshold = expected_log * threshold_multiplier;
 
         info!("Sieving threshold calculation:");
-        info!("  Max Q(x) in interval: {:.2e}", max_q_x);
-        info!("  Expected log(Q(x)): {:.2}", expected_log);
-        info!("  Threshold multiplier: {:.2}", threshold_multiplier);
-        info!("  Final threshold: {:.2}", threshold);
+        info!("  Using per-position threshold: log(|Q(x)|) - {:.1}", threshold_slack);
 
         // Collect candidate smooth relations
         let mut candidates = Vec::new();
         for x in start_x..=end_x {
             let array_idx = (x - start_x) as usize;
-            if array_idx < interval_size && log_array[array_idx] >= threshold {
+            if array_idx >= interval_size {
+                continue;
+            }
+
+            // Compute |Q(x)| = |x² - n| for per-position threshold
+            let x_big = BigInt::from(x);
+            let q_x = &x_big * &x_big - &self.n;
+            let q_abs = q_x.abs();
+
+            if q_abs < BigInt::from(2) {
+                continue;
+            }
+
+            let log_q = q_abs.to_f64().unwrap_or(1.0).ln() as f32;
+            let position_threshold = (log_q - threshold_slack).max(0.0);
+
+            if log_array[array_idx] >= position_threshold {
                 candidates.push(x);
             }
         }
@@ -513,45 +527,59 @@ impl QuadraticSieve {
         }
     }
 
-    /// Build matrix over GF(2) from relations
-    fn build_matrix(&self, relations: &[Relation]) -> Vec<Vec<u8>> {
-        info!("Building matrix over GF(2)...");
+    /// Build augmented matrix over GF(2) from relations.
+    /// Each row is [exponent_vector_mod_2 | identity_row].
+    /// The identity portion tracks which original relations are combined
+    /// during Gaussian elimination, so that zero rows on the left yield
+    /// the dependency (subset of relation indices) on the right.
+    fn build_augmented_matrix(&self, relations: &[Relation]) -> Vec<Vec<u8>> {
+        info!("Building augmented matrix over GF(2)...");
 
         let num_relations = relations.len();
         let num_primes = self.factor_base_size;
+        let total_cols = num_primes + num_relations;
 
-        info!("Matrix size: {} × {}", num_relations, num_primes);
+        info!("Matrix size: {} × {} ({}+{} augmented)",
+              num_relations, total_cols, num_primes, num_relations);
 
         let mut matrix = Vec::with_capacity(num_relations);
 
-        for relation in relations {
-            let mut row = vec![0u8; num_primes];
+        for (row_idx, relation) in relations.iter().enumerate() {
+            let mut row = vec![0u8; total_cols];
+            // Left side: exponent vector mod 2
             for (idx, &exp) in relation.factors.iter().enumerate() {
-                row[idx] = (exp % 2) as u8; // Reduce to GF(2)
+                row[idx] = (exp % 2) as u8;
             }
+            // Right side: identity matrix
+            row[num_primes + row_idx] = 1;
             matrix.push(row);
         }
 
         matrix
     }
 
-    /// Gaussian elimination over GF(2) to find linear dependencies
-    fn find_dependencies(&self, matrix: &mut Vec<Vec<u8>>) -> Vec<Vec<usize>> {
+    /// Gaussian elimination over GF(2) on the augmented matrix to find
+    /// linear dependencies among relations.
+    ///
+    /// After elimination, zero rows on the left side correspond to
+    /// dependencies: the set bits on the right side indicate which
+    /// original relations XOR to zero (i.e., their exponent vectors
+    /// sum to zero mod 2, giving a perfect square on both sides).
+    fn find_dependencies(&self, matrix: &mut Vec<Vec<u8>>, num_relations: usize) -> Vec<Vec<usize>> {
         info!("Finding linear dependencies (Gaussian elimination)...");
 
         let num_rows = matrix.len();
-        let num_cols = matrix[0].len();
+        let num_primes = self.factor_base_size;
+        let total_cols = num_primes + num_relations;
 
         let mut pivot_row = 0;
-        let mut pivot_cols = Vec::new();
 
-        // Forward elimination
-        for col in 0..num_cols {
+        // Forward elimination on the left (exponent) portion only
+        for col in 0..num_primes {
             // Find pivot
             let mut found_pivot = false;
             for row in pivot_row..num_rows {
                 if matrix[row][col] == 1 {
-                    // Swap rows
                     matrix.swap(pivot_row, row);
                     found_pivot = true;
                     break;
@@ -562,13 +590,12 @@ impl QuadraticSieve {
                 continue;
             }
 
-            pivot_cols.push(col);
-
-            // Eliminate
+            // Eliminate all other rows with a 1 in this column
             for row in 0..num_rows {
                 if row != pivot_row && matrix[row][col] == 1 {
-                    for c in 0..num_cols {
-                        matrix[row][c] ^= matrix[pivot_row][c]; // XOR for GF(2)
+                    // XOR entire row (including augmented identity portion)
+                    for c in 0..total_cols {
+                        matrix[row][c] ^= matrix[pivot_row][c];
                     }
                 }
             }
@@ -577,48 +604,28 @@ impl QuadraticSieve {
         }
 
         info!("Matrix rank: {}", pivot_row);
-        info!("Free variables: {}", num_rows - pivot_row);
+        info!("Free variables (null space dimension): {}", num_rows - pivot_row);
 
-        // Find dependencies from free rows (zero rows)
+        // Extract dependencies from rows where the left side is all zeros
         let mut dependencies = Vec::new();
 
-        for row_idx in pivot_row..num_rows {
+        for row_idx in 0..num_rows {
+            // Check if left side is all zeros
+            let left_zero = (0..num_primes).all(|c| matrix[row_idx][c] == 0);
+            if !left_zero {
+                continue;
+            }
+
+            // The right side tells us which original relations to combine
             let mut dependency = Vec::new();
-
-            // This row should be all zeros (free variable)
-            // Back-substitute to find which original relations combine to zero
-            for col in 0..num_cols {
-                if matrix[row_idx][col] == 1 {
-                    dependency.push(col);
+            for rel_idx in 0..num_relations {
+                if matrix[row_idx][num_primes + rel_idx] == 1 {
+                    dependency.push(rel_idx);
                 }
             }
 
-            if !dependency.is_empty() {
+            if dependency.len() >= 2 {
                 dependencies.push(dependency);
-            }
-        }
-
-        // If no dependencies from free rows, find from the reduced matrix
-        if dependencies.is_empty() {
-            // Try all subset combinations (simplified approach)
-            for row_idx in 0..num_rows.min(pivot_row) {
-                let mut dep = vec![row_idx];
-
-                // Try to find complementary rows
-                for other in row_idx + 1..num_rows.min(pivot_row + 5) {
-                    dep.push(other);
-                    if dep.len() >= 2 {
-                        dependencies.push(dep.clone());
-                        if dependencies.len() >= 10 {
-                            break;
-                        }
-                    }
-                    dep.pop();
-                }
-
-                if dependencies.len() >= 10 {
-                    break;
-                }
             }
         }
 
@@ -731,11 +738,12 @@ impl QuadraticSieve {
         info!("Collected {} relations (need {})", relations.len(), required_relations);
         info!("");
 
-        // Step 3: Build matrix
-        let mut matrix = self.build_matrix(&relations);
+        // Step 3: Build augmented matrix
+        let num_relations = relations.len();
+        let mut matrix = self.build_augmented_matrix(&relations);
 
         // Step 4: Find dependencies
-        let dependencies = self.find_dependencies(&mut matrix);
+        let dependencies = self.find_dependencies(&mut matrix, num_relations);
 
         if dependencies.is_empty() {
             warn!("No linear dependencies found");

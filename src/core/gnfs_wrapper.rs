@@ -343,8 +343,6 @@ impl GNFSWrapper {
 
     /// Dispatch relation sieving to the appropriate backend
     pub fn find_relations(&mut self, cancel_token: &CancellationToken, one_round: bool) {
-        use log::debug;
-
         info!("Starting find_relations with {} backend...", self.backend_name());
 
         match self {
