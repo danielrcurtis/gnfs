@@ -344,28 +344,24 @@ fn main() {
 }
 
 fn create_or_load_gnfs(n: &BigInt, config: &GnfsConfig) -> GNFSWrapper {
-    // Note: For now, we don't support loading from checkpoint with GNFSWrapper
-    // This is because we'd need to serialize the backend type along with the data.
-    // For Phase 3, we'll just create fresh instances.
-    // TODO: Implement checkpoint loading with backend type detection in Phase 4
-
     let save_directory = format!("{}", n);
     let params_file = format!("{}/parameters.json", save_directory);
 
     if Path::new(&params_file).exists() {
         info!("========================================");
         info!("Found existing checkpoint at {}/", save_directory);
-        info!("WARNING: Checkpoint loading not yet supported with adaptive backends");
-        info!("Starting fresh factorization...");
+        info!("Resuming from checkpoint...");
         info!("========================================");
         info!("");
+
+        GNFSWrapper::load_from_checkpoint(&save_directory, n, config.buffer.clone())
     } else {
         info!("No checkpoint found at {}/", save_directory);
         info!("Starting fresh factorization...");
         info!("");
-    }
 
-    create_new_gnfs(n, config)
+        create_new_gnfs(n, config)
+    }
 }
 
 fn create_new_gnfs(n: &BigInt, config: &GnfsConfig) -> GNFSWrapper {
@@ -462,10 +458,7 @@ fn create_new_gnfs(n: &BigInt, config: &GnfsConfig) -> GNFSWrapper {
 
     // Save initial parameters
     info!("Saving initial parameters to {}", gnfs.parameters_filepath());
-    // Note: Serialization will use the wrapper's methods to dispatch to the correct backend
-    // For now, we'll skip saving as it requires more complex handling
-    // TODO: Implement serialization for GNFSWrapper
-    info!("Parameters save skipped (TODO: implement serialization for GNFSWrapper)");
+    gnfs.save_parameters();
 
     gnfs
 }

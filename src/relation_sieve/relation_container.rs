@@ -88,6 +88,24 @@ impl<T: GnfsInteger> RelationContainer<T> {
         }
     }
 
+    /// Resume streaming to an existing file (for checkpoint resume)
+    /// Counts existing JSONL lines and opens in append mode
+    pub fn resume_streaming(&mut self, file_path: PathBuf) {
+        if file_path.exists() {
+            // Count existing lines to set total_streamed_count
+            let file = File::open(&file_path)
+                .expect("Failed to open existing streaming file for resume");
+            let reader = BufReader::new(file);
+            let line_count = reader.lines().filter(|l| l.as_ref().map(|s| !s.trim().is_empty()).unwrap_or(false)).count();
+            self.total_streamed_count = line_count;
+            info!("Resuming relation streaming: {} existing relations in {}", line_count, file_path.display());
+        } else {
+            self.total_streamed_count = 0;
+            info!("No existing streaming file found, starting fresh: {}", file_path.display());
+        }
+        self.streaming_file_path = Some(file_path);
+    }
+
     /// Add smooth relations with automatic streaming to disk
     pub fn add_smooth_relations(&mut self, mut relations: Vec<Relation<T>>) -> Result<(), String> {
         // CRITICAL FIX: Shrink incoming vector BEFORE appending to prevent capacity inflation
