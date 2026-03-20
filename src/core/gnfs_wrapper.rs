@@ -343,6 +343,75 @@ impl GNFSWrapper {
         }
     }
 
+    /// Load from a checkpoint directory
+    pub fn load_from_checkpoint(
+        save_directory: &str,
+        n: &BigInt,
+        buffer_config: BufferConfig,
+    ) -> Self {
+        use crate::core::serialization::load;
+        use std::path::PathBuf;
+
+        // First, read the parameters.json to determine which backend was used
+        let params_path = format!("{}/parameters.json", save_directory);
+        let serializable_gnfs: crate::core::serialization::types::SerializableGNFS =
+            load::parameters(&params_path);
+        let backend_name = &serializable_gnfs.backend_name;
+
+        info!("Loading checkpoint with {} backend from {}", backend_name, save_directory);
+
+        // Drop the serializable_gnfs so load_checkpoint can re-read it
+        let backend_name = backend_name.clone();
+        drop(serializable_gnfs);
+
+        let wrapper = match backend_name.as_str() {
+            "Native64Signed" => {
+                let mut gnfs = load::load_checkpoint::<Native64Signed>(save_directory, n, buffer_config);
+                let streaming_path = PathBuf::from(&gnfs.save_locations.streamed_relations_filepath);
+                gnfs.current_relations_progress.relations.resume_streaming(streaming_path);
+                GNFSWrapper::Native64Signed(gnfs)
+            },
+            "Native128Signed" => {
+                let mut gnfs = load::load_checkpoint::<Native128Signed>(save_directory, n, buffer_config);
+                let streaming_path = PathBuf::from(&gnfs.save_locations.streamed_relations_filepath);
+                gnfs.current_relations_progress.relations.resume_streaming(streaming_path);
+                GNFSWrapper::Native128Signed(gnfs)
+            },
+            "Fixed256" => {
+                let mut gnfs = load::load_checkpoint::<Fixed256>(save_directory, n, buffer_config);
+                let streaming_path = PathBuf::from(&gnfs.save_locations.streamed_relations_filepath);
+                gnfs.current_relations_progress.relations.resume_streaming(streaming_path);
+                GNFSWrapper::Fixed256(gnfs)
+            },
+            "Fixed512" => {
+                let mut gnfs = load::load_checkpoint::<Fixed512>(save_directory, n, buffer_config);
+                let streaming_path = PathBuf::from(&gnfs.save_locations.streamed_relations_filepath);
+                gnfs.current_relations_progress.relations.resume_streaming(streaming_path);
+                GNFSWrapper::Fixed512(gnfs)
+            },
+            "Arbitrary" => {
+                let mut gnfs = load::load_checkpoint::<BigIntBackend>(save_directory, n, buffer_config);
+                let streaming_path = PathBuf::from(&gnfs.save_locations.streamed_relations_filepath);
+                gnfs.current_relations_progress.relations.resume_streaming(streaming_path);
+                GNFSWrapper::Arbitrary(gnfs)
+            },
+            other => panic!("Unknown backend in checkpoint: {}", other),
+        };
+
+        wrapper
+    }
+
+    /// Save parameters to disk
+    pub fn save_parameters(&self) {
+        match self {
+            GNFSWrapper::Native64Signed(gnfs) => crate::core::serialization::save::parameters(gnfs),
+            GNFSWrapper::Native128Signed(gnfs) => crate::core::serialization::save::parameters(gnfs),
+            GNFSWrapper::Fixed256(gnfs) => crate::core::serialization::save::parameters(gnfs),
+            GNFSWrapper::Fixed512(gnfs) => crate::core::serialization::save::parameters(gnfs),
+            GNFSWrapper::Arbitrary(gnfs) => crate::core::serialization::save::parameters(gnfs),
+        }
+    }
+
     /// Dispatch relation sieving to the appropriate backend
     pub fn find_relations(&mut self, cancel_token: &CancellationToken, one_round: bool) {
         info!("Starting find_relations with {} backend...", self.backend_name());

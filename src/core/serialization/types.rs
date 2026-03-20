@@ -19,6 +19,7 @@ use crate::core::count_dictionary::CountDictionary;
 #[derive(Default, Serialize, Deserialize)]
 pub struct SerializableGNFS {
     pub n: String,
+    pub backend_name: String,
     pub factorization: Option<SerializableSolution>,
     pub polynomial_degree: usize,
     pub polynomial_base: String,
@@ -31,46 +32,24 @@ pub struct SerializableGNFS {
     pub save_locations: DirectoryLocations,
 }
 
-// TODO: Phase 3 - Re-implement From traits with proper generics support
-// These conversions need to be reworked to handle GNFS<T> generics
-/*
-impl From<GNFS> for SerializableGNFS {
-    fn from(gnfs: GNFS) -> Self {
+impl<T: GnfsInteger> From<&crate::core::gnfs::GNFS<T>> for SerializableGNFS {
+    fn from(gnfs: &crate::core::gnfs::GNFS<T>) -> Self {
         SerializableGNFS {
             n: gnfs.n.to_string(),
-            factorization: gnfs.factorization.map(SerializableSolution::from),
+            backend_name: T::backend_name().to_string(),
+            factorization: gnfs.factorization.as_ref().map(|s: &Solution| SerializableSolution::from(s.clone())),
             polynomial_degree: gnfs.polynomial_degree,
             polynomial_base: gnfs.polynomial_base.to_string(),
-            polynomial_collection: gnfs.polynomial_collection.into_iter().map(SerializablePolynomial::from).collect(),
-            current_polynomial: SerializablePolynomial::from(gnfs.current_polynomial),
-            prime_factor_base: SerializableFactorBase::from(gnfs.prime_factor_base),
-            rational_factor_pair_collection: SerializableFactorPairCollection::from(gnfs.rational_factor_pair_collection),
-            algebraic_factor_pair_collection: SerializableFactorPairCollection::from(gnfs.algebraic_factor_pair_collection),
-            quadratic_factor_pair_collection: SerializableFactorPairCollection::from(gnfs.quadratic_factor_pair_collection),
-            save_locations: gnfs.save_locations,
+            polynomial_collection: gnfs.polynomial_collection.iter().map(|p: &Polynomial| SerializablePolynomial::from(p.clone())).collect(),
+            current_polynomial: SerializablePolynomial::from(gnfs.current_polynomial.clone()),
+            prime_factor_base: SerializableFactorBase::from(gnfs.prime_factor_base.clone()),
+            rational_factor_pair_collection: SerializableFactorPairCollection::from(gnfs.rational_factor_pair_collection.clone()),
+            algebraic_factor_pair_collection: SerializableFactorPairCollection::from(gnfs.algebraic_factor_pair_collection.clone()),
+            quadratic_factor_pair_collection: SerializableFactorPairCollection::from(gnfs.quadratic_factor_pair_collection.clone()),
+            save_locations: gnfs.save_locations.clone(),
         }
     }
 }
-
-impl From<SerializableGNFS> for GNFS {
-    fn from(gnfs: SerializableGNFS) -> Self {
-        GNFS {
-            n: BigInt::parse_bytes(gnfs.n.as_bytes(), 10).unwrap(),
-            factorization: gnfs.factorization.map(Solution::from),
-            polynomial_degree: gnfs.polynomial_degree,
-            polynomial_base: BigInt::parse_bytes(gnfs.polynomial_base.as_bytes(), 10).unwrap(),
-            polynomial_collection: gnfs.polynomial_collection.into_iter().map(Polynomial::from).collect(),
-            current_polynomial: Polynomial::from(gnfs.current_polynomial),
-            current_relations_progress: PolyRelationsSieveProgress::default(),
-            prime_factor_base: FactorBase::from(gnfs.prime_factor_base),
-            rational_factor_pair_collection: FactorPairCollection::from(gnfs.rational_factor_pair_collection),
-            algebraic_factor_pair_collection: FactorPairCollection::from(gnfs.algebraic_factor_pair_collection),
-            quadratic_factor_pair_collection: FactorPairCollection::from(gnfs.quadratic_factor_pair_collection),
-            save_locations: gnfs.save_locations,
-        }
-    }
-}
-*/
 
 #[derive(Serialize, Deserialize)]
 pub struct SerializableTerm {
