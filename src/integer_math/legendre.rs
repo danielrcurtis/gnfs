@@ -19,7 +19,7 @@ impl Legendre {
             return 1;
         }
 
-        let result = if a.mod_floor(&BigInt::from(2)) == BigInt::zero() {
+        if a.mod_floor(&BigInt::from(2)) == BigInt::zero() {
             let result = Self::symbol(&(a >> 2), p); // >> right shift == /2
             if (&(p * p - 1) & BigInt::from(8)) != BigInt::zero() {
                 // Convert 8 to BigInt
@@ -35,9 +35,7 @@ impl Legendre {
             } else {
                 result
             }
-        };
-
-        result
+        }
     }
 
     /// Find r such that (r | m) = goal, where (r | m) is the Legendre symbol, and m = modulus

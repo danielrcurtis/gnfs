@@ -30,6 +30,8 @@ pub struct PolyRelationsSieveProgress<T: GnfsInteger> {
     pub consecutive_zero_batches: usize,
     pub initial_max_b: BigInt,
     pub total_batches_processed: usize,
+    /// Set to true when sieving determines the search space is exhausted
+    pub search_exhausted: bool,
 }
 
 impl<T: GnfsInteger> PolyRelationsSieveProgress<T> {
@@ -63,6 +65,7 @@ impl<T: GnfsInteger> PolyRelationsSieveProgress<T> {
             consecutive_zero_batches: 0,
             initial_max_b,
             total_batches_processed: 0,
+            search_exhausted: false,
         }
     }
     
@@ -103,15 +106,15 @@ impl<T: GnfsInteger> PolyRelationsSieveProgress<T> {
             self.a.clone()
         };
 
-        while &self.b >= &self.max_b {
+        while self.b >= self.max_b {
             self.max_b += 100;  // Fixed: C# uses 100, not 1000
         }
 
 
-        debug!("{}", format!(
+        debug!(
             "GenerateRelations: TargetQuantity = {}, ValueRange = {}, A = {}, B = {}, Max B = {}",
             self.smooth_relations_target_quantity, self.value_range, self.a, self.b, self.max_b
-        ));
+        );
 
 
         while self.smooth_relations_counter < self.smooth_relations_target_quantity {
@@ -123,7 +126,7 @@ impl<T: GnfsInteger> PolyRelationsSieveProgress<T> {
             }
 
             // Increase max_b if needed instead of breaking
-            if &self.b > &self.max_b {
+            if self.b > self.max_b {
                 self.max_b = &self.b + 100;
                 debug!("Increased MaxB to {} (current B = {})", self.max_b, self.b);
             }
@@ -170,7 +173,7 @@ impl<T: GnfsInteger> PolyRelationsSieveProgress<T> {
             for b_offset in 0..batch_size {
                 let current_b = &batch_start_b + BigInt::from(b_offset);
                 // Skip this B value if it exceeds max_b (max_b increases in outer loop)
-                if &current_b > &self.max_b {
+                if current_b > self.max_b {
                     break;  // Stop processing when we exceed max_b
                 }
 
@@ -289,6 +292,7 @@ impl<T: GnfsInteger> PolyRelationsSieveProgress<T> {
                 log::error!("  - Use larger relation_value_range");
                 log::error!("  - This number may require different polynomial parameters");
                 log::error!("==========================================");
+                self.search_exhausted = true;
                 break;
             }
 
@@ -313,6 +317,7 @@ impl<T: GnfsInteger> PolyRelationsSieveProgress<T> {
                 log::error!("  - Increase prime bounds significantly");
                 log::error!("  - Use different polynomial selection strategy");
                 log::error!("==========================================");
+                self.search_exhausted = true;
                 break;
             }
 
@@ -329,6 +334,7 @@ impl<T: GnfsInteger> PolyRelationsSieveProgress<T> {
                 // If we've also seen many zero batches, abort
                 if self.consecutive_zero_batches >= 50 {
                     log::error!("Aborting due to slow progress and frequent zero-relation batches.");
+                    self.search_exhausted = true;
                     break;
                 }
             }
@@ -350,10 +356,7 @@ impl<T: GnfsInteger> PolyRelationsSieveProgress<T> {
             .cloned()
             .collect();
 
-        rough_relations = rough_relations
-            .into_iter()
-            .filter(|r| !to_remove_alg.contains(r))
-            .collect();
+        rough_relations.retain(|r| !to_remove_alg.contains(r));
 
         self.relations.rough_relations = rough_relations.clone();
 
@@ -363,10 +366,7 @@ impl<T: GnfsInteger> PolyRelationsSieveProgress<T> {
             .cloned()
             .collect();
 
-        rough_relations = rough_relations
-            .into_iter()
-            .filter(|r| !to_remove_rational.contains(r))
-            .collect();
+        rough_relations.retain(|r| !to_remove_rational.contains(r));
 
         self.relations.rough_relations = rough_relations;
     }
@@ -375,7 +375,7 @@ impl<T: GnfsInteger> PolyRelationsSieveProgress<T> {
         self.relations.free_relations.push(free_relation_solution.clone());
         // TODO: Re-enable serialization once ownership is properly handled
         // free::single_solution(gnfs, &mut free_relation_solution);
-        info!("{}", &format!("Added free relation solution: Relation count = {}", free_relation_solution.len()));
+        info!("Added free relation solution: Relation count = {}", free_relation_solution.len());
         self.free_relations_counter += 1;
     }
     
@@ -392,20 +392,27 @@ impl<T: GnfsInteger> PolyRelationsSieveProgress<T> {
         sorted_relations.sort_by(|a, b| (b.a.clone() * b.b.clone()).cmp(&(a.a.clone() * a.b.clone())));
     
         for rel in sorted_relations {
-            result.push_str(&format!("{}\n", rel.to_string()));
+            result.push_str(&format!("{rel}\n"));
             result.push_str(&format!("Algebraic {}\n", rel.algebraic_factorization.format_string_as_factorization()));
             result.push_str(&format!("Rational  {}\n", rel.rational_factorization.format_string_as_factorization()));
-            result.push_str("\n");
+            result.push('\n');
         }
-        result.push_str("\n");
+        result.push('\n');
     
         result
     }
 
 }
 
-impl<T: GnfsInteger> ToString for PolyRelationsSieveProgress<T> {
-    fn to_string(&self) -> String {
+impl<T: GnfsInteger> std::fmt::Display for PolyRelationsSieveProgress<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = self.display_string();
+        write!(f, "{}", s)
+    }
+}
+
+impl<T: GnfsInteger> PolyRelationsSieveProgress<T> {
+    fn display_string(&self) -> String {
         if !self.relations.free_relations.is_empty() {
             let mut result = String::new();
 
@@ -427,12 +434,12 @@ impl<T: GnfsInteger> ToString for PolyRelationsSieveProgress<T> {
             result.push_str("---\n");
             result.push_str(&format!("Rational  ∏(a+mb): IsSquare? {} : {}\n", is_rational_square, rational));
             result.push_str(&format!("Algebraic ∏ƒ(a/b): IsSquare? {} : {}\n", is_algebraic_square, algebraic));
-            result.push_str("\n");
+            result.push('\n');
             result.push_str(&format!("Algebraic factorization (as prime ideals): {}\n", alg_count_dict.format_string_as_factorization()));
-            result.push_str("\n");
+            result.push('\n');
 
-            result.push_str("\n");
-            result.push_str("\n");
+            result.push('\n');
+            result.push('\n');
             // TODO: Fix this to take GNFS as parameter
             // result.push_str(&relations
             //     .iter()
@@ -446,7 +453,7 @@ impl<T: GnfsInteger> ToString for PolyRelationsSieveProgress<T> {
             //     })
             //     .collect::<Vec<_>>()
             //     .join("\n"));
-            result.push_str("\n");
+            result.push('\n');
 
             result
         } else {
@@ -469,6 +476,7 @@ impl<T: GnfsInteger> Default for PolyRelationsSieveProgress<T> {
             consecutive_zero_batches: 0,
             initial_max_b: BigInt::from(0),
             total_batches_processed: 0,
+            search_exhausted: false,
         }
     }
 }

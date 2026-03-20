@@ -70,8 +70,8 @@ impl<T: GnfsInteger> Relation<T> {
             self.rational_norm = rational_norm;
         } else {
             // Overflow - mark as non-smooth
-            self.rational_quotient = T::from_i64(i64::MAX).unwrap_or(T::one());
-            self.algebraic_quotient = T::from_i64(i64::MAX).unwrap_or(T::one());
+            self.rational_quotient = T::from_i64(i64::MAX).unwrap_or_else(|| T::from_i64(2).unwrap());
+            self.algebraic_quotient = T::from_i64(i64::MAX).unwrap_or_else(|| T::from_i64(2).unwrap());
             return;
         }
 
@@ -98,8 +98,8 @@ impl<T: GnfsInteger> Relation<T> {
             self.rational_quotient = quot;
         } else {
             // Quotient too large - not smooth
-            self.rational_quotient = T::from_i64(i64::MAX).unwrap_or(T::one());
-            self.algebraic_quotient = T::from_i64(i64::MAX).unwrap_or(T::one());
+            self.rational_quotient = T::from_i64(i64::MAX).unwrap_or_else(|| T::from_i64(2).unwrap());
+            self.algebraic_quotient = T::from_i64(i64::MAX).unwrap_or_else(|| T::from_i64(2).unwrap());
             return;
         }
 
@@ -107,7 +107,7 @@ impl<T: GnfsInteger> Relation<T> {
         if !self.is_rational_quotient_smooth() {
             // Not smooth on rational side, skip expensive algebraic norm calculation
             // Set algebraic quotient to a large value to indicate non-smooth
-            self.algebraic_quotient = T::from_i64(i64::MAX).unwrap_or(T::one());
+            self.algebraic_quotient = T::from_i64(i64::MAX).unwrap_or_else(|| T::from_i64(2).unwrap());
             self.algebraic_norm = T::zero();
             return;
         }
@@ -130,7 +130,7 @@ impl<T: GnfsInteger> Relation<T> {
             self.algebraic_norm = algebraic_norm;
         } else {
             // Overflow - mark as non-smooth
-            self.algebraic_quotient = T::from_i64(i64::MAX).unwrap_or(T::one());
+            self.algebraic_quotient = T::from_i64(i64::MAX).unwrap_or_else(|| T::from_i64(2).unwrap());
             return;
         }
 
@@ -152,7 +152,7 @@ impl<T: GnfsInteger> Relation<T> {
             self.algebraic_quotient = quot;
         } else {
             // Quotient too large - not smooth
-            self.algebraic_quotient = T::from_i64(i64::MAX).unwrap_or(T::one());
+            self.algebraic_quotient = T::from_i64(i64::MAX).unwrap_or_else(|| T::from_i64(2).unwrap());
             return;
         }
 
@@ -194,12 +194,12 @@ impl<T: GnfsInteger> Hash for Relation<T> {
 
 impl<T: GnfsInteger> PartialOrd for Relation<T> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.a.cmp(&other.a).then(self.b.cmp(&other.b)))
+        Some(self.cmp(other))
     }
 }
 
 impl<T: GnfsInteger> Ord for Relation<T> {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.partial_cmp(other).unwrap()
+        self.a.cmp(&other.a).then(self.b.cmp(&other.b))
     }
 }

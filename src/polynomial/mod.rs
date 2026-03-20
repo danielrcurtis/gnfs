@@ -2,6 +2,7 @@
 
 pub mod algorithms;
 pub mod field;
+#[allow(clippy::module_inception)]
 pub mod polynomial;
 pub mod optimized_exp;
 pub mod polynomial_quality;

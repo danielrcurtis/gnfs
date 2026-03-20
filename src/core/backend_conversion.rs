@@ -5,7 +5,7 @@ use crate::core::gnfs_integer::GnfsInteger;
 
 /// Utilities for converting between different GnfsInteger backends
 /// and handling BigInt I/O for display and persistence
-
+///
 /// Convert from BigInt to a specific GnfsInteger backend
 /// Returns None if the value exceeds the backend's capacity
 pub fn from_bigint<T: GnfsInteger>(n: &BigInt) -> Option<T> {

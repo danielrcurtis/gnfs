@@ -73,7 +73,7 @@ fn pollard_rho_with_c(n: &BigInt, max_iterations: usize, c: i32) -> Option<(BigI
 
     let mut iterations = 0;
 
-    while &d == &one && iterations < max_iterations {
+    while d == one && iterations < max_iterations {
         // Tortoise: x = f(x) = (x² + c) mod n
         x = (&x * &x + &c_bigint) % n;
 
@@ -82,7 +82,7 @@ fn pollard_rho_with_c(n: &BigInt, max_iterations: usize, c: i32) -> Option<(BigI
         y = (&y * &y + &c_bigint) % n;
 
         // Compute GCD(|x - y|, n)
-        let diff = if &x > &y {
+        let diff = if x > y {
             &x - &y
         } else {
             &y - &x
@@ -99,18 +99,18 @@ fn pollard_rho_with_c(n: &BigInt, max_iterations: usize, c: i32) -> Option<(BigI
     }
 
     // Check if we found a non-trivial factor
-    if &d > &one && &d < n {
+    if d > one && d < *n {
         let quotient = n / &d;
         debug!("Pollard's Rho: found factor after {} iterations: {} × {} = {}",
                iterations, d, quotient, n);
 
         // Return factors in ascending order
-        if &d <= &quotient {
+        if d <= quotient {
             Some((d, quotient))
         } else {
             Some((quotient, d))
         }
-    } else if &d == n {
+    } else if d == *n {
         debug!("Pollard's Rho: found trivial factor (d = n) after {} iterations", iterations);
         None
     } else {
@@ -178,7 +178,7 @@ fn pollard_rho_brent_with_c(n: &BigInt, max_iterations: usize, c: i32) -> Option
 
             for _ in 0..m {
                 y = (&y * &y + &c_bigint) % n;
-                let diff = if &x > &y {
+                let diff = if x > y {
                     &x - &y
                 } else {
                     &y - &x
@@ -189,16 +189,16 @@ fn pollard_rho_brent_with_c(n: &BigInt, max_iterations: usize, c: i32) -> Option
 
             let d = GCD::find_gcd_pair(&q, n);
 
-            if &d > &one {
+            if d > one {
                 // Found a potential factor, backtrack to find exact one
-                if &d == n {
+                if d == *n {
                     // Backtrack to find the exact factor
                     let mut d2 = BigInt::one();
                     let mut y2 = ys;
 
-                    while &d2 == &one {
+                    while d2 == one {
                         y2 = (&y2 * &y2 + &c_bigint) % n;
-                        let diff = if &x > &y2 {
+                        let diff = if x > y2 {
                             &x - &y2
                         } else {
                             &y2 - &x
@@ -206,11 +206,11 @@ fn pollard_rho_brent_with_c(n: &BigInt, max_iterations: usize, c: i32) -> Option
                         d2 = GCD::find_gcd_pair(&diff, n);
                     }
 
-                    if &d2 < n {
+                    if d2 < *n {
                         let quotient = n / &d2;
                         debug!("Pollard's Rho (Brent): found factor after {} iterations: {} × {}",
                                iterations, d2, quotient);
-                        return if &d2 <= &quotient {
+                        return if d2 <= quotient {
                             Some((d2, quotient))
                         } else {
                             Some((quotient, d2))
@@ -221,7 +221,7 @@ fn pollard_rho_brent_with_c(n: &BigInt, max_iterations: usize, c: i32) -> Option
                     let quotient = n / &d;
                     debug!("Pollard's Rho (Brent): found factor after {} iterations: {} × {}",
                            iterations, d, quotient);
-                    return if &d <= &quotient {
+                    return if d <= quotient {
                         Some((d, quotient))
                     } else {
                         Some((quotient, d))

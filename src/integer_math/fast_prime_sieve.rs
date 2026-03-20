@@ -13,6 +13,12 @@ pub struct FastPrimeSieve {
     buffer_bits_next: usize,
 }
 
+impl Default for FastPrimeSieve {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FastPrimeSieve {
     pub fn new() -> Self {
         let mut cache_size = 393216;
@@ -41,24 +47,16 @@ impl FastPrimeSieve {
         debug!("enumerator created.");
         
         debug!("enumerator.next: {:?}", enumerator.next());
-        while let Some(current) = enumerator.next() {
+        for current in enumerator.by_ref() {
             if &current >= floor {
                 debug!("current: {:?}", current);
                 break;
             }
         }
-        
+
         debug!("Creating iterator.");
         std::iter::from_fn(move || {
-            if let Some(current) = enumerator.next() {
-                if &current > ceiling {
-                    None
-                } else {
-                    Some(current)
-                }
-            } else {
-                None
-            }
+            enumerator.next().filter(|current| current <= ceiling)
         })
     }
 
@@ -123,7 +121,7 @@ impl Iterator for FastPrimeSieveIterator {
            // debug!("In FastPrimeSieveIterator next while loop.");
             if self.bottom_item < 1 {
                 //debug!("In FastPrimeSieveIterator next while loop if statement.");
-                if self.bottom_item <= 0 {
+                if self.bottom_item == 0 {
                    // debug!("In FastPrimeSieveIterator next while loop if statement bottom_item <= 0.");
                     // CRITICAL FIX: Must increment bottom_item to 1 BEFORE returning
                     // Otherwise next() will loop infinitely returning 2

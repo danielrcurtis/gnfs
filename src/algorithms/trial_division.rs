@@ -72,7 +72,7 @@ pub fn trial_division(n: &BigInt, limit: Option<u64>) -> Option<(BigInt, BigInt)
         let mut divisor = BigInt::from(3);
         let two = BigInt::from(2);
 
-        while &divisor <= &upper_bound {
+        while divisor <= upper_bound {
             if n.is_multiple_of(&divisor) {
                 let quotient = n / &divisor;
                 debug!("Found factor: {} × {} = {}", divisor, quotient, n);
@@ -124,7 +124,7 @@ pub fn complete_factorization(n: &BigInt, limit: Option<u64>) -> Option<Vec<BigI
     let mut divisor = BigInt::from(3);
     let step = BigInt::from(2);
 
-    while &divisor <= &upper_bound && &remaining > &BigInt::one() {
+    while divisor <= upper_bound && remaining > BigInt::one() {
         while remaining.is_multiple_of(&divisor) {
             factors.push(divisor.clone());
             remaining /= &divisor;

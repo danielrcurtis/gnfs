@@ -2,7 +2,7 @@
 
 use num::BigInt;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct FactorBase {
     // #[serde(rename = "RationalFactorBaseMax")]
     pub rational_factor_base_max: BigInt,
@@ -29,17 +29,3 @@ pub struct FactorBase {
     pub quadratic_factor_base: Vec<BigInt>,
 }
 
-impl Default for FactorBase {
-    fn default() -> Self {
-        FactorBase {
-            rational_factor_base_max: BigInt::default(),
-            algebraic_factor_base_max: BigInt::default(),
-            quadratic_factor_base_min: BigInt::default(),
-            quadratic_factor_base_max: BigInt::default(),
-            quadratic_base_count: 0,
-            rational_factor_base: Vec::new(),
-            algebraic_factor_base: Vec::new(),
-            quadratic_factor_base: Vec::new(),
-        }
-    }
-}

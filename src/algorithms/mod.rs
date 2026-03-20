@@ -194,7 +194,7 @@ pub fn factor(n: &BigInt) -> Result<(BigInt, BigInt), String> {
                 }
                 None => {
                     info!("✗ Pollard's Rho failed after 100000 iterations");
-                    Err(format!("Pollard's Rho failed - try increasing iterations or use GNFS"))
+                    Err("Pollard's Rho failed - try increasing iterations or use GNFS".to_string())
                 }
             }
         }

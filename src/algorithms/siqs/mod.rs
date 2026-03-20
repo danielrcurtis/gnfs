@@ -270,7 +270,7 @@ impl SIQS {
             let a_inv = ainv_cache[prime_idx];
 
             // Get square root of n mod p (tsqrt)
-            let tsqrt = prime.tsqrt as i64;
+            let tsqrt = prime.tsqrt;
 
             // Compute both roots:
             // root1 = (tsqrt - b) × a⁻¹ mod p
@@ -542,13 +542,13 @@ impl SIQS {
         if n == 2 || n == 3 {
             return true;
         }
-        if n % 2 == 0 || n % 3 == 0 {
+        if n.is_multiple_of(2) || n.is_multiple_of(3) {
             return false;
         }
 
         let mut i = 5u64;
         while i * i <= n {
-            if n % i == 0 || n % (i + 2) == 0 {
+            if n.is_multiple_of(i) || n.is_multiple_of(i + 2) {
                 return false;
             }
             i += 6;
@@ -584,7 +584,7 @@ impl SIQS {
         // General case: full Tonelli-Shanks
         let mut q = p - 1;
         let mut s = 0u32;
-        while q % 2 == 0 {
+        while q.is_multiple_of(2) {
             q /= 2;
             s += 1;
         }
@@ -703,7 +703,7 @@ impl SIQS {
                     info!("Found factors: {} × {}", p, q);
                     info!("");
 
-                    return if &p <= &q {
+                    return if p <= q {
                         Some((p, q))
                     } else {
                         Some((q, p))
@@ -1097,7 +1097,7 @@ impl SIQS {
     }
 
     /// Gaussian elimination over GF(2) to find linear dependencies
-    fn find_dependencies(&self, matrix: &mut Vec<Vec<u8>>) -> Vec<Vec<usize>> {
+    fn find_dependencies(&self, matrix: &mut [Vec<u8>]) -> Vec<Vec<usize>> {
         info!("Finding linear dependencies...");
 
         let num_rows = matrix.len();
@@ -1125,8 +1125,9 @@ impl SIQS {
 
             for row in 0..num_rows {
                 if row != pivot_row && matrix[row][col] == 1 {
-                    for c in 0..num_cols {
-                        matrix[row][c] ^= matrix[pivot_row][c];
+                    let pivot_row_copy: Vec<u8> = matrix[pivot_row].clone();
+                    for (c, &pivot_val) in pivot_row_copy.iter().enumerate() {
+                        matrix[row][c] ^= pivot_val;
                     }
                 }
             }
@@ -1137,10 +1138,10 @@ impl SIQS {
         // Find dependencies from free rows
         let mut dependencies = Vec::new();
 
-        for row_idx in pivot_row..num_rows {
+        for row in matrix.iter().skip(pivot_row) {
             let mut dependency = Vec::new();
-            for col in 0..num_cols {
-                if matrix[row_idx][col] == 1 {
+            for (col, &val) in row.iter().enumerate() {
+                if val == 1 {
                     dependency.push(col);
                 }
             }
@@ -1213,12 +1214,12 @@ impl SIQS {
         let gcd1 = GCD::find_gcd_pair(&diff, &self.n);
         let gcd2 = GCD::find_gcd_pair(&sum, &self.n);
 
-        if &gcd1 > &BigInt::one() && &gcd1 < &self.n {
+        if gcd1 > BigInt::one() && gcd1 < self.n {
             let quotient = &self.n / &gcd1;
             return Some((gcd1, quotient));
         }
 
-        if &gcd2 > &BigInt::one() && &gcd2 < &self.n {
+        if gcd2 > BigInt::one() && gcd2 < self.n {
             let quotient = &self.n / &gcd2;
             return Some((gcd2, quotient));
         }

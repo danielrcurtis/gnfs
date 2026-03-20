@@ -23,12 +23,15 @@ impl FactorPairCollection {
         FactorPairCollection(collection.to_vec())
     }
 
-    pub fn to_string(&self) -> String {
-        self.0.iter().map(|factor| factor.to_string()).collect::<Vec<String>>().join("\t")
-    }
-
     pub fn to_string_take(&self, take: usize) -> String {
         self.0.iter().take(take).map(|factor| factor.to_string()).collect::<Vec<String>>().join("\t")
+    }
+}
+
+impl std::fmt::Display for FactorPairCollection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s: String = self.0.iter().map(|factor| factor.to_string()).collect::<Vec<String>>().join("\t");
+        write!(f, "{}", s)
     }
 }
 
@@ -115,7 +118,7 @@ impl Factory {
                     match FactorPair::new_from_bigint(p, &r) {
                         Ok(pair) => Some(pair),
                         Err(e) => {
-                            warn!("Error creating factor pair: {}", e.to_string());
+                            warn!("Error creating factor pair: {}", e);
                             None
                         }
                     }
