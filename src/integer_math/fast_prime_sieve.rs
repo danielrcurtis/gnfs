@@ -123,7 +123,7 @@ impl Iterator for FastPrimeSieveIterator {
            // debug!("In FastPrimeSieveIterator next while loop.");
             if self.bottom_item < 1 {
                 //debug!("In FastPrimeSieveIterator next while loop if statement.");
-                if self.bottom_item <= 0 {
+                if self.bottom_item == 0 {
                    // debug!("In FastPrimeSieveIterator next while loop if statement bottom_item <= 0.");
                     // CRITICAL FIX: Must increment bottom_item to 1 BEFORE returning
                     // Otherwise next() will loop infinitely returning 2
