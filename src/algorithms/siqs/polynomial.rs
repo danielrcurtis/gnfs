@@ -109,7 +109,7 @@ pub fn generate_polynomial(
         let mut gamma = (&tsqrt * &ainv_mod_qi).mod_floor(&q_i);
 
         // Choose smaller root: if γ > qᵢ/2, use qᵢ - γ
-        if &gamma > &(&q_i / 2) {
+        if gamma > q_i.clone() / 2 {
             gamma = &q_i - &gamma;
         }
 

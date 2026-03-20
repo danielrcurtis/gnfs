@@ -240,13 +240,13 @@ impl QuadraticSieve {
         if n == 2 || n == 3 {
             return true;
         }
-        if n % 2 == 0 || n % 3 == 0 {
+        if n.is_multiple_of(2) || n.is_multiple_of(3) {
             return false;
         }
 
         let mut i = 5u64;
         while i * i <= n {
-            if n % i == 0 || n % (i + 2) == 0 {
+            if n.is_multiple_of(i) || n.is_multiple_of(i + 2) {
                 return false;
             }
             i += 6;
@@ -288,7 +288,7 @@ impl QuadraticSieve {
         // Find Q and S such that p - 1 = Q * 2^S
         let mut q = p - 1;
         let mut s = 0u32;
-        while q % 2 == 0 {
+        while q.is_multiple_of(2) {
             q /= 2;
             s += 1;
         }
@@ -565,12 +565,11 @@ impl QuadraticSieve {
     /// dependencies: the set bits on the right side indicate which
     /// original relations XOR to zero (i.e., their exponent vectors
     /// sum to zero mod 2, giving a perfect square on both sides).
-    fn find_dependencies(&self, matrix: &mut Vec<Vec<u8>>, num_relations: usize) -> Vec<Vec<usize>> {
+    fn find_dependencies(&self, matrix: &mut [Vec<u8>], num_relations: usize) -> Vec<Vec<usize>> {
         info!("Finding linear dependencies (Gaussian elimination)...");
 
         let num_rows = matrix.len();
         let num_primes = self.factor_base_size;
-        let total_cols = num_primes + num_relations;
 
         let mut pivot_row = 0;
 
@@ -594,8 +593,9 @@ impl QuadraticSieve {
             for row in 0..num_rows {
                 if row != pivot_row && matrix[row][col] == 1 {
                     // XOR entire row (including augmented identity portion)
-                    for c in 0..total_cols {
-                        matrix[row][c] ^= matrix[pivot_row][c];
+                    let pivot_row_copy: Vec<u8> = matrix[pivot_row].clone();
+                    for (c, &pivot_val) in pivot_row_copy.iter().enumerate() {
+                        matrix[row][c] ^= pivot_val;
                     }
                 }
             }
@@ -609,9 +609,9 @@ impl QuadraticSieve {
         // Extract dependencies from rows where the left side is all zeros
         let mut dependencies = Vec::new();
 
-        for row_idx in 0..num_rows {
+        for row in matrix.iter() {
             // Check if left side is all zeros
-            let left_zero = (0..num_primes).all(|c| matrix[row_idx][c] == 0);
+            let left_zero = (0..num_primes).all(|c| row[c] == 0);
             if !left_zero {
                 continue;
             }
@@ -619,7 +619,7 @@ impl QuadraticSieve {
             // The right side tells us which original relations to combine
             let mut dependency = Vec::new();
             for rel_idx in 0..num_relations {
-                if matrix[row_idx][num_primes + rel_idx] == 1 {
+                if row[num_primes + rel_idx] == 1 {
                     dependency.push(rel_idx);
                 }
             }
@@ -682,12 +682,12 @@ impl QuadraticSieve {
         let gcd2 = GCD::find_gcd_pair(&sum, &self.n);
 
         // Check if we found a non-trivial factor
-        if &gcd1 > &BigInt::one() && &gcd1 < &self.n {
+        if gcd1 > BigInt::one() && gcd1 < self.n {
             let quotient = &self.n / &gcd1;
             return Some((gcd1, quotient));
         }
 
-        if &gcd2 > &BigInt::one() && &gcd2 < &self.n {
+        if gcd2 > BigInt::one() && gcd2 < self.n {
             let quotient = &self.n / &gcd2;
             return Some((gcd2, quotient));
         }
@@ -767,7 +767,7 @@ impl QuadraticSieve {
                     info!("");
 
                     // Return in ascending order
-                    return if &p <= &q {
+                    return if p <= q {
                         Some((p, q))
                     } else {
                         Some((q, p))

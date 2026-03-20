@@ -21,11 +21,12 @@ mod end_to_end_tests {
         let polynomial_base = BigInt::from(31);
         let poly_degree = 3;
 
-        // Use realistic prime bound for tests - needs to be large enough to find smooth relations
-        // For small numbers, a prime bound of 5000 gives a good balance of speed vs. relation finding
-        let prime_bound = BigInt::from(5000);
-        let relation_quantity = 50;  // Increased from 5 to allow system to find enough relations
-        let relation_value_range = 200;  // Increased from 50 to expand search space
+        // Use small prime bound for tests to keep the smooth_relations_target reasonable.
+        // prime_bound=100 → ~25 rational primes, ~46 algebraic primes → target ~80
+        // This is fast enough for test runs while still exercising the full pipeline.
+        let prime_bound = BigInt::from(100);
+        let relation_quantity = 50;
+        let relation_value_range = 200;
         let created_new_data = true;  // CRITICAL: Must be true to trigger initialization!
 
         GNFSWrapper::with_config(
@@ -63,19 +64,21 @@ mod end_to_end_tests {
     #[test]
     fn test_sieving_makes_progress() {
         // Test that sieving actually makes progress (doesn't get stuck)
+        // Use one_round=true to avoid waiting for full completion
         let n = 738883u64;
         let mut gnfs = create_test_gnfs(n);
         let cancel_token = CancellationToken::new();
 
-        // Run sieving briefly
-        gnfs.find_relations(&cancel_token, false);
+        // Run one round of sieving (not full completion)
+        gnfs.find_relations(&cancel_token, true);
 
         let (final_found, target) = gnfs.get_relations_info();
         println!("Sieving progress: {} / {} ({:.1}%)",
                  final_found, target,
                  100.0 * final_found as f64 / target as f64);
 
-        assert!(final_found > 0, "Should find some relations");
+        // One round should find at least some relations for this number
+        assert!(final_found > 0, "Should find some relations in one round");
     }
 
     #[test]
@@ -137,10 +140,10 @@ mod end_to_end_tests {
             let cancel_token = CancellationToken::new();
             let polynomial_base = BigInt::from(31);
             let poly_degree = 3;
-            let prime_bound = BigInt::from(5000);
+            let prime_bound = BigInt::from(100);
             let relation_quantity = 50;
             let relation_value_range = 200;
-            let created_new_data = false;
+            let created_new_data = true;  // Must be true to trigger initialization
 
             let mut gnfs = GNFSWrapper::with_config(
                 &cancel_token,

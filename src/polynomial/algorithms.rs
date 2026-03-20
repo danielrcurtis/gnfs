@@ -139,9 +139,9 @@ pub fn eulers_totient_phi(n: u32) -> u32 {
 
     let mut i = 3;
     while i * i <= n {
-        if n % i == 0 {
+        if n.is_multiple_of(i) {
             result -= result / i;
-            while n % i == 0 {
+            while n.is_multiple_of(i) {
                 n /= i;
             }
         }
@@ -193,7 +193,7 @@ pub fn laguerre_method(poly: &Polynomial, guess: f64, max_iterations: u32, preci
         f64::NAN
     } else {
         let digits = (-precision.log10()) as u32;
-        x.round() as f64 / 10.0_f64.powi(digits as i32)
+        x.round() / 10.0_f64.powi(digits as i32)
     }
 }
 
@@ -238,8 +238,8 @@ pub fn laguerre_method_complex(poly: &Polynomial, guess: Complex<f64>, max_itera
     } else {
         let digits = (-precision.log10()) as u32;
         Complex::new(
-            x.re.round() as f64 / 10.0_f64.powi(digits as i32),
-            x.im.round() as f64 / 10.0_f64.powi(digits as i32),
+            x.re.round() / 10.0_f64.powi(digits as i32),
+            x.im.round() / 10.0_f64.powi(digits as i32),
         )
     }
 }

@@ -7,6 +7,12 @@ pub struct CancellationToken {
     condvar: Arc<Condvar>,
 }
 
+impl Default for CancellationToken {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CancellationToken {
     pub fn new() -> Self {
         CancellationToken {

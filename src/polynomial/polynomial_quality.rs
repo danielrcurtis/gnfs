@@ -29,10 +29,10 @@ pub struct PolynomialQualityMetrics {
     pub overall_score: f64,
 }
 
-impl PolynomialQualityMetrics {
-    /// Display the quality metrics in a human-readable format
-    pub fn to_string(&self) -> String {
-        format!(
+impl std::fmt::Display for PolynomialQualityMetrics {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
             "Quality Metrics:\n  RSS: {:.2}\n  Max Coeff: {}\n  Sum |Coeffs|: {}\n  Skewness: {:.4}\n  Overall Score: {:.2}",
             self.root_sum_squares,
             self.max_coefficient,
@@ -192,7 +192,7 @@ fn approximate_sqrt(n: &BigInt) -> f64 {
 
     // ln(n) ≈ digits * ln(10) + ln(first_few_digits)
     let first_digits = s[..digits.min(15)].parse::<f64>().unwrap_or(1.0);
-    let ln_n = (digits as f64) * 2.302585 + first_digits.ln();
+    let ln_n = (digits as f64) * std::f64::consts::LN_10 + first_digits.ln();
 
     // Return exp(0.5 * ln(n))
     (0.5 * ln_n).exp()
@@ -255,7 +255,7 @@ fn calculate_skewness(poly: &Polynomial, m: &BigInt) -> f64 {
                 let s = coeff.abs().to_string();
                 let digits = s.len();
                 let first_digits = s[..digits.min(10)].parse::<f64>().unwrap_or(1.0);
-                let log_coeff = (digits as f64) * 2.302585 + first_digits.ln();
+                let log_coeff = (digits as f64) * std::f64::consts::LN_10 + first_digits.ln();
                 product *= log_coeff.exp();
                 count += 1;
             }
@@ -276,7 +276,7 @@ fn calculate_skewness(poly: &Polynomial, m: &BigInt) -> f64 {
         let s = m.to_string();
         let digits = s.len();
         let first_digits = s[..digits.min(10)].parse::<f64>().unwrap_or(1.0);
-        ((digits as f64) * 2.302585 + first_digits.ln()).exp()
+        ((digits as f64) * std::f64::consts::LN_10 + first_digits.ln()).exp()
     };
 
     // Skewness is the ratio of these characteristic sizes
@@ -284,7 +284,7 @@ fn calculate_skewness(poly: &Polynomial, m: &BigInt) -> f64 {
     let skewness = geometric_mean / m_f64.powf(0.5);
 
     // Ensure skewness is in reasonable range [0.1, 10.0]
-    skewness.max(0.1).min(10.0)
+    skewness.clamp(0.1, 10.0)
 }
 
 /// Compare two polynomials and return the better one

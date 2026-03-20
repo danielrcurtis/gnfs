@@ -27,6 +27,7 @@ pub enum GNFSWrapper {
 
 impl GNFSWrapper {
     /// Create a new GNFS instance with automatic backend selection
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         cancel_token: &CancellationToken,
         n: &BigInt,
@@ -51,6 +52,7 @@ impl GNFSWrapper {
     }
 
     /// Create a new GNFS instance with custom buffer configuration
+    #[allow(clippy::too_many_arguments)]
     pub fn with_config(
         cancel_token: &CancellationToken,
         n: &BigInt,
@@ -63,7 +65,7 @@ impl GNFSWrapper {
         buffer_config: BufferConfig,
     ) -> Self {
         // Select backend based on number size and polynomial degree
-        let backend_type = select_backend(n, poly_degree.abs() as usize);
+        let backend_type = select_backend(n, poly_degree.unsigned_abs() as usize);
 
         info!("Selected backend: {} for {}-digit number (n = {})",
               backend_type.name(), n.to_string().len(), n);
@@ -384,10 +386,7 @@ impl GNFSWrapper {
             }
 
             // Temporarily extract progress to avoid borrow checker issues
-            let mut progress = std::mem::replace(
-                &mut gnfs.current_relations_progress,
-                crate::relation_sieve::poly_relations_sieve_progress::PolyRelationsSieveProgress::default()
-            );
+            let mut progress = std::mem::take(&mut gnfs.current_relations_progress);
             progress.generate_relations(gnfs, cancel_token);
             gnfs.current_relations_progress = progress;
 
@@ -406,6 +405,12 @@ impl GNFSWrapper {
             debug!("");
 
             if one_round {
+                break;
+            }
+
+            // Break if search space is exhausted (no point continuing)
+            if gnfs.current_relations_progress.search_exhausted {
+                info!("Search space exhausted. Stopping sieve.");
                 break;
             }
 

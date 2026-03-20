@@ -15,6 +15,12 @@ pub struct PrimeFactory {
     primes: Vec<BigInt>,
 }
 
+impl Default for PrimeFactory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PrimeFactory {
     pub fn new() -> Self {
         let mut factory = PrimeFactory {
@@ -56,7 +62,7 @@ impl PrimeFactory {
 
     pub fn increase_max_value(&mut self, new_max_value: &BigInt) {
         let temp = max(new_max_value + 1000, &self.max_value + 100000);
-        self.max_value = min(temp, BigInt::from(i32::max_value() - 1));
+        self.max_value = min(temp, BigInt::from(i32::MAX - 1));
         self.set_primes();
     }
 
@@ -103,8 +109,8 @@ impl PrimeFactory {
         } else {
             fn_ * (flogn + 0.6000 * flog2n)
         };
-        if upper >= u64::max_value() as f64 {
-            panic!("{} > {}", upper, u64::max_value());
+        if upper >= u64::MAX as f64 {
+            panic!("{} > {}", upper, u64::MAX);
         }
         BigUint::from_f64(upper.ceil()).unwrap()
     }

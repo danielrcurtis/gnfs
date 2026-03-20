@@ -16,7 +16,7 @@ use crate::relation_sieve::poly_relations_sieve_progress::PolyRelationsSieveProg
 use crate::relation_sieve::relation::Relation;
 use crate::core::count_dictionary::CountDictionary;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct SerializableGNFS {
     pub n: String,
     pub factorization: Option<SerializableSolution>,
@@ -96,7 +96,7 @@ impl From<SerializableTerm> for Term {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct SerializablePolynomial {
     pub terms: Vec<SerializableTerm>,
 }
@@ -131,7 +131,7 @@ impl From<SerializablePolynomial> for Polynomial {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct SerializablePolyRelationsSieveProgress {
     pub a: String,
     pub b: String,
@@ -179,11 +179,12 @@ impl SerializablePolyRelationsSieveProgress {
             consecutive_zero_batches: self.consecutive_zero_batches,
             initial_max_b: BigInt::parse_bytes(self.initial_max_b.as_bytes(), 10).unwrap(),
             total_batches_processed: self.total_batches_processed,
+            search_exhausted: false,
         }
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct SerializableFactorPairCollection(pub Vec<SerializableFactorPair>);
 
 impl From<FactorPairCollection> for SerializableFactorPairCollection {
@@ -226,7 +227,7 @@ impl From<SerializableFactorPair> for FactorPair {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SerializableFactorBase {
     #[serde(rename = "RationalFactorBaseMax")]
     pub rational_factor_base_max: String,
@@ -300,7 +301,7 @@ impl From<SerializableSolution> for Solution {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct SerializableRelationContainer {
     pub smooth_relations: Vec<SerializableRelation>,
     pub rough_relations: Vec<SerializableRelation>,
@@ -441,76 +442,8 @@ impl From<SerializableCountDictionary> for CountDictionary {
     }
 }
 
-impl Default for SerializableGNFS {
-    fn default() -> Self {
-        SerializableGNFS {
-            n: String::default(),
-            factorization: None,
-            polynomial_degree: 0,
-            polynomial_base: String::default(),
-            polynomial_collection: Vec::default(),
-            current_polynomial: SerializablePolynomial::default(),
-            prime_factor_base: SerializableFactorBase::default(),
-            rational_factor_pair_collection: SerializableFactorPairCollection::default(),
-            algebraic_factor_pair_collection: SerializableFactorPairCollection::default(),
-            quadratic_factor_pair_collection: SerializableFactorPairCollection::default(),
-            save_locations: DirectoryLocations::default(),
-        }
-    }
-}
 
-impl Default for SerializablePolyRelationsSieveProgress {
-    fn default() -> Self {
-        SerializablePolyRelationsSieveProgress {
-            a: String::default(),
-            b: String::default(),
-            smooth_relations_target_quantity: 0,
-            value_range: String::default(),
-            max_b: String::default(),
-            smooth_relations_counter: 0,
-            free_relations_counter: 0,
-            consecutive_zero_batches: 0,
-            initial_max_b: String::default(),
-            total_batches_processed: 0,
-        }
-    }
-}
 
-impl Default for SerializableFactorBase {
-    fn default() -> Self {
-        SerializableFactorBase {
-            rational_factor_base_max: String::default(),
-            algebraic_factor_base_max: String::default(),
-            quadratic_factor_base_min: String::default(),
-            quadratic_factor_base_max: String::default(),
-            quadratic_base_count: 0,
-            rational_factor_base: Vec::default(),
-            algebraic_factor_base: Vec::default(),
-            quadratic_factor_base: Vec::default(),
-        }
-    }
-}
 
-impl Default for SerializableFactorPairCollection {
-    fn default() -> Self {
-        SerializableFactorPairCollection(Vec::default())
-    }
-}
 
-impl Default for SerializablePolynomial {
-    fn default() -> Self {
-        SerializablePolynomial {
-            terms: Vec::default(),
-        }
-    }
-}
 
-impl Default for SerializableRelationContainer {
-    fn default() -> Self {
-        SerializableRelationContainer {
-            smooth_relations: Vec::default(),
-            rough_relations: Vec::default(),
-            free_relations: Vec::default(),
-        }
-    }
-}

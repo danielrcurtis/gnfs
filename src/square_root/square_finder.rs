@@ -133,17 +133,17 @@ impl<T: GnfsInteger> SquareFinder<T> {
         square_finder.polynomial_derivative_squared_in_field =
             Polynomial::field_modulus_from_polynomial(&square_finder.polynomial_derivative_squared, &sieve.current_polynomial);
 
-        info!("{}", "".to_string());
-        info!("{}", format!("ƒ'(θ) = {}", square_finder.polynomial_derivative));
-        info!("{}", format!("ƒ'(θ)² = {}", square_finder.polynomial_derivative_squared));
-        info!("{}", format!("ƒ'(θ)² ∈ ℤ[θ] = {}", square_finder.polynomial_derivative_squared_in_field));
+        info!("");
+        info!("ƒ'(θ) = {}", square_finder.polynomial_derivative);
+        info!("ƒ'(θ)² = {}", square_finder.polynomial_derivative_squared);
+        info!("ƒ'(θ)² ∈ ℤ[θ] = {}", square_finder.polynomial_derivative_squared_in_field);
 
         square_finder.polynomial_derivative_value = square_finder.polynomial_derivative.evaluate(&sieve.polynomial_base);
         square_finder.polynomial_derivative_value_squared = square_finder.polynomial_derivative_value.pow(2);
 
-        info!("{}", "".to_string());
-        info!("{}", format!("ƒ'(m) = {}", square_finder.polynomial_derivative_value));
-        info!("{}", format!("ƒ'(m)² = {}", square_finder.polynomial_derivative_value_squared));
+        info!("");
+        info!("ƒ'(m) = {}", square_finder.polynomial_derivative_value);
+        info!("ƒ'(m)² = {}", square_finder.polynomial_derivative_value_squared);
 
         let monic_polynomial = Polynomial::make_monic(&sieve.current_polynomial, &sieve.polynomial_base);
         square_finder.monic_polynomial = monic_polynomial;
@@ -155,11 +155,11 @@ impl<T: GnfsInteger> SquareFinder<T> {
         square_finder.monic_polynomial_derivative_value = square_finder.monic_polynomial_derivative.evaluate(&sieve.polynomial_base);
         square_finder.monic_polynomial_derivative_value_squared = square_finder.monic_polynomial_derivative_squared.evaluate(&sieve.polynomial_base);
 
-        info!("{}", "".to_string());
-        info!("{}", format!("MonicPolynomial: {}", square_finder.monic_polynomial));
-        info!("{}", format!("MonicPolynomialDerivative: {}", square_finder.monic_polynomial_derivative));
-        info!("{}", format!("MonicPolynomialDerivativeSquared: {}", square_finder.monic_polynomial_derivative_squared));
-        info!("{}", format!("MonicPolynomialDerivativeSquaredInField: {}", square_finder.monic_polynomial_derivative_squared_in_field));
+        info!("");
+        info!("MonicPolynomial: {}", square_finder.monic_polynomial);
+        info!("MonicPolynomialDerivative: {}", square_finder.monic_polynomial_derivative);
+        info!("MonicPolynomialDerivativeSquared: {}", square_finder.monic_polynomial_derivative_squared);
+        info!("MonicPolynomialDerivativeSquaredInField: {}", square_finder.monic_polynomial_derivative_squared_in_field);
 
         square_finder
     }
@@ -175,8 +175,8 @@ impl<T: GnfsInteger> SquareFinder<T> {
 
         let rational_square_factorization_string = rational_square_factorization.format_string_as_factorization();
 
-        info!("{}", "".to_string());
-        info!("{}", "Rational Square Dependency:".to_string());
+        info!("");
+        info!("Rational Square Dependency:");
         info!("{}", rational_square_factorization_string);
 
         if cancel_token.is_cancellation_requested() {
@@ -185,8 +185,8 @@ impl<T: GnfsInteger> SquareFinder<T> {
 
         self.rational_product = self.rational_norms.iter().product();
 
-        info!("{}", "".to_string());
-        info!("{}", format!("δᵣ = {} = {}", self.rational_product, self.rational_norms.iter().map(|n| n.to_string()).collect::<Vec<_>>().join(" * ")));
+        info!("");
+        info!("δᵣ = {} = {}", self.rational_product, self.rational_norms.iter().map(|n| n.to_string()).collect::<Vec<_>>().join(" * "));
 
         let rational_product_square_root = self.rational_product.sqrt();
 
@@ -194,10 +194,10 @@ impl<T: GnfsInteger> SquareFinder<T> {
 
         self.rational_square_root_residue = product.mod_floor(&self.n);
 
-        info!("{}", "".to_string());
-        info!("{}", format!("δᵣ = {}^2 = {}", rational_product_square_root, self.rational_product));
-        info!("{}", format!("χ  = {} ≡ {} * {} (mod {})", self.rational_square_root_residue, self.polynomial_derivative_value, rational_product_square_root, self.n));
-        info!("{}", "".to_string());
+        info!("");
+        info!("δᵣ = {}^2 = {}", rational_product_square_root, self.rational_product);
+        info!("χ  = {} ≡ {} * {} (mod {})", self.rational_square_root_residue, self.polynomial_derivative_value, rational_product_square_root, self.n);
+        info!("");
 
         self.is_rational_square = is_square(&self.rational_product);
         if !self.is_rational_square {
@@ -230,12 +230,12 @@ impl<T: GnfsInteger> SquareFinder<T> {
         self.polynomial_ring = Polynomial::product(&self.polynomial_ring_elements);
         let polynomial_ring_in_field = Polynomial::field_modulus_from_polynomial(&self.polynomial_ring, &self.monic_polynomial);
 
-        info!("{}", "".to_string());
-        info!("{}", format!("∏ Sᵢ = {}", self.polynomial_ring));
-        info!("{}", "".to_string());
-        info!("{}", format!("∏ Sᵢ = {}", polynomial_ring_in_field));
-        info!("{}", " in ℤ".to_string());
-        info!("{}", "".to_string());
+        info!("");
+        info!("∏ Sᵢ = {}", self.polynomial_ring);
+        info!("");
+        info!("∏ Sᵢ = {}", polynomial_ring_in_field);
+        info!(" in ℤ");
+        info!("");
 
         if cancel_token.is_cancellation_requested() {
             return (BigInt::one(), BigInt::one());
@@ -244,10 +244,10 @@ impl<T: GnfsInteger> SquareFinder<T> {
         self.total_s = Polynomial::multiply(&self.polynomial_ring, &self.monic_polynomial_derivative_squared);
         self.s = Polynomial::field_modulus_from_polynomial(&self.total_s, &self.monic_polynomial);
 
-        info!("{}", "".to_string());
-        info!("{}", format!("δᵨ = {}", self.total_s));
-        info!("{}", format!("δᵨ = {}", self.s));
-        info!("{}", " in ℤ".to_string());
+        info!("");
+        info!("δᵨ = {}", self.total_s);
+        info!("δᵨ = {}", self.s);
+        info!(" in ℤ");
 
         let degree = self.monic_polynomial.degree();
         let f = &self.monic_polynomial;
@@ -265,11 +265,11 @@ impl<T: GnfsInteger> SquareFinder<T> {
             last_p_i128 = i128::max(last_p_i128, sqrt_n_i128);
         }
 
-        info!("{}", format!("Starting search for irreducible primes from p = {}", last_p_i128));
-        info!("{}", format!("Need {} irreducible primes with product > N", degree));
-        info!("{}", format!("Using batch size: {} primes per batch", batch_size));
-        info!("{}", format!("Rayon threads: {}", rayon::current_num_threads()));
-        info!("{}", "".to_string());
+        info!("Starting search for irreducible primes from p = {}", last_p_i128);
+        info!("Need {} irreducible primes with product > N", degree);
+        info!("Using batch size: {} primes per batch", batch_size);
+        info!("Rayon threads: {}", rayon::current_num_threads());
+        info!("");
 
         let mut primes = Vec::new();
         let mut values = Vec::new();
@@ -291,8 +291,8 @@ impl<T: GnfsInteger> SquareFinder<T> {
                 last_p_i128 = last_prime.to_i128().unwrap();
             }
 
-            info!("{}", format!("Batch #{}: Testing {} primes in parallel (starting from p = {})",
-                batch_number, prime_batch.len(), prime_batch.first().unwrap()));
+            info!("Batch #{}: Testing {} primes in parallel (starting from p = {})",
+                batch_number, prime_batch.len(), prime_batch.first().unwrap());
 
             let batch_start = Instant::now();
 
@@ -341,14 +341,14 @@ impl<T: GnfsInteger> SquareFinder<T> {
             let batch_elapsed = batch_start.elapsed();
             _total_primes_tested += prime_batch.len();
 
-            info!("{}", format!("Batch #{} completed in {:.2}s ({} primes tested, {} irreducible found, {:.0} primes/sec)",
+            info!("Batch #{} completed in {:.2}s ({} primes tested, {} irreducible found, {:.0} primes/sec)",
                 batch_number, batch_elapsed.as_secs_f64(), prime_batch.len(), irreducible_results.len(),
-                prime_batch.len() as f64 / batch_elapsed.as_secs_f64()));
+                prime_batch.len() as f64 / batch_elapsed.as_secs_f64());
 
             // Add found primes to our collection
             for (p, x) in irreducible_results {
                 // Remove oldest entry if at capacity
-                if primes.len() == degree as usize {
+                if primes.len() == degree {
                     primes.remove(0);
                     values.remove(0);
                 }
@@ -356,20 +356,20 @@ impl<T: GnfsInteger> SquareFinder<T> {
                 primes.push(p.clone());
                 values.push(x.clone());
 
-                info!("{}", "".to_string());
-                info!("{}", format!("Found irreducible prime! p = {}", p));
-                info!("{}", format!("xi = {}", x));
-                info!("{}", "".to_string());
+                info!("");
+                info!("Found irreducible prime! p = {}", p);
+                info!("xi = {}", x);
+                info!("");
             }
 
             // Check if we have enough primes
-            if primes.len() == degree as usize {
+            if primes.len() == degree {
                 let prime_product: BigInt = primes.iter().product();
 
-                if &prime_product < &self.n {
-                    info!("{}", "".to_string());
-                    info!("{}", format!("Prime product {} < N ({}). Continuing search...", prime_product, self.n));
-                    info!("{}", "".to_string());
+                if prime_product < self.n {
+                    info!("");
+                    info!("Prime product {} < N ({}). Continuing search...", prime_product, self.n);
+                    info!("");
                     primes.clear();
                     values.clear();
                     continue;
@@ -383,15 +383,15 @@ impl<T: GnfsInteger> SquareFinder<T> {
                 let common_modulus = algorithms::chinese_remainder_theorem(&primes, &values);
                 self.algebraic_square_root_residue = common_modulus.mod_floor(&self.n);
 
-                info!("{}", "".to_string());
+                info!("");
 
                 for (i, p) in primes.iter().enumerate() {
                     let tv = &values[i];
-                    info!("{}", format!("{} ≡ {} (mod {})", p, tv, self.algebraic_square_root_residue));
+                    info!("{} ≡ {} (mod {})", p, tv, self.algebraic_square_root_residue);
                 }
 
-                info!("{}", "".to_string());
-                info!("{}", format!("γ = {}", self.algebraic_square_root_residue));
+                info!("");
+                info!("γ = {}", self.algebraic_square_root_residue);
 
                 let min = BigInt::min(self.rational_square_root_residue.clone(), self.algebraic_square_root_residue.clone());
                 let max = BigInt::max(self.rational_square_root_residue.clone(), self.algebraic_square_root_residue.clone());
@@ -404,10 +404,10 @@ impl<T: GnfsInteger> SquareFinder<T> {
 
                 let mut solution_found = false;
                 let mut p = BigInt::zero();
-                if &u > &BigInt::one() && &u != &self.n {
+                if u > BigInt::one() && u != self.n {
                     p = u;
                     solution_found = true;
-                } else if &v > &BigInt::one() && &v != &self.n {
+                } else if v > BigInt::one() && v != self.n {
                     p = v;
                     solution_found = true;
                 }
@@ -424,11 +424,11 @@ impl<T: GnfsInteger> SquareFinder<T> {
                 }
 
                 if !solution_found {
-                    info!("{}", format!("No solution found amongst the algebraic square roots {{ {} }} mod primes {{ {} }}",
+                    info!("No solution found amongst the algebraic square roots {{ {} }} mod primes {{ {} }}",
                         values.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(", "),
-                        primes.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(", ")));
-                    info!("{}", "".to_string());
-                    info!("{}", "Clearing primes and values to retry with new primes...".to_string());
+                        primes.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(", "));
+                    info!("");
+                    info!("Clearing primes and values to retry with new primes...");
                     primes.clear();
                     values.clear();
                     continue;
@@ -510,7 +510,7 @@ impl<T: GnfsInteger> SquareFinder<T> {
             gnfs.log_message(format!("Factors returned: p = {}, q = {}", p, q));
             gnfs.log_message("".to_string());
 
-            let non_trivial_factors_found = &p != &BigInt::one() && &q != &BigInt::one();
+            let non_trivial_factors_found = p != BigInt::one() && q != BigInt::one();
             if non_trivial_factors_found {
                 solution_found = gnfs.set_factorization_solution(&p, &q);
 
@@ -546,7 +546,10 @@ impl<T: GnfsInteger> SquareFinder<T> {
         solution_found
     }
 
-    pub fn to_string(&self) -> String {
+}
+
+impl<T: GnfsInteger> std::fmt::Display for SquareFinder<T> {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut result = String::new();
 
         result.push_str("Polynomial ring:\n");
@@ -554,22 +557,22 @@ impl<T: GnfsInteger> SquareFinder<T> {
             .map(|ply| ply.to_string())
             .collect::<Vec<_>>()
             .join(") * (")));
-        result.push_str("\n");
+        result.push('\n');
         result.push_str("∏ Sᵢ =\n");
         result.push_str(&format!("{}\n", self.polynomial_ring));
-        result.push_str("\n");
+        result.push('\n');
         result.push_str(&format!("ƒ         = {}\n", self.gnfs.current_polynomial));
         result.push_str(&format!("ƒ(m)      = {}\n", self.monic_polynomial));
         result.push_str(&format!("ƒ'(m)     = {}\n", self.monic_polynomial_derivative));
         result.push_str(&format!("ƒ'(m)^2   = {}\n", self.monic_polynomial_derivative_squared));
-        result.push_str("\n");
+        result.push('\n');
         result.push_str("∏ Sᵢ(m)  *  ƒ'(m)² =\n");
         result.push_str(&format!("{}\n", self.total_s));
-        result.push_str("\n");
+        result.push('\n');
         result.push_str("∏ Sᵢ(m)  *  ƒ'(m)² (mod ƒ) =\n");
         result.push_str(&format!("{}\n", self.s));
-        result.push_str("\n");
-        result.push_str("\n");
+        result.push('\n');
+        result.push('\n');
         result.push_str("Square finder, Rational:\n");
         result.push_str("γ² = √(  Sᵣ(m)  *  ƒ'(m)²  )\n");
         result.push_str(&format!("γ² = √( {} * {} )\n", self.rational_product, self.polynomial_derivative_value_squared));
@@ -577,15 +580,15 @@ impl<T: GnfsInteger> SquareFinder<T> {
         result.push_str(&format!("IsRationalSquare  ? {}\n", self.is_rational_square));
         result.push_str(&format!("γ  =    {} mod N\n", self.rational_square_root_residue));
         result.push_str(&format!("IsRationalIrreducible  ? {}\n", self.is_rational_irreducible));
-        result.push_str("\n");
-        result.push_str("\n");
+        result.push('\n');
+        result.push('\n');
         result.push_str("Square finder, Algebraic:\n");
         result.push_str(&format!("    Sₐ(m) * ƒ'(m)  =  {} * {}\n", self.algebraic_product, self.polynomial_derivative_value));
         result.push_str(&format!("    Sₐ(m) * ƒ'(m)  =  {}\n", self.algebraic_square));
         result.push_str(&format!("IsAlgebraicSquare ? {}\n", self.is_algebraic_square));
         result.push_str(&format!("χ = Sₐ(m) * ƒ'(m) mod N = {}\n", self.algebraic_square_root_residue));
         result.push_str(&format!("IsAlgebraicIrreducible ? {}\n", self.is_algebraic_irreducible));
-        result.push_str("\n");
+        result.push('\n');
         result.push_str(&format!("X² / ƒ(m) = {}  IsSquare? {}\n", self.algebraic_product_mod_f, is_square(&self.algebraic_product_mod_f)));
         result.push_str(&format!("S (x)       = {}  IsSquare? {}\n", self.algebraic_square_residue, is_square(&self.algebraic_square_residue)));
         result.push_str("AlgebraicResults:\n");
@@ -593,16 +596,16 @@ impl<T: GnfsInteger> SquareFinder<T> {
             .map(|r| r.to_string())
             .collect::<Vec<_>>()
             .join(", ")));
-        result.push_str("\n");
-        result.push_str("\n");
+        result.push('\n');
+        result.push('\n');
 
         result.push_str("Primes:\n");
         result.push_str(&format!("{}\n", self.algebraic_primes.iter()
             .map(|p| p.to_string())
             .collect::<Vec<_>>()
             .join(" * ")));
-        result.push_str("\n");
-        result.push_str("\n");
+        result.push('\n');
+        result.push('\n');
 
         let min = BigInt::min(self.rational_square_root_residue.clone(), self.algebraic_square_root_residue.clone());
         let max = BigInt::max(self.rational_square_root_residue.clone(), self.algebraic_square_root_residue.clone());
@@ -615,29 +618,28 @@ impl<T: GnfsInteger> SquareFinder<T> {
 
         let answer = BigInt::max(gcd_add.clone(), gcd_sub.clone());
 
-        result.push_str("\n");
+        result.push('\n');
         result.push_str(&format!("GCD(N, γ+χ) = {}\n", gcd_add));
         result.push_str(&format!("GCD(N, γ-χ) = {}\n", gcd_sub));
-        result.push_str("\n");
+        result.push('\n');
         result.push_str(&format!("Solution? {}\n", (answer != BigInt::one()).to_string().to_ascii_uppercase()));
 
         if answer != BigInt::one() {
-            result.push_str("\n");
-            result.push_str("\n");
+            result.push('\n');
+            result.push('\n');
             result.push_str("*********************\n");
-            result.push_str("\n");
+            result.push('\n');
             result.push_str(&format!(" SOLUTION = {} \n", answer));
-            result.push_str("\n");
+            result.push('\n');
             result.push_str("*********************\n");
-            result.push_str("\n");
-            result.push_str("\n");
+            result.push('\n');
+            result.push('\n');
         }
 
-        result.push_str("\n");
+        result.push('\n');
 
-        result
+        write!(fmt, "{}", result)
     }
-
 }
 
 pub fn algebraic_square_root(f: &Polynomial, m: &BigInt, degree: i32, dd: &Polynomial, p: &BigInt) -> (BigInt, BigInt) {
@@ -680,14 +682,14 @@ pub fn is_square(n: &BigInt) -> bool {
     let fifteen = BigInt::from(15);
 
     // Handle zero and negative numbers
-    if n == &zero {
+    if *n == zero {
         return false;
     }
 
     let input = n.abs();
 
     // Numbers less than 4 (except 0, 1) can be handled quickly
-    if &input < &four {
+    if input < four {
         return input == BigInt::from(1);
     }
 

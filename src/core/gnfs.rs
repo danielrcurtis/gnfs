@@ -39,6 +39,7 @@ pub struct GNFS<T: GnfsInteger> {
 }
 
 impl<T: GnfsInteger> GNFS<T> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         cancel_token: &CancellationToken,
         n: &BigInt,
@@ -62,6 +63,7 @@ impl<T: GnfsInteger> GNFS<T> {
         )
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn with_config(
         cancel_token: &CancellationToken,
         n: &BigInt,
@@ -86,7 +88,7 @@ impl<T: GnfsInteger> GNFS<T> {
             rational_factor_pair_collection: FactorPairCollection::default(),
             algebraic_factor_pair_collection: FactorPairCollection::default(),
             quadratic_factor_pair_collection: FactorPairCollection::default(),
-            save_locations: DirectoryLocations::new(&DirectoryLocations::get_unique_name_from_n(&n)),
+            save_locations: DirectoryLocations::new(&DirectoryLocations::get_unique_name_from_n(n)),
             buffer_config: buffer_config.clone(),
         };
 
@@ -367,10 +369,6 @@ impl<T: GnfsInteger> GNFS<T> {
         // TODO: Implement saving the state
         // Serialization::save_factor_pair_quadratic(self);
         info!("Completed quadratic factor base (3 of 3).");
-
-        if cancel_token.is_cancellation_requested() {
-            return;
-        }
     }
 
     pub fn group_rough_numbers(rough_numbers: &[Relation<T>]) -> Vec<Vec<Relation<T>>> {
@@ -440,8 +438,8 @@ impl<T: GnfsInteger> GNFS<T> {
 
 }
 
-impl<T: GnfsInteger> ToString for GNFS<T> {
-    fn to_string(&self) -> String {
+impl<T: GnfsInteger> std::fmt::Display for GNFS<T> {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut result = String::new();
 
         result.push_str(&format!("N = {}\n\n", self.n));
@@ -453,13 +451,16 @@ impl<T: GnfsInteger> ToString for GNFS<T> {
         result.push_str(&format!("QuadraticPrimeBase Range: {} - {}\n", self.prime_factor_base.quadratic_factor_base_min, self.prime_factor_base.quadratic_factor_base_max));
         result.push_str(&format!("QuadraticPrimeBase Count: {}\n\n", self.prime_factor_base.quadratic_base_count));
         result.push_str(&format!("RFB - Rational Factor Base - Count: {} - Array of (p, m % p) with prime p\n", self.rational_factor_pair_collection.len()));
-        result.push_str(&format!("{}\n\n", self.rational_factor_pair_collection.to_string()));
+        let rfb = self.rational_factor_pair_collection.to_string();
+        result.push_str(&format!("{rfb}\n\n"));
         result.push_str(&format!("AFB - Algebraic Factor Base - Count: {} - Array of (p, r) such that ƒ(r) ≡ 0 (mod p) and p is prime\n", self.algebraic_factor_pair_collection.len()));
-        result.push_str(&format!("{}\n\n", self.algebraic_factor_pair_collection.to_string()));
+        let afb = self.algebraic_factor_pair_collection.to_string();
+        result.push_str(&format!("{afb}\n\n"));
         result.push_str(&format!("QFB - Quadratic Factor Base - Count: {} - Array of (p, r) such that ƒ(r) ≡ 0 (mod p) and p is prime\n", self.quadratic_factor_pair_collection.len()));
-        result.push_str(&format!("{}\n\n", self.quadratic_factor_pair_collection.to_string()));
+        let qfb = self.quadratic_factor_pair_collection.to_string();
+        result.push_str(&format!("{qfb}\n\n"));
 
-        result
+        write!(fmt, "{}", result)
     }
 }
 
