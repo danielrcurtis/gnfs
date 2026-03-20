@@ -1,9 +1,12 @@
 {
-  "a": "3751",
-  "b": "403",
-  "smooth_relations_target_quantity": 10011,
-  "value_range": "201",
-  "max_b": "15000",
-  "smooth_relations_counter": 10254,
-  "free_relations_counter": 0
+  "a": "1508851",
+  "b": "143715",
+  "smooth_relations_target_quantity": 5,
+  "value_range": "151",
+  "max_b": "143714",
+  "smooth_relations_counter": 4,
+  "free_relations_counter": 0,
+  "consecutive_zero_batches": 10058,
+  "initial_max_b": "0",
+  "total_batches_processed": 10059
 }

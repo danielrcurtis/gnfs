@@ -626,7 +626,7 @@ fn extract_window(exponent: &BigInt, start: i64, max_window_size: usize) -> (u64
     let mut window_len = 0usize;
 
     // Extract bits from start down to start - max_window_size + 1
-    // Build the window value with proper bit ordering: the bit at position `start`
+    // Build the window value with correct bit ordering: the bit at position `start`
     // becomes the MSB of the window value, so that the numeric value matches the
     // actual exponent bits being represented.
     for offset in 0..max_window_size {
@@ -635,26 +635,17 @@ fn extract_window(exponent: &BigInt, start: i64, max_window_size: usize) -> (u64
             break;
         }
 
-        window_len += 1;
-
-        // Shift existing value left and add the new bit as LSB
-        window_value <<= 1;
         if exponent.bit(bit_pos as u64) {
-            window_value |= 1;
+            // Shift existing value left and set the new bit
+            window_value = (window_value << 1) | 1;
+            window_len = offset + 1;
+        } else if window_len > 0 {
+            // Stop at first 0 bit after seeing 1s
+            break;
         } else {
-            // 0-bit: include it in the window length but stop scanning
-            // The window value will be even, but we need to handle trailing zeros
-            // by trimming them off (the caller expects an odd window value)
+            // Leading zeros before first 1
             break;
         }
-    }
-
-    // Trim trailing zeros from the window: the windowed exponentiation algorithm
-    // requires the window value to be odd. Any trailing zero bits should be handled
-    // as individual squarings by the caller, so we shorten the window.
-    while window_len > 1 && (window_value & 1) == 0 {
-        window_value >>= 1;
-        window_len -= 1;
     }
 
     // Ensure we return at least length 1 (for the initial 1-bit that triggered this)
