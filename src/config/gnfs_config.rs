@@ -24,6 +24,31 @@ pub struct GnfsConfig {
 
     /// Performance tuning
     pub performance: PerformanceConfig,
+
+    /// Distributed computing configuration
+    pub distributed: DistributedConfig,
+}
+
+/// Distributed computing configuration for Redis-based coordination
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DistributedConfig {
+    /// Redis connection URL
+    pub redis_url: String,
+
+    /// Worker ID (auto-generates from hostname+pid if "auto")
+    pub worker_id: String,
+
+    /// Number of B values per work chunk
+    pub chunk_size: usize,
+
+    /// Heartbeat interval in seconds
+    pub heartbeat_interval_secs: u64,
+
+    /// Reclaim chunks from dead workers after this many seconds
+    pub claim_timeout_secs: u64,
+
+    /// How many relations to batch before pushing to Redis
+    pub push_batch_size: usize,
 }
 
 /// Buffer configuration for relation streaming
@@ -62,6 +87,19 @@ pub struct PerformanceConfig {
     pub relation_quantity_multiplier: f64,
 }
 
+impl Default for DistributedConfig {
+    fn default() -> Self {
+        DistributedConfig {
+            redis_url: "redis://127.0.0.1:6379".to_string(),
+            worker_id: "auto".to_string(),
+            chunk_size: 16,
+            heartbeat_interval_secs: 5,
+            claim_timeout_secs: 120,
+            push_batch_size: 50,
+        }
+    }
+}
+
 impl Default for GnfsConfig {
     fn default() -> Self {
         GnfsConfig {
@@ -71,6 +109,7 @@ impl Default for GnfsConfig {
             log_level: "info".to_string(),
             buffer: BufferConfig::default(),
             performance: PerformanceConfig::default(),
+            distributed: DistributedConfig::default(),
         }
     }
 }
@@ -108,7 +147,13 @@ impl GnfsConfig {
             .set_default("buffer.max_relations", 1000)?
             .set_default("buffer.batch_size", 16)?
             .set_default("performance.prime_bound_multiplier", 1.0)?
-            .set_default("performance.relation_quantity_multiplier", 1.0)?;
+            .set_default("performance.relation_quantity_multiplier", 1.0)?
+            .set_default("distributed.redis_url", "redis://127.0.0.1:6379")?
+            .set_default("distributed.worker_id", "auto")?
+            .set_default("distributed.chunk_size", 16)?
+            .set_default("distributed.heartbeat_interval_secs", 5)?
+            .set_default("distributed.claim_timeout_secs", 120)?
+            .set_default("distributed.push_batch_size", 50)?;
 
         // Try to load from config files (TOML preferred, YAML fallback)
         if Path::new("gnfs.toml").exists() {
@@ -140,7 +185,13 @@ impl GnfsConfig {
             .set_default("buffer.max_relations", 1000)?
             .set_default("buffer.batch_size", 16)?
             .set_default("performance.prime_bound_multiplier", 1.0)?
-            .set_default("performance.relation_quantity_multiplier", 1.0)?;
+            .set_default("performance.relation_quantity_multiplier", 1.0)?
+            .set_default("distributed.redis_url", "redis://127.0.0.1:6379")?
+            .set_default("distributed.worker_id", "auto")?
+            .set_default("distributed.chunk_size", 16)?
+            .set_default("distributed.heartbeat_interval_secs", 5)?
+            .set_default("distributed.claim_timeout_secs", 120)?
+            .set_default("distributed.push_batch_size", 50)?;
 
         // Load from specified file
         if path.as_ref().exists() {

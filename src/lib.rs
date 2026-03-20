@@ -14,3 +14,4 @@ pub mod relation_sieve;
 pub mod square_root;
 pub mod benchmark;
 pub mod benchmark_cli;
+pub mod distributed;
