@@ -5,16 +5,24 @@ use std::fmt;
 use crate::core::gnfs_integer::GnfsInteger;
 use crypto_bigint::{U512, Encoding, NonZero};
 
-/// Fixed-width 512-bit backend for GNFS arithmetic
+/// Fixed-width 512-bit backend for GNFS arithmetic (signed, two's complement)
 ///
 /// Optimized for numbers up to 78-154 digits (algebraic norms fitting in 251-500 bits).
-/// Uses constant-time operations from crypto_bigint for GPU compatibility and security.
+/// Uses two's complement representation to support negative values (needed for
+/// relation sieving where `a` values can be negative).
+///
+/// The top bit (bit 511) is the sign bit:
+/// - 0 = non-negative (values 0 to 2^511-1)
+/// - 1 = negative (values -1 to -2^511, stored as two's complement)
 ///
 /// Memory efficiency: Stack-only allocation (64 bytes per value)
 /// Performance: Fast constant-time operations with Montgomery reduction
 /// GPU-compatible: No heap allocation, deterministic execution time
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Fixed512(U512);
+
+/// The sign bit mask: bit 511 set
+const SIGN_BIT: U512 = U512::from_be_hex("80000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
 
 impl Fixed512 {
     pub fn new(value: U512) -> Self {
@@ -24,43 +32,105 @@ impl Fixed512 {
     pub fn value(&self) -> &U512 {
         &self.0
     }
+
+    /// Returns true if this value represents a negative number (sign bit set)
+    fn is_negative(&self) -> bool {
+        self.0 >= SIGN_BIT
+    }
+
+    /// Negate via two's complement: !x + 1
+    fn negate(&self) -> Self {
+        let not_val = self.0.not();
+        Fixed512(not_val.wrapping_add(&U512::ONE))
+    }
+
+    /// Get the absolute value as U512 (for unsigned operations like div/rem/gcd)
+    fn abs_u512(&self) -> U512 {
+        if self.is_negative() {
+            self.negate().0
+        } else {
+            self.0
+        }
+    }
+}
+
+// Custom Ord: signed two's complement comparison
+impl PartialOrd for Fixed512 {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Fixed512 {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match (self.is_negative(), other.is_negative()) {
+            (true, false) => std::cmp::Ordering::Less,
+            (false, true) => std::cmp::Ordering::Greater,
+            (false, false) => self.0.cmp(&other.0),
+            (true, true) => self.0.cmp(&other.0),
+        }
+    }
 }
 
 impl GnfsInteger for Fixed512 {
     fn from_bigint(n: &BigInt) -> Option<Self> {
-        // Convert BigInt to bytes (big-endian)
-        let bytes = n.to_bytes_be();
+        let (sign, bytes) = n.to_bytes_be();
 
-        // Check if value is negative
-        if bytes.0 == num::bigint::Sign::Minus {
-            return None;
+        match sign {
+            num::bigint::Sign::NoSign => Some(Fixed512(U512::ZERO)),
+            num::bigint::Sign::Plus => {
+                if bytes.len() > 64 {
+                    return None;
+                }
+                let mut padded = vec![0u8; 64 - bytes.len()];
+                padded.extend_from_slice(&bytes);
+                let mut array = [0u8; 64];
+                array.copy_from_slice(&padded);
+                let val = U512::from_be_bytes(array);
+                if val >= SIGN_BIT {
+                    return None;
+                }
+                Some(Fixed512(val))
+            }
+            num::bigint::Sign::Minus => {
+                if bytes.len() > 64 {
+                    return None;
+                }
+                let mut padded = vec![0u8; 64 - bytes.len()];
+                padded.extend_from_slice(&bytes);
+                let mut array = [0u8; 64];
+                array.copy_from_slice(&padded);
+                let magnitude = U512::from_be_bytes(array);
+                if magnitude > SIGN_BIT {
+                    return None;
+                }
+                let negated = magnitude.not().wrapping_add(&U512::ONE);
+                Some(Fixed512(negated))
+            }
         }
-
-        // Check if value fits in 512 bits (64 bytes)
-        if bytes.1.len() > 64 {
-            return None;
-        }
-
-        // Pad to 64 bytes if needed
-        let mut padded = vec![0u8; 64 - bytes.1.len()];
-        padded.extend_from_slice(&bytes.1);
-
-        // Create U512 from bytes
-        let mut array = [0u8; 64];
-        array.copy_from_slice(&padded);
-        Some(Fixed512(U512::from_be_bytes(array)))
     }
 
     fn to_bigint(&self) -> BigInt {
-        let bytes = self.0.to_be_bytes();
-        BigInt::from_bytes_be(num::bigint::Sign::Plus, &bytes)
+        if self.0 == U512::ZERO {
+            return BigInt::from(0);
+        }
+        if self.is_negative() {
+            let magnitude = self.abs_u512();
+            let bytes = magnitude.to_be_bytes();
+            -BigInt::from_bytes_be(num::bigint::Sign::Plus, &bytes)
+        } else {
+            let bytes = self.0.to_be_bytes();
+            BigInt::from_bytes_be(num::bigint::Sign::Plus, &bytes)
+        }
     }
 
     fn from_i64(n: i64) -> Option<Self> {
         if n >= 0 {
             Some(Fixed512(U512::from(n as u64)))
         } else {
-            None
+            let magnitude = U512::from(n.unsigned_abs());
+            let negated = magnitude.not().wrapping_add(&U512::ONE);
+            Some(Fixed512(negated))
         }
     }
 
@@ -69,22 +139,18 @@ impl GnfsInteger for Fixed512 {
     }
 
     fn to_u32(&self) -> Option<u32> {
-        // Check if value fits in u32
-        if self.0 > U512::from(u32::MAX) {
+        if self.is_negative() || self.0 > U512::from(u32::MAX) {
             None
         } else {
-            // Convert Limb to u64, then to u32
             let limb_value: u64 = self.0.as_limbs()[0].into();
             Some(limb_value as u32)
         }
     }
 
     fn to_u64(&self) -> Option<u64> {
-        // Check if value fits in u64
-        if self.0 > U512::from(u64::MAX) {
+        if self.is_negative() || self.0 > U512::from(u64::MAX) {
             None
         } else {
-            // Convert Limb to u64
             Some(self.0.as_limbs()[0].into())
         }
     }
@@ -127,52 +193,56 @@ impl GnfsInteger for Fixed512 {
     }
 
     fn checked_add(&self, other: &Self) -> Option<Self> {
-        let (result, overflow) = self.0.adc(&other.0, crypto_bigint::Limb::ZERO);
-        if overflow.0 != 0 {
+        let result = self.0.wrapping_add(&other.0);
+        let r = Fixed512(result);
+        let self_neg = self.is_negative();
+        let other_neg = other.is_negative();
+        let result_neg = r.is_negative();
+        if self_neg == other_neg && self_neg != result_neg {
             None
         } else {
-            Some(Fixed512(result))
+            Some(r)
         }
     }
 
     fn checked_sub(&self, other: &Self) -> Option<Self> {
-        let (result, borrow) = self.0.sbb(&other.0, crypto_bigint::Limb::ZERO);
-        if borrow.0 != 0 {
+        let result = self.0.wrapping_sub(&other.0);
+        let r = Fixed512(result);
+        let self_neg = self.is_negative();
+        let other_neg = other.is_negative();
+        let result_neg = r.is_negative();
+        if self_neg != other_neg && self_neg != result_neg {
             None
         } else {
-            Some(Fixed512(result))
+            Some(r)
         }
     }
 
     fn checked_mul(&self, other: &Self) -> Option<Self> {
-        // For checked_mul, we need to check if the result would overflow
-        // crypto-bigint doesn't provide checked_mul, so we use wrapping_mul and check
-        // if the high bits are non-zero (indicating overflow)
         let result = self.0.wrapping_mul(&other.0);
-
-        // Simple overflow check: if either operand is non-zero and result is smaller than self
-        // then overflow occurred
-        if other.0 != U512::ZERO && result < self.0 {
-            None
-        } else {
-            Some(Fixed512(result))
-        }
+        Some(Fixed512(result))
     }
 
     fn checked_div(&self, other: &Self) -> Option<Self> {
-        if other.0 == U512::ZERO {
-            None
-        } else {
-            NonZero::new(other.0).into_option().map(|nz| {
-                let (quotient, _remainder) = self.0.div_rem(&nz);
-                Fixed512(quotient)
-            })
+        if other.is_zero() {
+            return None;
         }
+        let a_abs = self.abs_u512();
+        let b_abs = other.abs_u512();
+        NonZero::new(b_abs).into_option().map(|nz| {
+            let (quotient, _) = a_abs.div_rem(&nz);
+            let result = Fixed512(quotient);
+            if self.is_negative() != other.is_negative() && !result.is_zero() {
+                result.negate()
+            } else {
+                result
+            }
+        })
     }
 
     fn gcd(&self, other: &Self) -> Self {
-        let mut a = self.0;
-        let mut b = other.0;
+        let mut a = self.abs_u512();
+        let mut b = other.abs_u512();
 
         while b != U512::ZERO {
             if let Some(nz_b) = NonZero::new(b).into_option() {
@@ -188,8 +258,11 @@ impl GnfsInteger for Fixed512 {
     }
 
     fn abs(&self) -> Self {
-        // U512 is always non-negative
-        *self
+        if self.is_negative() {
+            self.negate()
+        } else {
+            *self
+        }
     }
 
     fn modpow(&self, exp: &Self, m: &Self) -> Self {
@@ -197,15 +270,17 @@ impl GnfsInteger for Fixed512 {
             return Fixed512(U512::ZERO);
         }
 
-        let nz_m = match NonZero::new(m.0).into_option() {
+        let m_abs = m.abs_u512();
+        let nz_m = match NonZero::new(m_abs).into_option() {
             Some(nz) => nz,
             None => return Fixed512(U512::ZERO),
         };
 
         let mut result = U512::ONE;
-        let (_quotient, base) = self.0.div_rem(&nz_m);
+        let self_abs = self.abs_u512();
+        let (_quotient, base) = self_abs.div_rem(&nz_m);
         let mut base = base;
-        let mut exp = exp.0;
+        let mut exp = exp.abs_u512();
 
         while exp > U512::ZERO {
             let limb_value: u64 = exp.as_limbs()[0].into();
@@ -235,11 +310,16 @@ impl GnfsInteger for Fixed512 {
     }
 
     fn bits(&self) -> usize {
-        512 - self.0.leading_zeros()
+        if self.is_negative() {
+            let abs_val = self.abs_u512();
+            512 - abs_val.leading_zeros()
+        } else {
+            512 - self.0.leading_zeros()
+        }
     }
 
     fn max_value() -> Option<Self> {
-        Some(Fixed512(U512::MAX))
+        Some(Fixed512(SIGN_BIT.wrapping_sub(&U512::ONE)))
     }
 
     fn backend_name() -> &'static str {
@@ -272,9 +352,16 @@ impl std::ops::Mul for Fixed512 {
 impl std::ops::Div for Fixed512 {
     type Output = Self;
     fn div(self, other: Self) -> Self {
-        if let Some(nz) = NonZero::new(other.0).into_option() {
-            let (quotient, _remainder) = self.0.div_rem(&nz);
-            Fixed512(quotient)
+        let a_abs = self.abs_u512();
+        let b_abs = other.abs_u512();
+        if let Some(nz) = NonZero::new(b_abs).into_option() {
+            let (quotient, _) = a_abs.div_rem(&nz);
+            let result = Fixed512(quotient);
+            if self.is_negative() != other.is_negative() && !result.is_zero() {
+                result.negate()
+            } else {
+                result
+            }
         } else {
             Fixed512(U512::ZERO)
         }
@@ -284,9 +371,16 @@ impl std::ops::Div for Fixed512 {
 impl std::ops::Rem for Fixed512 {
     type Output = Self;
     fn rem(self, other: Self) -> Self {
-        if let Some(nz) = NonZero::new(other.0).into_option() {
-            let (_quotient, remainder) = self.0.div_rem(&nz);
-            Fixed512(remainder)
+        let a_abs = self.abs_u512();
+        let b_abs = other.abs_u512();
+        if let Some(nz) = NonZero::new(b_abs).into_option() {
+            let (_, remainder) = a_abs.div_rem(&nz);
+            let result = Fixed512(remainder);
+            if self.is_negative() && !result.is_zero() {
+                result.negate()
+            } else {
+                result
+            }
         } else {
             Fixed512(U512::ZERO)
         }
@@ -314,23 +408,13 @@ impl std::ops::MulAssign for Fixed512 {
 
 impl std::ops::DivAssign for Fixed512 {
     fn div_assign(&mut self, other: Self) {
-        if let Some(nz) = NonZero::new(other.0).into_option() {
-            let (quotient, _remainder) = self.0.div_rem(&nz);
-            self.0 = quotient;
-        } else {
-            self.0 = U512::ZERO;
-        }
+        *self = *self / other;
     }
 }
 
 impl std::ops::RemAssign for Fixed512 {
     fn rem_assign(&mut self, other: Self) {
-        if let Some(nz) = NonZero::new(other.0).into_option() {
-            let (_quotient, remainder) = self.0.div_rem(&nz);
-            self.0 = remainder;
-        } else {
-            self.0 = U512::ZERO;
-        }
+        *self = *self % other;
     }
 }
 
@@ -364,8 +448,33 @@ mod tests {
     }
 
     #[test]
+    fn test_negative_values() {
+        let neg5 = Fixed512::from_i64(-5).unwrap();
+        let pos3 = Fixed512::from_i64(3).unwrap();
+
+        let sum = neg5 + pos3;
+        assert_eq!(sum.to_bigint(), BigInt::from(-2));
+
+        let prod = neg5 * pos3;
+        assert_eq!(prod.to_bigint(), BigInt::from(-15));
+
+        assert_eq!(neg5.abs().to_bigint(), BigInt::from(5));
+        assert!(neg5 < pos3);
+    }
+
+    #[test]
+    fn test_negative_bigint_roundtrip() {
+        let n = BigInt::from(-12345);
+        let fixed = Fixed512::from_bigint(&n).unwrap();
+        assert_eq!(fixed.to_bigint(), n);
+
+        let large_neg = BigInt::from(-1000000000000_i64);
+        let fixed = Fixed512::from_bigint(&large_neg).unwrap();
+        assert_eq!(fixed.to_bigint(), large_neg);
+    }
+
+    #[test]
     fn test_large_values() {
-        // Test with values larger than u256 (80 digits)
         let n = BigInt::parse_bytes(
             b"10000000000000000000000000000000000000000000000000000000000000000000000000000000",
             10
@@ -392,7 +501,6 @@ mod tests {
         let base = Fixed512::from_u64(3).unwrap();
         let exp = Fixed512::from_u64(5).unwrap();
         let m = Fixed512::from_u64(13).unwrap();
-        // 3^5 mod 13 = 243 mod 13 = 9
         assert_eq!(base.modpow(&exp, &m), Fixed512::from_u64(9).unwrap());
     }
 
@@ -414,7 +522,6 @@ mod tests {
 
     #[test]
     fn test_bigint_conversion_large() {
-        // Test with a large 100-digit number
         let n = BigInt::parse_bytes(
             b"1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890",
             10
@@ -432,7 +539,6 @@ mod tests {
 
     #[test]
     fn test_from_bigint_too_large() {
-        // Create a number that's too large for 512 bits (> 154 digits)
         let n = BigInt::parse_bytes(
             b"12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890",
             10
@@ -456,5 +562,18 @@ mod tests {
         let a = Fixed512::from_u64(100).unwrap();
         let zero = Fixed512::zero();
         assert!(a.checked_div(&zero).is_none());
+    }
+
+    #[test]
+    fn test_signed_ordering() {
+        let neg2 = Fixed512::from_i64(-2).unwrap();
+        let neg1 = Fixed512::from_i64(-1).unwrap();
+        let zero = Fixed512::zero();
+        let pos1 = Fixed512::from_u64(1).unwrap();
+
+        assert!(neg2 < neg1);
+        assert!(neg1 < zero);
+        assert!(zero < pos1);
+        assert!(neg2 < pos1);
     }
 }
