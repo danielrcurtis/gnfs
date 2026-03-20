@@ -55,7 +55,7 @@ pub fn run(
             return Ok(());
         }
 
-        let result: Option<String> = conn.get(&keys.params())
+        let result: Option<String> = conn.get(keys.params())
             .map_err(|e| format!("Redis GET error: {}", e))?;
 
         match result {
@@ -118,7 +118,7 @@ pub fn run(
     }
 
     // Remove heartbeat entry
-    let _: Result<(), _> = conn.hdel(&keys.heartbeat(), &worker_id);
+    let _: Result<(), _> = conn.hdel(keys.heartbeat(), &worker_id);
 
     result
 }
@@ -169,7 +169,7 @@ fn sieve_loop<T: GnfsInteger>(
         }
 
         // Check job status
-        let status: Option<String> = conn.get(&keys.status())
+        let status: Option<String> = conn.get(keys.status())
             .map_err(|e| format!("Redis GET status error: {}", e))?;
 
         if let Some(s) = &status {
@@ -184,8 +184,8 @@ fn sieve_loop<T: GnfsInteger>(
         // Claim a chunk atomically
         let now = chrono::Utc::now().timestamp();
         let chunk_json: Option<String> = claim_script
-            .key(&keys.chunks())
-            .key(&keys.claimed())
+            .key(keys.chunks())
+            .key(keys.claimed())
             .arg(worker_id)
             .arg(now)
             .invoke(conn)
@@ -215,14 +215,14 @@ fn sieve_loop<T: GnfsInteger>(
             push_relations(conn, keys, &relations, dist_config.push_batch_size)?;
 
             // Increment global smooth count
-            let _: () = conn.incr(&keys.smooth_count(), found as i64)
+            let _: () = conn.incr(keys.smooth_count(), found as i64)
                 .map_err(|e| format!("Redis INCRBY error: {}", e))?;
         }
 
         // Mark chunk as completed
-        let _: () = conn.hdel(&keys.claimed(), chunk.to_redis_member())
+        let _: () = conn.hdel(keys.claimed(), chunk.to_redis_member())
             .map_err(|e| format!("Redis HDEL error: {}", e))?;
-        let _: () = conn.sadd(&keys.completed(), &chunk.id)
+        let _: () = conn.sadd(keys.completed(), &chunk.id)
             .map_err(|e| format!("Redis SADD error: {}", e))?;
 
         total_relations += found;
@@ -303,7 +303,7 @@ fn push_relations(
             let json = serde_json::to_string(rel)
                 .map_err(|e| format!("Failed to serialize relation: {}", e))?;
             pipe.cmd("XADD")
-                .arg(&keys.relations())
+                .arg(keys.relations())
                 .arg("*")
                 .arg("data")
                 .arg(&json);

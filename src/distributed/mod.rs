@@ -26,7 +26,7 @@ pub enum DistributedMode {
 }
 
 impl DistributedMode {
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s {
             "coordinator" => Some(DistributedMode::Coordinator),
             "worker" => Some(DistributedMode::Worker),

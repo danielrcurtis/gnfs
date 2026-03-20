@@ -34,7 +34,7 @@ pub fn run(
     info!("Coordinator connected to Redis at {}", dist_config.redis_url);
 
     // Check if there's already a job running for this N
-    let existing_status: Option<String> = conn.get(&keys.status())
+    let existing_status: Option<String> = conn.get(keys.status())
         .map_err(|e| format!("Redis GET error: {}", e))?;
 
     if let Some(status_str) = &existing_status {
@@ -55,17 +55,17 @@ pub fn run(
 
     // Serialize and publish params
     let params_json = serialize_params(&gnfs);
-    let _: () = conn.set(&keys.params(), &params_json)
+    let _: () = conn.set(keys.params(), &params_json)
         .map_err(|e| format!("Redis SET params error: {}", e))?;
     info!("Published GNFS parameters to Redis");
 
     // Get relation target
     let (_, target) = gnfs.get_relations_info();
-    let _: () = conn.set(&keys.target(), target)
+    let _: () = conn.set(keys.target(), target)
         .map_err(|e| format!("Redis SET target error: {}", e))?;
 
     // Initialize smooth count
-    let _: () = conn.set(&keys.smooth_count(), 0i64)
+    let _: () = conn.set(keys.smooth_count(), 0i64)
         .map_err(|e| format!("Redis SET smooth_count error: {}", e))?;
 
     // Create initial work chunks
@@ -76,12 +76,12 @@ pub fn run(
 
     // Push chunks to Redis sorted set
     for (priority, chunk) in chunks.iter().enumerate() {
-        let _: () = conn.zadd(&keys.chunks(), chunk.to_redis_member(), priority as f64)
+        let _: () = conn.zadd(keys.chunks(), chunk.to_redis_member(), priority as f64)
             .map_err(|e| format!("Redis ZADD error: {}", e))?;
     }
 
     // Set status to sieving
-    let _: () = conn.set(&keys.status(), FactorizationStatus::Sieving.as_str())
+    let _: () = conn.set(keys.status(), FactorizationStatus::Sieving.as_str())
         .map_err(|e| format!("Redis SET status error: {}", e))?;
 
     info!("Coordinator initialized. Waiting for workers to connect...");
@@ -113,24 +113,24 @@ fn monitor_loop(
         monitor_interval += 5;
 
         // Check smooth relation count vs target
-        let smooth_count: i64 = conn.get(&keys.smooth_count())
+        let smooth_count: i64 = conn.get(keys.smooth_count())
             .map_err(|e| format!("Redis GET smooth_count error: {}", e))?;
-        let target: i64 = conn.get(&keys.target())
+        let target: i64 = conn.get(keys.target())
             .map_err(|e| format!("Redis GET target error: {}", e))?;
 
         // Check how many chunks are pending and claimed
-        let pending: i64 = conn.zcard(&keys.chunks())
+        let pending: i64 = conn.zcard(keys.chunks())
             .map_err(|e| format!("Redis ZCARD error: {}", e))?;
-        let claimed: i64 = conn.hlen(&keys.claimed())
+        let claimed: i64 = conn.hlen(keys.claimed())
             .map_err(|e| format!("Redis HLEN error: {}", e))?;
-        let completed: i64 = conn.scard(&keys.completed())
+        let completed: i64 = conn.scard(keys.completed())
             .map_err(|e| format!("Redis SCARD error: {}", e))?;
 
         // Count active workers
-        let worker_count: i64 = conn.hlen(&keys.heartbeat())
+        let worker_count: i64 = conn.hlen(keys.heartbeat())
             .map_err(|e| format!("Redis HLEN heartbeat error: {}", e))?;
 
-        if monitor_interval % 15 == 0 {
+        if monitor_interval.is_multiple_of(15) {
             info!("Progress: {}/{} smooth relations ({:.1}%)",
                   smooth_count, target,
                   100.0 * smooth_count as f64 / target.max(1) as f64);
@@ -145,7 +145,7 @@ fn monitor_loop(
             info!("TARGET REACHED: {} smooth relations found!", smooth_count);
             info!("========================================");
 
-            let _: () = conn.set(&keys.status(), FactorizationStatus::Matrix.as_str())
+            let _: () = conn.set(keys.status(), FactorizationStatus::Matrix.as_str())
                 .map_err(|e| format!("Redis SET status error: {}", e))?;
 
             info!("Set status to 'matrix'. Workers will stop claiming new chunks.");
@@ -154,11 +154,11 @@ fn monitor_loop(
         }
 
         // Reclaim stale chunks every 30 seconds
-        if monitor_interval % 30 == 0 {
+        if monitor_interval.is_multiple_of(30) {
             let now = chrono::Utc::now().timestamp();
             let reclaimed: i64 = reclaim_script
-                .key(&keys.claimed())
-                .key(&keys.chunks())
+                .key(keys.claimed())
+                .key(keys.chunks())
                 .arg(now)
                 .arg(dist_config.claim_timeout_secs as i64)
                 .invoke(conn)
@@ -185,7 +185,7 @@ fn monitor_loop(
             let base_priority = completed as usize + new_chunks.len();
             for (i, chunk) in new_chunks.iter().enumerate() {
                 let _: () = conn.zadd(
-                    &keys.chunks(),
+                    keys.chunks(),
                     chunk.to_redis_member(),
                     (base_priority + i) as f64,
                 ).map_err(|e| format!("Redis ZADD error: {}", e))?;
@@ -306,7 +306,7 @@ pub fn collect_relations(
 
     // Use XRANGE to read all entries from the stream as raw Values
     let raw: Value = redis::cmd("XRANGE")
-        .arg(&keys.relations())
+        .arg(keys.relations())
         .arg("-")
         .arg("+")
         .query(&mut conn)
@@ -370,24 +370,24 @@ pub fn print_status(
     let mut conn = redis_client::get_connection_with_retry(&client)
         .map_err(|e| format!("Failed to connect to Redis: {}", e))?;
 
-    let status: Option<String> = conn.get(&keys.status())
+    let status: Option<String> = conn.get(keys.status())
         .map_err(|e| format!("Redis error: {}", e))?;
-    let smooth_count: Option<i64> = conn.get(&keys.smooth_count())
+    let smooth_count: Option<i64> = conn.get(keys.smooth_count())
         .map_err(|e| format!("Redis error: {}", e))?;
-    let target: Option<i64> = conn.get(&keys.target())
+    let target: Option<i64> = conn.get(keys.target())
         .map_err(|e| format!("Redis error: {}", e))?;
-    let pending: i64 = conn.zcard(&keys.chunks())
+    let pending: i64 = conn.zcard(keys.chunks())
         .map_err(|e| format!("Redis error: {}", e))?;
-    let claimed: i64 = conn.hlen(&keys.claimed())
+    let claimed: i64 = conn.hlen(keys.claimed())
         .map_err(|e| format!("Redis error: {}", e))?;
-    let completed: i64 = conn.scard(&keys.completed())
+    let completed: i64 = conn.scard(keys.completed())
         .map_err(|e| format!("Redis error: {}", e))?;
-    let workers: i64 = conn.hlen(&keys.heartbeat())
+    let workers: i64 = conn.hlen(keys.heartbeat())
         .map_err(|e| format!("Redis error: {}", e))?;
 
     // Get stream length for relations count
     let stream_len: i64 = redis::cmd("XLEN")
-        .arg(&keys.relations())
+        .arg(keys.relations())
         .query(&mut conn)
         .unwrap_or(0);
 

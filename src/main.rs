@@ -34,7 +34,7 @@ fn main() {
     {
         if let Some(dist_pos) = args.iter().position(|a| a == "--distributed") {
             let dist_mode = args.get(dist_pos + 1)
-                .and_then(|s| gnfs::distributed::DistributedMode::from_str(s));
+                .and_then(|s| gnfs::distributed::DistributedMode::parse(s));
 
             match dist_mode {
                 Some(mode) => {
