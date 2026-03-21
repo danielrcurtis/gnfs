@@ -29,6 +29,109 @@ fn main() {
         return;
     }
 
+    // Check for --distributed flag
+    #[cfg(feature = "distributed")]
+    {
+        if let Some(dist_pos) = args.iter().position(|a| a == "--distributed") {
+            let dist_mode = args.get(dist_pos + 1)
+                .and_then(|s| gnfs::distributed::DistributedMode::from_str(s));
+
+            match dist_mode {
+                Some(mode) => {
+                    // Find the number argument (skip --distributed and its subcommand)
+                    let number_args: Vec<&String> = args.iter().skip(1)
+                        .filter(|a| *a != "--distributed" && !["coordinator", "worker", "status", "collect"].contains(&a.as_str()))
+                        .collect();
+
+                    let n = if let Some(arg) = number_args.first() {
+                        BigInt::from_str(arg).unwrap_or_else(|e| {
+                            eprintln!("Error parsing number '{}': {}", arg, e);
+                            std::process::exit(1);
+                        })
+                    } else {
+                        eprintln!("Usage: {} --distributed <coordinator|worker|status|collect> <number>", args[0]);
+                        std::process::exit(1);
+                    };
+
+                    // Initialize logging
+                    let log_level = std::env::var("MY_LOG_LEVEL")
+                        .unwrap_or_else(|_| config.log_level.clone());
+                    let env = Env::default()
+                        .filter_or("MY_LOG_LEVEL", log_level)
+                        .write_style_or("MY_LOG_STYLE", "always");
+                    env_logger::Builder::from_env(env).init();
+
+                    // Configure rayon
+                    let num_threads = config.threads.unwrap_or_else(|| {
+                        let total_cores = num_cpus::get();
+                        (total_cores / 4).max(1)
+                    });
+                    rayon::ThreadPoolBuilder::new()
+                        .num_threads(num_threads)
+                        .build_global()
+                        .expect("Failed to configure thread pool");
+
+                    let cancel_token = CancellationToken::new();
+                    let cancel_token_clone = cancel_token.clone();
+                    ctrlc::set_handler(move || {
+                        cancel_token_clone.cancel();
+                    }).expect("Error setting CTRL-C handler");
+
+                    let result = match mode {
+                        gnfs::distributed::DistributedMode::Coordinator => {
+                            info!("Starting as COORDINATOR for N={}", n);
+                            gnfs::distributed::coordinator::run(&n, &config, &cancel_token)
+                        }
+                        gnfs::distributed::DistributedMode::Worker => {
+                            info!("Starting as WORKER for N={}", n);
+                            gnfs::distributed::worker::run(&n, &config, &cancel_token)
+                        }
+                        gnfs::distributed::DistributedMode::Status => {
+                            gnfs::distributed::coordinator::print_status(&n, &config.distributed)
+                        }
+                        gnfs::distributed::DistributedMode::Collect => {
+                            info!("Collecting relations for N={}", n);
+                            match gnfs::distributed::coordinator::collect_relations(&n, &config.distributed) {
+                                Ok(relations) => {
+                                    info!("Collected {} relations. Writing to disk...", relations.len());
+                                    // Write relations to local JSONL file for matrix solve
+                                    let dir = format!("{}", n);
+                                    std::fs::create_dir_all(&dir).ok();
+                                    let path = format!("{}/streamed_relations.jsonl", dir);
+                                    let file = std::fs::File::create(&path)
+                                        .expect("Failed to create relations file");
+                                    let mut writer = std::io::BufWriter::new(file);
+                                    use std::io::Write;
+                                    for rel in &relations {
+                                        let json = serde_json::to_string(rel).unwrap();
+                                        writeln!(writer, "{}", json).unwrap();
+                                    }
+                                    info!("Wrote {} relations to {}", relations.len(), path);
+                                    info!("Now run: gnfs --force-gnfs {} (to continue with matrix solve)", n);
+                                    Ok(())
+                                }
+                                Err(e) => Err(e),
+                            }
+                        }
+                    };
+
+                    match result {
+                        Ok(()) => {}
+                        Err(e) => {
+                            eprintln!("Error: {}", e);
+                            std::process::exit(1);
+                        }
+                    }
+                    return;
+                }
+                None => {
+                    eprintln!("Usage: {} --distributed <coordinator|worker|status|collect> <number>", args[0]);
+                    std::process::exit(1);
+                }
+            }
+        }
+    }
+
     // Check for --force-gnfs flag (can appear before or after the number)
     let force_gnfs = args.iter().any(|a| a == "--force-gnfs");
     let number_args: Vec<&String> = args.iter().skip(1).filter(|a| *a != "--force-gnfs").collect();
